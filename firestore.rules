@@ -1,0 +1,105 @@
+rules_version = '2';
+
+// ─── Firestore Security Rules ───────────────────────────────────────
+// Deploy with: firebase deploy --only firestore:rules
+//
+// These rules enforce role-based access. Most write operations go
+// through API routes (Admin SDK bypasses rules), but these protect
+// against direct client-side writes.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper Functions ──────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserRole() == 'ADMIN';
+    }
+
+    function isMember() {
+      return isSignedIn() && getUserRole() in ['MEMBER', 'ADMIN'];
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ── Users Collection ──────────────────────────────────────────
+    match /users/{userId} {
+      // Anyone signed in can read user profiles (needed for display names)
+      allow read: if isSignedIn();
+      // Users can update their own non-role fields; admins can update anything
+      allow update: if isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isActive'])
+                    || isAdmin();
+      // Only the auth system creates user docs (handled in AuthContext)
+      allow create: if isOwner(userId);
+      allow delete: if false; // Never delete user docs
+    }
+
+    // ── Meal Records ──────────────────────────────────────────────
+    match /mealRecords/{recordId} {
+      allow read: if isMember();
+      allow create: if isMember() && request.resource.data.userId == request.auth.uid;
+      allow update: if isMember() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ── Bazar Trips & Expenses ────────────────────────────────────
+    match /bazarTrips/{tripId} {
+      allow read: if isMember();
+      allow create, update: if isMember();
+      allow delete: if isAdmin();
+
+      match /expenses/{expenseId} {
+        allow read: if isMember();
+        allow create: if isMember() && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // ── Settlements ───────────────────────────────────────────────
+    match /settlements/{settlementId} {
+      allow read: if isMember();
+      allow create: if isMember();
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Bulk Items & Cycles ───────────────────────────────────────
+    match /bulkItems/{itemId} {
+      allow read: if isMember();
+      allow write: if isAdmin();
+
+      match /cycles/{cycleId} {
+        allow read: if isMember();
+        allow create, update: if isMember();
+        allow delete: if isAdmin();
+
+        match /allocations/{allocationId} {
+          allow read: if isMember();
+          allow write: if isAdmin(); // Allocations are system-generated
+        }
+      }
+    }
+
+    // ── Maid Costs ────────────────────────────────────────────────
+    match /maidCosts/{costId} {
+      allow read: if isMember();
+      allow write: if isAdmin();
+    }
+
+    // ── App Settings ──────────────────────────────────────────────
+    match /appSettings/{docId} {
+      allow read: if isSignedIn(); // Even PENDING users can see settings
+      allow write: if isAdmin();
+    }
+  }
+}
