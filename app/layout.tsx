@@ -24,22 +24,15 @@ export default async function RootLayout({
       <body>
         {user ? (
           // Authenticated layout — sidebar + main content
-          <div style={{ display: "flex", minHeight: "100vh" }}>
+          <div className="layout-wrapper">
             <Sidebar user={user} />
-            <main
-              style={{
-                flex: 1,
-                marginLeft: "220px",
-                minHeight: "100vh",
-                background: "var(--color-bg-base)",
-              }}
-            >
+            <main className="layout-main">
               {children}
             </main>
           </div>
         ) : (
           // Unauthenticated layout — full page (login, pending, rejected screens)
-          <div style={{ minHeight: "100vh", background: "var(--color-bg-base)" }}>
+          <div className="layout-wrapper" style={{ display: "block" }}>
             {children}
           </div>
         )}

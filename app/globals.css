@@ -396,4 +396,122 @@
     font-size: 0.8125rem;
     color: var(--color-text-secondary);
   }
+
+  /* ── Layout & Responsive Utilities ────────────────────────────── */
+  
+  .layout-wrapper {
+    display: flex;
+    min-height: 100vh;
+  }
+  
+  .layout-sidebar {
+    width: 220px;
+    min-height: 100vh;
+    background: var(--color-bg-surface);
+    border-right: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    padding: 1.25rem 0.75rem;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 40;
+  }
+
+  .layout-main {
+    flex: 1;
+    margin-left: 220px;
+    min-height: 100vh;
+    background: var(--color-bg-base);
+  }
+
+  .layout-mobile-nav {
+    display: none;
+  }
+
+  /* Mobile bottom navigation link */
+  .mobile-nav-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    flex: 1;
+    height: 100%;
+    text-decoration: none;
+    color: var(--color-text-secondary);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    transition: color 0.15s;
+  }
+
+  .mobile-nav-link.active {
+    color: var(--color-primary-light);
+  }
+  
+  .mobile-nav-link svg {
+    transition: transform 0.15s;
+  }
+  
+  .mobile-nav-link.active svg {
+    transform: translateY(-2px);
+  }
+
+  /* Mobile Media Queries */
+  @media (max-width: 768px) {
+    .layout-wrapper {
+      flex-direction: column;
+    }
+    
+    .layout-sidebar {
+      display: none; /* Hide sidebar entirely on mobile */
+    }
+    
+    .layout-main {
+      margin-left: 0;
+      padding-bottom: 76px; /* Space for the bottom nav */
+    }
+    
+    .layout-mobile-nav {
+      display: flex;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      background: rgba(17, 24, 39, 0.85); /* var(--color-bg-surface) with opacity */
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      z-index: 50;
+      justify-content: space-around;
+      align-items: center;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    
+    .page-container {
+      padding: 1.25rem 1rem; /* Smaller padding on mobile */
+    }
+    
+    .section-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+    
+    .section-header .btn {
+      width: 100%;
+      justify-content: center;
+    }
+    
+    .table-container {
+      /* Ensure tables scroll smoothly on mobile */
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Make stat cards wrap 2 per row instead of full width if possible, or leave them as grid */
+    .stat-card {
+      padding: 1rem;
+    }
+  }
 }
