@@ -1,49 +1,130 @@
-// Date helpers — month boundaries, deadline checks, formatting.
-// All dates are handled as plain strings (YYYY-MM-DD) or Date objects.
-// No timezone magic — the app operates in a single household timezone.
+// Date helpers — month boundaries, deadline checks, and formatting.
+// All dates in this system are treated as local time (Bangladesh, UTC+6).
 
-/** Returns today as YYYY-MM-DD */
-export function getToday(): string {
+/**
+ * Returns today's date as a YYYY-MM-DD string (local time).
+ */
+export function today(): string {
+  return toDateString(new Date());
+}
+
+/**
+ * Converts a Date object to a YYYY-MM-DD string using local time.
+ */
+export function toDateString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Returns the first day of a given month as a Date (local midnight).
+ * @param year Full year e.g. 2024
+ * @param month 1-indexed month e.g. 11 for November
+ */
+export function firstDayOfMonth(year: number, month: number): Date {
+  return new Date(year, month - 1, 1, 0, 0, 0, 0);
+}
+
+/**
+ * Returns the last day of a given month as a Date (local midnight).
+ */
+export function lastDayOfMonth(year: number, month: number): Date {
+  return new Date(year, month, 0, 0, 0, 0, 0);
+}
+
+/**
+ * Returns the first day of the current month as a Date (local midnight).
+ */
+export function currentMonthStart(): Date {
   const now = new Date();
-  return formatDate(now);
+  return firstDayOfMonth(now.getFullYear(), now.getMonth() + 1);
 }
 
-/** Returns the first day of the current month as YYYY-MM-DD */
-export function getCurrentMonthStart(): string {
+/**
+ * Returns the last day of the current month as a Date (local midnight).
+ */
+export function currentMonthEnd(): Date {
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  return lastDayOfMonth(now.getFullYear(), now.getMonth() + 1);
 }
 
-/** Returns the first day of a given month as YYYY-MM-DD */
-export function getMonthStart(year: number, month: number): string {
-  return `${year}-${String(month).padStart(2, "0")}-01`;
+/**
+ * Returns the first day of the current month as a YYYY-MM-DD string.
+ * Used as month reference keys (e.g. MaidCharge.month, MonthlySettlement.month).
+ */
+export function currentMonthKey(): string {
+  return toDateString(currentMonthStart());
 }
 
-/** Returns the last day of a given month as YYYY-MM-DD */
-export function getMonthEnd(year: number, month: number): string {
-  const lastDay = new Date(year, month, 0).getDate();
-  return `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+/**
+ * Given a YYYY-MM-DD string, returns a Date object at local midnight.
+ */
+export function parseDateString(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number) as [number, number, number];
+  return new Date(y, m - 1, d, 0, 0, 0, 0);
 }
 
-/** Returns all YYYY-MM-DD date strings in a given month */
-export function getDatesInMonth(year: number, month: number): string[] {
-  const dates: string[] = [];
-  const daysInMonth = new Date(year, month, 0).getDate();
-  for (let d = 1; d <= daysInMonth; d++) {
-    dates.push(
-      `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`
-    );
-  }
-  return dates;
+/**
+ * Returns true if the given date string is within the current calendar month.
+ */
+export function isInCurrentMonth(dateStr: string): boolean {
+  const date = parseDateString(dateStr);
+  const start = currentMonthStart();
+  const end = currentMonthEnd();
+  return date >= start && date <= end;
 }
 
-/** Formats a Date object as YYYY-MM-DD */
-export function formatDate(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+/**
+ * Returns true if date string A is the same calendar day as date string B.
+ */
+export function isSameDay(a: string, b: string): boolean {
+  return a === b;
 }
 
-/** Returns the day-of-week key (monday, tuesday, ...) for a YYYY-MM-DD string */
-export function getDayOfWeek(
+/**
+ * Returns true if the deadline time (e.g. "22:00") has passed today (local time).
+ */
+export function isDeadlinePassed(deadlineTime: string): boolean {
+  const now = new Date();
+  const [hours, minutes] = deadlineTime.split(":").map(Number) as [number, number];
+  const deadline = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    hours,
+    minutes,
+    0,
+    0
+  );
+  return now >= deadline;
+}
+
+/**
+ * Returns "yesterday" as a YYYY-MM-DD string (local time).
+ * Used by the midnight cron job to lock the previous day's records.
+ */
+export function yesterday(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return toDateString(d);
+}
+
+/**
+ * Returns a human-readable date label, e.g. "May 9" or "Today".
+ */
+export function formatDateLabel(dateStr: string): string {
+  if (dateStr === today()) return "Today";
+  const date = parseDateString(dateStr);
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/**
+ * Returns the day-of-week key for a given date string.
+ * Maps to MealPattern field names.
+ */
+export function getDayKey(
   dateStr: string
 ): "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday" {
   const days = [
@@ -55,38 +136,36 @@ export function getDayOfWeek(
     "friday",
     "saturday",
   ] as const;
-  const d = new Date(dateStr + "T00:00:00");
-  return days[d.getDay()]!;
+  const date = parseDateString(dateStr);
+  return days[date.getDay()]!;
 }
 
-/** Returns true if the daily deadline time has already passed today */
-export function isDeadlinePassed(deadlineTime: string): boolean {
-  const now = new Date();
-  const [hours, minutes] = deadlineTime.split(":").map(Number);
-  const deadline = new Date(now);
-  deadline.setHours(hours!, minutes!, 0, 0);
-  return now >= deadline;
+/**
+ * Returns all YYYY-MM-DD date strings from today to end of current month (inclusive).
+ */
+export function remainingDaysInMonth(): string[] {
+  const result: string[] = [];
+  const start = parseDateString(today());
+  const end = currentMonthEnd();
+  const cur = new Date(start);
+  while (cur <= end) {
+    result.push(toDateString(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return result;
 }
 
-/** Returns true if dateStr is before today */
-export function isPastDate(dateStr: string): boolean {
-  return dateStr < getToday();
-}
-
-/** Returns true if dateStr is today */
-export function isToday(dateStr: string): boolean {
-  return dateStr === getToday();
-}
-
-/** Returns true if dateStr is in a prior calendar month relative to today */
-export function isPriorMonth(dateStr: string): boolean {
-  const today = getToday();
-  const currentMonthStart = getCurrentMonthStart();
-  return dateStr < currentMonthStart && dateStr < today;
-}
-
-/** Formats a month string (YYYY-MM-DD) for display e.g. "November 2024" */
-export function formatMonthDisplay(monthStr: string): string {
-  const d = new Date(monthStr + "T00:00:00");
-  return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+/**
+ * Returns all YYYY-MM-DD date strings for a given year+month (1-indexed).
+ */
+export function allDaysInMonth(year: number, month: number): string[] {
+  const result: string[] = [];
+  const start = firstDayOfMonth(year, month);
+  const end = lastDayOfMonth(year, month);
+  const cur = new Date(start);
+  while (cur <= end) {
+    result.push(toDateString(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return result;
 }

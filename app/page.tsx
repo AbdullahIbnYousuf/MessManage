@@ -1,8 +1,13 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 
-export default async function Home() {
+// Root route — redirect authenticated users to dashboard,
+// unauthenticated users to login
+export default async function RootPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/auth/login");
-  redirect("/dashboard");
+  if (user) {
+    redirect("/dashboard");
+  } else {
+    redirect("/auth/login");
+  }
 }

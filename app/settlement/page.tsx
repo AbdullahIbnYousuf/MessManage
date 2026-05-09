@@ -1,0 +1,14 @@
+import { redirect } from "next/navigation";
+import { getSessionUser } from "@/lib/session";
+import SettlementClient from "@/components/domain/settlement/SettlementClient";
+
+export const metadata = {
+  title: "Settlement — MealSync",
+  description: "View current balances and run month-end settlement.",
+};
+
+export default async function SettlementPage() {
+  const user = await getSessionUser();
+  if (!user) redirect("/auth/login");
+  return <SettlementClient isAdmin={user.role === "admin"} />;
+}

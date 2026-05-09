@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
+import { getSessionUser } from "@/lib/session";
+import Sidebar from "@/components/Sidebar";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "MealSync — Household Meal & Expense Manager",
@@ -7,15 +12,37 @@ export const metadata: Metadata = {
     "Shared meal tracking, bazar management, and expense settlement for household groups",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const user = await getSessionUser();
+
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-gray-950 text-gray-100 antialiased">
-        {children}
+    <html lang="en" className={inter.variable}>
+      <body>
+        {user ? (
+          // Authenticated layout — sidebar + main content
+          <div style={{ display: "flex", minHeight: "100vh" }}>
+            <Sidebar user={user} />
+            <main
+              style={{
+                flex: 1,
+                marginLeft: "220px",
+                minHeight: "100vh",
+                background: "var(--color-bg-base)",
+              }}
+            >
+              {children}
+            </main>
+          </div>
+        ) : (
+          // Unauthenticated layout — full page (login, pending, rejected screens)
+          <div style={{ minHeight: "100vh", background: "var(--color-bg-base)" }}>
+            {children}
+          </div>
+        )}
       </body>
     </html>
   );

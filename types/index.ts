@@ -1,8 +1,5 @@
-// Shared TypeScript types.
-// Enums come from Prisma — do not redefine them here.
-// Import Prisma-generated enum types directly from @prisma/client where needed.
-
-import type { Decimal } from "@prisma/client/runtime/library";
+// Shared TypeScript types for the Meal Management system.
+// Enums are defined in prisma/schema.prisma — do not duplicate them here.
 
 // ─── Session ──────────────────────────────────────────────────────────────────
 
@@ -15,25 +12,92 @@ export type SessionUser = {
   status: "active" | "deactivated";
 };
 
-// ─── Derived / computed types (never stored in DB) ────────────────────────────
+// ─── API Response Shapes ──────────────────────────────────────────────────────
 
-export type UserBalance = {
+export type ApiSuccess<T> = { data: T };
+export type ApiError = { error: string };
+export type ApiResponse<T> = ApiSuccess<T> | ApiError;
+
+// ─── Domain Types ─────────────────────────────────────────────────────────────
+
+export type MemberSummary = {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  role: "member" | "admin";
+  status: "active" | "deactivated";
+  joinedAt: string; // ISO string
+};
+
+export type MealPatternDay =
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday"
+  | "sunday";
+
+export type MealPattern = {
+  monday: number;
+  tuesday: number;
+  wednesday: number;
+  thursday: number;
+  friday: number;
+  saturday: number;
+  sunday: number;
+};
+
+export type MealRecord = {
+  id: string;
+  date: string; // YYYY-MM-DD
+  mealCount: number;
+  isLocked: boolean;
+};
+
+export type BazarTrip = {
+  id: string;
+  status: "open" | "completed";
+  triggeredAt: string;
+  assignee1: MemberSummary | null;
+  assignee2: MemberSummary | null;
+  shoppingNotes: string | null;
+};
+
+export type BazarExpense = {
+  id: string;
+  userId: string;
+  userName: string;
+  amount: string; // Decimal as string
+  note: string | null;
+  date: string; // YYYY-MM-DD
+  submittedAt: string;
+};
+
+export type BulkItem = {
+  id: string;
+  name: string;
+  unit: string | null;
+  activeCycle: BulkCycle | null;
+};
+
+export type BulkCycle = {
+  id: string;
+  bulkItemId: string;
+  cost: string; // Decimal as string
+  purchaseDate: string;
+  status: "active" | "finished";
+  startedAt: string;
+  finishedAt: string | null;
+  purchasedBy: MemberSummary;
+};
+
+export type NetBalance = {
   userId: string;
   userName: string;
   avatarUrl: string | null;
-  totalBazarContribution: Decimal;
-  totalMaidPayment: Decimal;
-  totalMealCost: Decimal;
-  totalMaidCharge: Decimal;
-  totalBulkAllocation: Decimal;
-  netBalance: Decimal; // positive = owed money, negative = owes money
-};
-
-export type MealRateInfo = {
-  month: string; // YYYY-MM-DD first day of month
-  totalBazarSpending: Decimal;
-  totalMeals: number;
-  mealRate: Decimal;
+  balance: string; // Decimal as string — positive = owed money, negative = owes money
 };
 
 export type SettlementTransfer = {
@@ -41,49 +105,14 @@ export type SettlementTransfer = {
   fromUserName: string;
   toUserId: string;
   toUserName: string;
-  amount: Decimal;
+  amount: string; // Decimal as string
 };
 
-export type SmartSettlementPlan = {
-  transfers: SettlementTransfer[];
+export type DashboardData = {
+  todayMeals: Array<{ userId: string; name: string; avatarUrl: string | null; mealCount: number }>;
+  todayTotal: number;
+  activeTrip: BazarTrip | null;
+  monthlyTotalBazar: string;
+  monthlyTotalMeals: number;
+  mealRate: string | null; // null if no meals yet
 };
-
-export type BazarLeaderboardEntry = {
-  userId: string;
-  userName: string;
-  avatarUrl: string | null;
-  visitCount: number;
-  totalSpent: Decimal;
-};
-
-export type DayMealSummary = {
-  userId: string;
-  userName: string;
-  avatarUrl: string | null;
-  mealCount: number;
-};
-
-// ─── Next-Auth module augmentation ───────────────────────────────────────────
-// Extends the default session/JWT types to include our custom fields.
-
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string;
-      email: string;
-      name: string;
-      avatarUrl: string | null;
-      role: string;
-      status: string;
-    };
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT {
-    id?: string;
-    role?: string;
-    status?: string;
-    avatarUrl?: string | null;
-  }
-}
