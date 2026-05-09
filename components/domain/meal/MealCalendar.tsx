@@ -84,6 +84,7 @@ export default function MealCalendar({
   const formatTime = (time24: string) => {
     if (!time24) return "";
     const [h, m] = time24.split(":");
+    if (!h || !m) return time24;
     const hNum = parseInt(h, 10);
     const ampm = hNum >= 12 ? "PM" : "AM";
     const h12 = hNum % 12 || 12;

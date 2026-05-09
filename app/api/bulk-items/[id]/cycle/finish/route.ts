@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
 import { computeUserBulkAllocation } from "@/lib/domain/bulk";
 import Decimal from "decimal.js";
+import { today, isDeadlinePassed } from "@/lib/utils/dates";
 
 export async function POST(
   _request: Request,
@@ -24,18 +25,30 @@ export async function POST(
     }
 
     const finishedAt = new Date();
+    const todayDate = new Date(today());
+
+    const config = await db.systemConfig.findFirst({
+      select: { mealDeadline: true },
+    });
+    const deadlineStr = config?.mealDeadline ?? "11:00";
+    const passed = isDeadlinePassed(deadlineStr);
+
+    const mealCondition = {
+      date: {
+        gte: cycle.startedAt,
+        lte: finishedAt,
+      },
+      OR: [
+        { date: passed ? { lte: todayDate } : { lt: todayDate } },
+        { isLocked: true },
+      ],
+    };
 
     // Sum all meals per user during the cycle period (startedAt → now)
-    // Use locked meal records only (all past records are locked, so this is safe)
+    // Use locked or eaten meal records only
     const mealTotals = await db.mealRecord.groupBy({
       by: ["userId"],
-      where: {
-        date: {
-          gte: cycle.startedAt,
-          lte: finishedAt,
-        },
-        isLocked: true,
-      },
+      where: mealCondition,
       _sum: { mealCount: true },
     });
 

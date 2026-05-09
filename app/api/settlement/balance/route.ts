@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
 import { computeNetBalance } from "@/lib/domain/settlement";
 import { computeMealRate } from "@/lib/domain/meal";
-import { currentMonthStart, currentMonthEnd } from "@/lib/utils/dates";
+import { today, currentMonthStart, currentMonthEnd, isDeadlinePassed } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 import { sum } from "@/lib/utils/decimal";
 
@@ -12,6 +12,7 @@ export async function GET() {
   try {
     await requireAuth();
 
+    const todayDate = new Date(today());
     const monthStart = currentMonthStart();
     const monthEnd = currentMonthEnd();
 
@@ -27,10 +28,24 @@ export async function GET() {
       _sum: { amount: true },
     });
 
+    const config = await db.systemConfig.findFirst({
+      select: { mealDeadline: true },
+    });
+    const deadlineStr = config?.mealDeadline ?? "11:00";
+    const passed = isDeadlinePassed(deadlineStr);
+
+    const mealCondition = {
+      date: { gte: monthStart, lte: monthEnd },
+      OR: [
+        { date: passed ? { lte: todayDate } : { lt: todayDate } },
+        { isLocked: true },
+      ],
+    };
+
     // Total meals this month (for meal rate)
     const mealRows = await db.mealRecord.groupBy({
       by: ["userId"],
-      where: { date: { gte: monthStart, lte: monthEnd } },
+      where: mealCondition,
       _sum: { mealCount: true },
     });
 

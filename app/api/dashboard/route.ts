@@ -3,7 +3,7 @@
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
 import { computeMealRate } from "@/lib/domain/meal";
-import { today, currentMonthStart, currentMonthEnd } from "@/lib/utils/dates";
+import { today, currentMonthStart, currentMonthEnd, isDeadlinePassed } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 
 export async function GET() {
@@ -40,7 +40,7 @@ export async function GET() {
 
     const todayTotal = todayMeals.reduce((s, m) => s + m.mealCount, 0);
 
-    // Active bazar trip
+    // Active bazar trip and system config
     const config = await db.systemConfig.findFirst({
       include: {
         activeTrip: {
@@ -63,6 +63,17 @@ export async function GET() {
         }
       : null;
 
+    const deadlineStr = config?.mealDeadline ?? "11:00";
+    const passed = isDeadlinePassed(deadlineStr);
+    
+    const mealCondition = {
+      date: { gte: monthStart, lte: monthEnd },
+      OR: [
+        { date: passed ? { lte: todayDate } : { lt: todayDate } },
+        { isLocked: true },
+      ],
+    };
+
     // Monthly totals
     const bazarRows = await db.bazarExpense.aggregate({
       where: { date: { gte: monthStart, lte: monthEnd } },
@@ -70,7 +81,7 @@ export async function GET() {
     });
 
     const mealRows = await db.mealRecord.aggregate({
-      where: { date: { gte: monthStart, lte: monthEnd } },
+      where: mealCondition,
       _sum: { mealCount: true },
     });
 

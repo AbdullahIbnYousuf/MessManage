@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/session";
 import { db } from "@/lib/db";
 import { computeSettlement, computeNetBalance, type BalanceEntry } from "@/lib/domain/settlement";
 import { computeMealRate } from "@/lib/domain/meal";
-import { currentMonthStart, currentMonthEnd, currentMonthKey } from "@/lib/utils/dates";
+import { today, currentMonthStart, currentMonthEnd, currentMonthKey, isDeadlinePassed } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 import { sum } from "@/lib/utils/decimal";
 
@@ -14,6 +14,7 @@ export async function POST() {
 
     const monthKey = currentMonthKey();
     const monthDate = new Date(monthKey);
+    const todayDate = new Date(today());
     const monthStart = currentMonthStart();
     const monthEnd = currentMonthEnd();
 
@@ -35,9 +36,24 @@ export async function POST() {
       where: { date: { gte: monthStart, lte: monthEnd } },
       _sum: { amount: true },
     });
+
+    const config = await db.systemConfig.findFirst({
+      select: { mealDeadline: true },
+    });
+    const deadlineStr = config?.mealDeadline ?? "11:00";
+    const passed = isDeadlinePassed(deadlineStr);
+
+    const mealCondition = {
+      date: { gte: monthStart, lte: monthEnd },
+      OR: [
+        { date: passed ? { lte: todayDate } : { lt: todayDate } },
+        { isLocked: true },
+      ],
+    };
+
     const mealRows = await db.mealRecord.groupBy({
       by: ["userId"],
-      where: { date: { gte: monthStart, lte: monthEnd } },
+      where: mealCondition,
       _sum: { mealCount: true },
     });
     const totalMonthBazar = sum(bazarSpendRows.map((r) => r._sum.amount?.toString() ?? "0"));
