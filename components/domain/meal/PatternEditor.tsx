@@ -62,14 +62,15 @@ export default function PatternEditor({ initial, onSaved }: Props) {
         </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(7, 1fr)",
-          gap: "0.5rem",
-          marginBottom: "1.25rem",
-        }}
-      >
+      <div style={{ overflowX: "auto", margin: "0 -4px", padding: "0 4px" }}>
+        <div style={{ minWidth: "min-content", paddingBottom: "1.25rem" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(7, 1fr)",
+              gap: "0.5rem",
+            }}
+          >
         {DAYS.map(({ key, label }) => (
           <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.375rem" }}>
             <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", fontWeight: 500 }}>
@@ -124,8 +125,10 @@ export default function PatternEditor({ initial, onSaved }: Props) {
                 }}
               >▼</button>
             </div>
+            </div>
+          ))}
           </div>
-        ))}
+        </div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>

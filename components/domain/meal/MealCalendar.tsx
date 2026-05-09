@@ -117,8 +117,11 @@ export default function MealCalendar({
         )}
       </div>
 
-      {/* Day headers */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px", marginBottom: "4px" }}>
+      {/* Scrollable calendar container */}
+      <div style={{ overflowX: "auto", margin: "0 -4px", padding: "0 4px", paddingBottom: "8px" }}>
+        <div style={{ minWidth: "min-content" }}>
+          {/* Day headers */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px", marginBottom: "4px" }}>
         {DAYS_HEADER.map((d) => (
           <div key={d} style={{ textAlign: "center", fontSize: "0.6875rem", color: "var(--color-text-muted)", fontWeight: 600, padding: "4px 0" }}>
             {d}
@@ -207,6 +210,8 @@ export default function MealCalendar({
           })}
         </div>
       ))}
+        </div>
+      </div>
 
       {/* Legend */}
       <div style={{ display: "flex", gap: "1rem", marginTop: "0.75rem", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
