@@ -123,6 +123,7 @@ export default function MealsClient({ deadline }: MealsClientProps) {
             editRequestStatus={editRequestStatus}
             onUpdate={handleUpdate}
             onRequestEdit={() => void handleRequestEdit()}
+            deadline={deadline}
           />
 
           {/* Pattern editor */}

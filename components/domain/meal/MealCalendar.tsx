@@ -16,6 +16,7 @@ interface Props {
   editRequestStatus: "pending" | "approved" | "rejected" | "expired" | null;
   onUpdate: (date: string, count: number) => void;
   onRequestEdit: () => void;
+  deadline: string;
 }
 
 const DAYS_HEADER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -26,6 +27,7 @@ export default function MealCalendar({
   editRequestStatus,
   onUpdate,
   onRequestEdit,
+  deadline,
 }: Props) {
   const [savingDate, setSavingDate] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -78,6 +80,15 @@ export default function MealCalendar({
   for (let i = 0; i < cells.length; i += 7) {
     weeks.push(cells.slice(i, i + 7));
   }
+
+  const formatTime = (time24: string) => {
+    if (!time24) return "";
+    const [h, m] = time24.split(":");
+    const hNum = parseInt(h, 10);
+    const ampm = hNum >= 12 ? "PM" : "AM";
+    const h12 = hNum % 12 || 12;
+    return `${h12}:${m} ${ampm}`;
+  };
 
   return (
     <div className="card">
@@ -198,7 +209,7 @@ export default function MealCalendar({
 
       {/* Legend */}
       <div style={{ display: "flex", gap: "1rem", marginTop: "0.75rem", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-        <span>🔒 Locked (past midnight)</span>
+        <span>🔒 Locked (past {formatTime(deadline)})</span>
         <span style={{ color: "var(--color-primary-light)" }}>■ Today</span>
       </div>
     </div>
