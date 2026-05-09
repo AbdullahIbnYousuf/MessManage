@@ -40,7 +40,7 @@ export async function PUT(request: Request) {
       });
     }
 
-    const updateData: any = {};
+    const updateData: { mealDeadline?: string; maidChargeDefault?: Decimal } = {};
     if (body.mealDeadline !== undefined) {
       // Basic validation for HH:mm
       if (!/^\d{2}:\d{2}$/.test(body.mealDeadline)) {
