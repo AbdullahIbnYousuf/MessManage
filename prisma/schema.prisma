@@ -1,0 +1,310 @@
+// Prisma schema — Household Meal & Expense Management System
+// Single source of truth for the database structure.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  member
+  admin
+}
+
+enum UserStatus {
+  active
+  deactivated
+}
+
+enum MembershipRequestStatus {
+  pending
+  approved
+  rejected
+}
+
+enum BazarTripStatus {
+  open
+  completed
+}
+
+enum BulkCycleStatus {
+  active
+  finished
+}
+
+enum MealEditRequestStatus {
+  pending
+  approved
+  rejected
+  expired
+}
+
+// ─── 1. User ──────────────────────────────────────────────────────────────────
+
+model User {
+  id        String     @id @default(uuid())
+  email     String     @unique
+  name      String
+  avatarUrl String?    @map("avatar_url")
+  role      UserRole   @default(member)
+  status    UserStatus @default(active)
+  joinedAt  DateTime   @map("joined_at")
+
+  deactivatedAt DateTime? @map("deactivated_at")
+
+  // Contact & banking fields (used by System 2 — do not remove)
+  phoneNumber              String? @map("phone_number")
+  phoneNumber2             String? @map("phone_number_2")
+  bkashNumber              String? @map("bkash_number")
+  bankName                 String? @map("bank_name")
+  bankAccountNumber        String? @map("bank_account_number")
+  emergencyContactName     String? @map("emergency_contact_name")
+  emergencyContactPhone    String? @map("emergency_contact_phone")
+  emergencyContactRelation String? @map("emergency_contact_relation")
+
+  // Relations
+  mealPattern         MealPattern?
+  mealRecords         MealRecord[]
+  mealEditRequests    MealEditRequest[]   @relation("MealEditRequestUser")
+  reviewedEditReqs    MealEditRequest[]   @relation("MealEditRequestReviewer")
+  triggeredTrips      BazarTrip[]         @relation("BazarTripTriggeredBy")
+  assignedTrips1      BazarTrip[]         @relation("BazarTripAssignee1")
+  assignedTrips2      BazarTrip[]         @relation("BazarTripAssignee2")
+  bazarExpenses       BazarExpense[]
+  bulkCyclesPurchased BulkCycle[]         @relation("BulkCyclePurchasedBy")
+  bulkCyclesFinished  BulkCycle[]         @relation("BulkCycleFinishedBy")
+  bulkAllocations     BulkAllocation[]
+  maidCharges         MaidCharge[]
+  maidPayments        MaidPayment[]
+  settlementsFrom     MonthlySettlement[] @relation("SettlementFrom")
+  settlementsTo       MonthlySettlement[] @relation("SettlementTo")
+  reviewedMemberships MembershipRequest[] @relation("MembershipRequestReviewer")
+  approvedRequest     MembershipRequest?  @relation("MembershipRequestUser")
+  systemConfigUpdates SystemConfig[]
+
+  @@map("User")
+}
+
+// ─── 2. MembershipRequest ─────────────────────────────────────────────────────
+
+model MembershipRequest {
+  id          String                  @id @default(uuid())
+  email       String
+  name        String
+  avatarUrl   String?                 @map("avatar_url")
+  status      MembershipRequestStatus @default(pending)
+  requestedAt DateTime                @map("requested_at")
+  reviewedAt  DateTime?               @map("reviewed_at")
+
+  reviewedById String? @map("reviewed_by")
+  reviewedBy   User?   @relation("MembershipRequestReviewer", fields: [reviewedById], references: [id])
+
+  userId String? @unique @map("user_id")
+  user   User?   @relation("MembershipRequestUser", fields: [userId], references: [id])
+
+  @@map("MembershipRequest")
+}
+
+// ─── 3. MealPattern ───────────────────────────────────────────────────────────
+
+model MealPattern {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  monday    Int      @default(0)
+  tuesday   Int      @default(0)
+  wednesday Int      @default(0)
+  thursday  Int      @default(0)
+  friday    Int      @default(0)
+  saturday  Int      @default(0)
+  sunday    Int      @default(0)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("MealPattern")
+}
+
+// ─── 4. MealRecord ────────────────────────────────────────────────────────────
+
+model MealRecord {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  date      DateTime @db.Date
+  mealCount Int      @default(0) @map("meal_count")
+  isLocked  Boolean  @default(false) @map("is_locked")
+
+  editRequests MealEditRequest[]
+
+  @@unique([userId, date])
+  @@map("MealRecord")
+}
+
+// ─── 5. MealEditRequest ───────────────────────────────────────────────────────
+
+model MealEditRequest {
+  id           String                @id @default(uuid())
+  userId       String                @map("user_id")
+  user         User                  @relation("MealEditRequestUser", fields: [userId], references: [id])
+  mealRecordId String                @map("meal_record_id")
+  mealRecord   MealRecord            @relation(fields: [mealRecordId], references: [id])
+  status       MealEditRequestStatus @default(pending)
+  requestedAt  DateTime              @map("requested_at")
+  reviewedById String?               @map("reviewed_by")
+  reviewedBy   User?                 @relation("MealEditRequestReviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?             @map("reviewed_at")
+
+  @@map("MealEditRequest")
+}
+
+// ─── 6. BazarTrip ─────────────────────────────────────────────────────────────
+
+model BazarTrip {
+  id            String          @id @default(uuid())
+  triggeredById String          @map("triggered_by")
+  triggeredBy   User            @relation("BazarTripTriggeredBy", fields: [triggeredById], references: [id])
+  assignee1Id   String?         @map("assignee_1")
+  assignee1     User?           @relation("BazarTripAssignee1", fields: [assignee1Id], references: [id])
+  assignee2Id   String?         @map("assignee_2")
+  assignee2     User?           @relation("BazarTripAssignee2", fields: [assignee2Id], references: [id])
+  shoppingNotes String?         @map("shopping_notes")
+  status        BazarTripStatus @default(open)
+  triggeredAt   DateTime        @map("triggered_at")
+  completedAt   DateTime?       @map("completed_at")
+
+  expenses     BazarExpense[]
+  systemConfig SystemConfig[]
+
+  @@map("BazarTrip")
+}
+
+// ─── 7. BazarExpense ──────────────────────────────────────────────────────────
+
+model BazarExpense {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  user        User      @relation(fields: [userId], references: [id])
+  tripId      String    @map("trip_id")
+  trip        BazarTrip @relation(fields: [tripId], references: [id])
+  amount      Decimal   @db.Decimal(12, 2)
+  note        String?
+  date        DateTime  @db.Date
+  submittedAt DateTime  @map("submitted_at")
+
+  @@map("BazarExpense")
+}
+
+// ─── 8. BulkItem ──────────────────────────────────────────────────────────────
+
+model BulkItem {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  unit      String?
+  createdAt DateTime @map("created_at")
+
+  cycles BulkCycle[]
+
+  @@map("BulkItem")
+}
+
+// ─── 9. BulkCycle ─────────────────────────────────────────────────────────────
+
+model BulkCycle {
+  id            String          @id @default(uuid())
+  bulkItemId    String          @map("bulk_item_id")
+  bulkItem      BulkItem        @relation(fields: [bulkItemId], references: [id])
+  purchasedById String          @map("purchased_by")
+  purchasedBy   User            @relation("BulkCyclePurchasedBy", fields: [purchasedById], references: [id])
+  cost          Decimal         @db.Decimal(12, 2)
+  purchaseDate  DateTime        @map("purchase_date") @db.Date
+  status        BulkCycleStatus @default(active)
+  startedAt     DateTime        @map("started_at")
+  finishedAt    DateTime?       @map("finished_at")
+  finishedById  String?         @map("finished_by")
+  finishedBy    User?           @relation("BulkCycleFinishedBy", fields: [finishedById], references: [id])
+
+  allocations BulkAllocation[]
+
+  @@map("BulkCycle")
+}
+
+// ─── 10. BulkAllocation ───────────────────────────────────────────────────────
+
+model BulkAllocation {
+  id               String    @id @default(uuid())
+  cycleId          String    @map("cycle_id")
+  cycle            BulkCycle @relation(fields: [cycleId], references: [id])
+  userId           String    @map("user_id")
+  user             User      @relation(fields: [userId], references: [id])
+  mealsDuringCycle Int       @map("meals_during_cycle")
+  amount           Decimal   @db.Decimal(12, 2)
+  allocatedAt      DateTime  @map("allocated_at")
+
+  @@unique([userId, cycleId])
+  @@map("BulkAllocation")
+}
+
+// ─── 11. MaidCharge ───────────────────────────────────────────────────────────
+
+model MaidCharge {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  amount    Decimal  @db.Decimal(12, 2)
+  month     DateTime @db.Date
+  appliedAt DateTime @map("applied_at")
+
+  @@unique([userId, month])
+  @@map("MaidCharge")
+}
+
+// ─── 12. MaidPayment ──────────────────────────────────────────────────────────
+
+model MaidPayment {
+  id       String   @id @default(uuid())
+  paidById String   @map("paid_by")
+  paidBy   User     @relation(fields: [paidById], references: [id])
+  amount   Decimal  @db.Decimal(12, 2)
+  month    DateTime @db.Date
+  note     String?
+  paidAt   DateTime @map("paid_at")
+
+  @@map("MaidPayment")
+}
+
+// ─── 13. MonthlySettlement ────────────────────────────────────────────────────
+
+model MonthlySettlement {
+  id         String   @id @default(uuid())
+  month      DateTime @db.Date
+  fromUserId String   @map("from_user_id")
+  fromUser   User     @relation("SettlementFrom", fields: [fromUserId], references: [id])
+  toUserId   String   @map("to_user_id")
+  toUser     User     @relation("SettlementTo", fields: [toUserId], references: [id])
+  amount     Decimal  @db.Decimal(12, 2)
+  settledAt  DateTime @map("settled_at")
+
+  @@map("MonthlySettlement")
+}
+
+// ─── 14. SystemConfig ─────────────────────────────────────────────────────────
+// Always exactly one row. Seeded automatically in the initial migration.
+
+model SystemConfig {
+  id                String     @id @default(uuid())
+  mealDeadline      String     @map("meal_deadline")
+  maidChargeDefault Decimal    @map("maid_charge_default") @db.Decimal(12, 2)
+  activeTripId      String?    @map("active_trip_id")
+  activeTrip        BazarTrip? @relation(fields: [activeTripId], references: [id])
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+  updatedById       String?    @map("updated_by")
+  updatedBy         User?      @relation(fields: [updatedById], references: [id])
+
+  @@map("SystemConfig")
+}
