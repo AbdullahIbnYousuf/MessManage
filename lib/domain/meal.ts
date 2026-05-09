@@ -51,9 +51,9 @@ export function canEditDirectly(
   recordDate: string,
   deadlinePassed: boolean
 ): boolean {
-  if (recordDate !== today()) return false; // only today can be edited
-  if (deadlinePassed) return false;          // deadline must not have passed
-  return true;
+  if (recordDate > today()) return true; // future dates are always editable
+  if (recordDate < today()) return false; // past dates are never editable
+  return !deadlinePassed; // today is editable if deadline hasn't passed
 }
 
 /**

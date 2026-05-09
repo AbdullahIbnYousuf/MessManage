@@ -61,6 +61,54 @@ export default function DashboardClient({ userName }: Props) {
         </div>
       ) : data ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          {/* Today's meal table — maid view (MOVED TO TOP) */}
+          <div className="card" style={{ border: "1px solid var(--color-primary-glow)", boxShadow: "0 0 20px rgba(59,130,246,0.05)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>Today&apos;s Meals</div>
+                <div className="text-muted" style={{ fontSize: "0.8125rem", marginTop: "0.2rem" }}>
+                  For the maid — how many meals to cook today
+                </div>
+              </div>
+              <div
+                style={{
+                  background: "var(--color-primary-glow)",
+                  border: "1px solid rgba(59,130,246,0.3)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "0.375rem 0.875rem",
+                  textAlign: "center",
+                }}
+              >
+                <div style={{ fontSize: "0.6875rem", color: "var(--color-primary-light)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Total</div>
+                <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--color-primary-light)", lineHeight: 1 }}>{data.todayTotal}</div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+              {data.todayMeals.map((m) => (
+                <div key={m.userId} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0.625rem", borderRadius: "var(--radius-md)", background: m.mealCount > 0 ? "var(--color-bg-elevated)" : "transparent", opacity: m.mealCount === 0 ? 0.5 : 1 }}>
+                  {m.avatarUrl
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={m.avatarUrl} alt={m.name} className="avatar avatar-sm" />
+                    : <div className="avatar-fallback" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>{m.name.charAt(0)}</div>
+                  }
+                  <span style={{ flex: 1, fontSize: "0.875rem", fontWeight: m.mealCount > 0 ? 500 : 400 }}>{m.name}</span>
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      fontSize: "1rem",
+                      color: m.mealCount > 0 ? "var(--color-text-primary)" : "var(--color-text-muted)",
+                      minWidth: 24,
+                      textAlign: "center",
+                    }}
+                  >
+                    {m.mealCount}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Monthly stats row */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem" }}>
             <div className="stat-card">
@@ -117,53 +165,7 @@ export default function DashboardClient({ userName }: Props) {
             </Link>
           )}
 
-          {/* Today's meal table — maid view */}
-          <div className="card">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>Today&apos;s Meals</div>
-                <div className="text-muted" style={{ fontSize: "0.8125rem", marginTop: "0.2rem" }}>
-                  For the maid — how many meals to cook today
-                </div>
-              </div>
-              <div
-                style={{
-                  background: "var(--color-primary-glow)",
-                  border: "1px solid rgba(59,130,246,0.3)",
-                  borderRadius: "var(--radius-md)",
-                  padding: "0.375rem 0.875rem",
-                  textAlign: "center",
-                }}
-              >
-                <div style={{ fontSize: "0.6875rem", color: "var(--color-primary-light)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Total</div>
-                <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--color-primary-light)", lineHeight: 1 }}>{data.todayTotal}</div>
-              </div>
-            </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-              {data.todayMeals.map((m) => (
-                <div key={m.userId} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0.625rem", borderRadius: "var(--radius-md)", background: m.mealCount > 0 ? "var(--color-bg-elevated)" : "transparent", opacity: m.mealCount === 0 ? 0.5 : 1 }}>
-                  {m.avatarUrl
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={m.avatarUrl} alt={m.name} className="avatar avatar-sm" />
-                    : <div className="avatar-fallback" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>{m.name.charAt(0)}</div>
-                  }
-                  <span style={{ flex: 1, fontSize: "0.875rem", fontWeight: m.mealCount > 0 ? 500 : 400 }}>{m.name}</span>
-                  <span
-                    style={{
-                      fontWeight: 700,
-                      fontSize: "1rem",
-                      color: m.mealCount > 0 ? "var(--color-text-primary)" : "var(--color-text-muted)",
-                      minWidth: 24,
-                      textAlign: "center",
-                    }}
-                  >
-                    {m.mealCount}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
 
           {/* Quick links */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "0.75rem" }}>

@@ -125,7 +125,7 @@ export default function MealCalendar({
             const isToday = record.date === todayStr;
             const isFuture = record.date > todayStr;
             const isPast = record.date < todayStr;
-            const canEdit = isToday && (!deadlinePassed || editRequestStatus === "approved");
+            const canEdit = isFuture || (isToday && (!deadlinePassed || editRequestStatus === "approved"));
             const isSaving = savingDate === record.date;
             const err = errors[record.date];
 

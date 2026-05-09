@@ -14,10 +14,10 @@ export async function PUT(
     const user = await requireAuth();
     const { date } = await params;
 
-    // Only today can be edited
-    if (date !== today()) {
+    // Past dates cannot be edited
+    if (date < today()) {
       return Response.json(
-        { error: "Meal records can only be edited on the same day." },
+        { error: "Past meal records cannot be edited." },
         { status: 400 }
       );
     }
