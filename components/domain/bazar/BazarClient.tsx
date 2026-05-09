@@ -121,28 +121,6 @@ export default function BazarClient() {
             </div>
           )}
 
-          {/* Active trip */}
-          {trip ? (
-            <>
-              <ActiveTripCard
-                trip={trip}
-                onNotesUpdated={(notes) => setTrip((t) => t ? { ...t, shoppingNotes: notes } : t)}
-              />
-              <ExpenseForm onSubmitted={handleExpenseSubmitted} />
-            </>
-          ) : (
-            <div className="card" style={{ textAlign: "center", padding: "2.5rem" }}>
-              <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}>🛒</div>
-              <div style={{ fontWeight: 600, marginBottom: "0.5rem" }}>No active bazar trip</div>
-              <p className="text-secondary" style={{ fontSize: "0.875rem", marginBottom: "1.25rem" }}>
-                Trigger a new trip when someone is going to the bazar. The system will suggest the two members with the fewest visits.
-              </p>
-              <button className="btn btn-primary" onClick={() => void triggerTrip()} disabled={triggeringTrip}>
-                {triggeringTrip ? <><span className="spinner" /> Opening...</> : "⚡ Trigger Bazar Trip"}
-              </button>
-            </div>
-          )}
-
           {/* Leaderboard */}
           {leaderboard.length > 0 && (
             <div className="card">
@@ -169,6 +147,30 @@ export default function BazarClient() {
               </div>
             </div>
           )}
+
+          {/* Active trip */}
+          {trip ? (
+            <>
+              <ActiveTripCard
+                trip={trip}
+                onNotesUpdated={(notes) => setTrip((t) => t ? { ...t, shoppingNotes: notes } : t)}
+              />
+              <ExpenseForm onSubmitted={handleExpenseSubmitted} tripNotes={trip.shoppingNotes} />
+            </>
+          ) : (
+            <div className="card" style={{ textAlign: "center", padding: "2.5rem" }}>
+              <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}>🛒</div>
+              <div style={{ fontWeight: 600, marginBottom: "0.5rem" }}>No active bazar trip</div>
+              <p className="text-secondary" style={{ fontSize: "0.875rem", marginBottom: "1.25rem" }}>
+                Trigger a new trip when someone is going to the bazar. The system will suggest the two members with the fewest visits.
+              </p>
+              <button className="btn btn-primary" onClick={() => void triggerTrip()} disabled={triggeringTrip}>
+                {triggeringTrip ? <><span className="spinner" /> Opening...</> : "⚡ Trigger Bazar Trip"}
+              </button>
+            </div>
+          )}
+
+
 
           {/* Recent expenses */}
           {expenses.length > 0 && (

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import ActiveTripCard from "@/components/domain/bazar/ActiveTripCard";
 
 interface TodayMeal {
   userId: string;
@@ -12,6 +13,8 @@ interface TodayMeal {
 
 interface ActiveTrip {
   id: string;
+  status: string;
+  triggeredAt: string;
   shoppingNotes: string | null;
   assignee1: { id: string; name: string; avatarUrl: string | null } | null;
   assignee2: { id: string; name: string; avatarUrl: string | null } | null;
@@ -134,35 +137,18 @@ export default function DashboardClient({ userName }: Props) {
             </div>
           </div>
 
-          {/* Active bazar trip banner */}
+          {/* Active bazar trip box */}
           {data.activeTrip && (
-            <Link href="/bazar" style={{ textDecoration: "none" }}>
-              <div
-                style={{
-                  background: "var(--color-bg-surface)",
-                  border: "1px solid rgba(245,158,11,0.4)",
-                  borderRadius: "var(--radius-lg)",
-                  padding: "1rem 1.25rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.875rem",
-                  boxShadow: "0 0 16px var(--color-warning-glow)",
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
-              >
-                <span style={{ fontSize: "1.5rem" }}>🛒</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, color: "var(--color-warning)" }}>Bazar Trip Active</div>
-                  <div className="text-secondary" style={{ fontSize: "0.8125rem" }}>
-                    {[data.activeTrip.assignee1?.name, data.activeTrip.assignee2?.name].filter(Boolean).join(", ") || "Assignees not set"}
-                    {" · "}
-                    {data.activeTrip.shoppingNotes ? `"${data.activeTrip.shoppingNotes.slice(0, 60)}..."` : "No shopping notes"}
-                  </div>
-                </div>
-                <span className="badge badge-warning">Open →</span>
-              </div>
-            </Link>
+            <ActiveTripCard
+              trip={data.activeTrip}
+              onNotesUpdated={(notes) =>
+                setData((prev) =>
+                  prev && prev.activeTrip
+                    ? { ...prev, activeTrip: { ...prev.activeTrip, shoppingNotes: notes } }
+                    : prev
+                )
+              }
+            />
           )}
 
 

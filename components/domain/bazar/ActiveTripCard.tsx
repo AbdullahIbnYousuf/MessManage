@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 
 interface Assignee {
   id: string;
@@ -26,22 +26,49 @@ export default function ActiveTripCard({ trip, onNotesUpdated }: Props) {
   const [notes, setNotes] = useState(trip.shoppingNotes ?? "");
   const [savingNotes, setSavingNotes] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
+  const initialNotes = React.useRef(trip.shoppingNotes ?? "");
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
-  async function saveNotes() {
+  React.useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [notes]);
+
+  const saveNotes = React.useCallback(async (currentNotes: string) => {
+    if (currentNotes === initialNotes.current) return;
     setSavingNotes(true);
-    setNotesSaved(false);
     try {
       await fetch("/api/bazar/notes", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes }),
+        body: JSON.stringify({ notes: currentNotes }),
       });
+      initialNotes.current = currentNotes;
       setNotesSaved(true);
-      onNotesUpdated(notes);
+      setTimeout(() => setNotesSaved(false), 2000);
+      onNotesUpdated(currentNotes);
     } finally {
       setSavingNotes(false);
     }
-  }
+  }, [onNotesUpdated]);
+
+  React.useEffect(() => {
+    if (notes === initialNotes.current) return;
+    const timer = setTimeout(() => {
+      void saveNotes(notes);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [notes, saveNotes]);
+
+  React.useEffect(() => {
+    const handleBlur = () => {
+      void saveNotes(notes);
+    };
+    window.addEventListener("blur", handleBlur);
+    return () => window.removeEventListener("blur", handleBlur);
+  }, [notes, saveNotes]);
 
   const assignees = [trip.assignee1, trip.assignee2].filter(Boolean) as Assignee[];
 
@@ -93,16 +120,24 @@ export default function ActiveTripCard({ trip, onNotesUpdated }: Props) {
         </div>
       )}
 
-      {/* Shopping notes */}
+      {/* General notes */}
       <div>
-        <div className="text-muted" style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>
-          Shopping Notes
+        <div className="text-muted" style={{ fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>General Note</span>
+          <div style={{ minWidth: "50px", textAlign: "right" }}>
+            {savingNotes ? (
+              <span style={{ fontSize: "0.6875rem", color: "var(--color-primary-light)" }}>Saving...</span>
+            ) : notesSaved ? (
+              <span style={{ fontSize: "0.6875rem", color: "var(--color-success)" }}>Saved</span>
+            ) : null}
+          </div>
         </div>
         <textarea
+          ref={textareaRef}
           value={notes}
-          onChange={(e) => { setNotes(e.target.value); setNotesSaved(false); }}
-          placeholder="Add items to buy... (anyone can edit)"
-          rows={3}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Add general notes or items to buy... (anyone can edit)"
+          rows={1}
           style={{
             width: "100%",
             background: "var(--color-bg-elevated)",
@@ -111,17 +146,13 @@ export default function ActiveTripCard({ trip, onNotesUpdated }: Props) {
             padding: "0.625rem 0.75rem",
             color: "var(--color-text-primary)",
             fontSize: "0.875rem",
-            resize: "vertical",
+            resize: "none",
             outline: "none",
             fontFamily: "inherit",
+            overflow: "hidden",
+            minHeight: "44px",
           }}
         />
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginTop: "0.5rem" }}>
-          <button className="btn btn-sm btn-secondary" onClick={() => void saveNotes()} disabled={savingNotes}>
-            {savingNotes ? <span className="spinner" /> : "Save Notes"}
-          </button>
-          {notesSaved && <span className="badge badge-success">Saved</span>}
-        </div>
       </div>
     </div>
   );
