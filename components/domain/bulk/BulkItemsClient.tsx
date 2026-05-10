@@ -71,13 +71,6 @@ export default function BulkItemsClient() {
             Track gas, rice, and other bulk purchases across their full usage cycle.
           </p>
         </div>
-        <button 
-          className="btn btn-ghost btn-sm text-muted" 
-          onClick={() => setShowAddForm(true)}
-          style={{ fontWeight: 400 }}
-        >
-          + Add custom item
-        </button>
       </div>
 
       {/* Add item form */}
@@ -120,6 +113,18 @@ export default function BulkItemsClient() {
               onCycleFinished={load}
             />
           ))}
+        </div>
+      )}
+
+      {/* Hidden add item button at the bottom */}
+      {!loading && items.length > 0 && !showAddForm && (
+        <div style={{ marginTop: "3rem", textAlign: "center", opacity: 0.5, transition: "opacity 0.2s" }} className="hover:opacity-100">
+          <button 
+            onClick={() => setShowAddForm(true)}
+            style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
+          >
+            Need to track something else? Add custom item
+          </button>
         </div>
       )}
     </div>
