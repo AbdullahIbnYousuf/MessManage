@@ -1,9 +1,31 @@
 // Auth.js v5 configuration — Google OAuth only.
 // On sign-in, checks for an existing User row. If none, creates a MembershipRequest.
 
-import NextAuth from "next-auth";
+import NextAuth, { type DefaultSession } from "next-auth";
 import Google from "next-auth/providers/google";
 import { db } from "@/lib/db";
+
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      role: string;
+      status: string;
+      avatarUrl: string | null;
+      nickname: string | null;
+    } & DefaultSession["user"];
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    role: string;
+    status: string;
+    avatarUrl: string | null;
+    nickname: string | null;
+  }
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -83,8 +105,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.id as string;
         session.user.role = token.role as string;
         session.user.status = token.status as string;
-        session.user.avatarUrl = token.avatarUrl as string | null;
-        (session.user as any).nickname = token.nickname as string | null;
+        session.user.avatarUrl = token.avatarUrl;
+        session.user.nickname = token.nickname;
       }
       return session;
     },
