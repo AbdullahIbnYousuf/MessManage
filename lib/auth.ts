@@ -19,11 +19,11 @@ declare module "next-auth" {
 
 declare module "next-auth/jwt" {
   interface JWT {
-    id: string;
-    role: string;
-    status: string;
-    avatarUrl: string | null;
-    nickname: string | null;
+    id?: string;
+    role?: string;
+    status?: string;
+    avatarUrl?: string | null;
+    nickname?: string | null;
   }
 }
 
@@ -105,8 +105,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.id as string;
         session.user.role = token.role as string;
         session.user.status = token.status as string;
-        session.user.avatarUrl = token.avatarUrl;
-        session.user.nickname = token.nickname;
+        session.user.avatarUrl = token.avatarUrl ?? null;
+        session.user.nickname = token.nickname ?? null;
       }
       return session;
     },
