@@ -18,7 +18,11 @@ interface BulkItem {
   activeCycle: Cycle | null;
 }
 
-export default function BulkItemsClient() {
+interface Props {
+  isAdmin: boolean;
+}
+
+export default function BulkItemsClient({ isAdmin }: Props) {
   const [items, setItems] = useState<BulkItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -99,9 +103,14 @@ export default function BulkItemsClient() {
         <div className="card" style={{ textAlign: "center", padding: "3rem" }}>
           <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}>📦</div>
           <div style={{ fontWeight: 600, marginBottom: "0.5rem" }}>No bulk items yet</div>
-          <p className="text-secondary" style={{ fontSize: "0.875rem" }}>
-            Add items like Gas or Rice to start tracking their costs across cycles.
+          <p className="text-secondary" style={{ fontSize: "0.875rem", marginBottom: isAdmin ? "1.5rem" : 0 }}>
+            {isAdmin ? "Click below to set up your first bulk item (like Gas or Rice)." : "An admin needs to add the first bulk item (like Gas or Rice)."}
           </p>
+          {isAdmin && (
+            <button className="btn btn-primary" onClick={() => setShowAddForm(true)}>
+              + Setup First Item
+            </button>
+          )}
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1rem" }}>
@@ -116,8 +125,8 @@ export default function BulkItemsClient() {
         </div>
       )}
 
-      {/* Hidden add item button at the bottom */}
-      {!loading && items.length > 0 && !showAddForm && (
+      {/* Hidden add item button at the bottom (Admin Only) */}
+      {!loading && items.length > 0 && !showAddForm && isAdmin && (
         <div style={{ marginTop: "3rem", textAlign: "center", opacity: 0.5, transition: "opacity 0.2s" }} className="hover:opacity-100">
           <button 
             onClick={() => setShowAddForm(true)}
