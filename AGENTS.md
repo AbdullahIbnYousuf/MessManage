@@ -780,29 +780,30 @@ Font: Inter (Google Fonts)
 Base unit: 4px
 
 Colors:
-  background:       #F9F7F4
-  surface:          #FFFFFF
-  border:           #E5E1DC
-  text-primary:     #1A1814
-  text-secondary:   #6B6560
-  text-muted:       #A09A94
-  brand:            #1A6B5A
-  brand-hover:      #155749
-  brand-light:      #EAF4F1
-  positive:         #1E7B45
-  positive-bg:      #EDFAF3
-  negative:         #C0392B
-  negative-bg:      #FDF0EE
-  warning:          #D4860B
-  warning-bg:       #FEF7EC
-  locked:           #8E9AAB
+  background:       #121212
+  surface:          #1E1E1E
+  border:           #333333
+  text-primary:     #F5F5F5
+  text-secondary:   #A0A0A0
+  text-muted:       #666666
+  brand:            #FACC15
+  brand-hover:      #EAB308
+  brand-light:      rgba(250, 204, 21, 0.15)
+  secondary:        #10B981
+  positive:         #22C55E
+  positive-bg:      rgba(34, 197, 94, 0.15)
+  negative:         #EF4444
+  negative-bg:      rgba(239, 68, 68, 0.15)
+  warning:          #F59E0B
+  warning-bg:       rgba(245, 158, 11, 0.15)
+  locked:           #52525B
 
 Rules:
   - Never use red for anything except negative balance and errors
   - Never use green for anything except positive balance and success
   - Money amounts always use font-variant-numeric: tabular-nums
   - Max content width: 768px centred
-  - All cards: white bg, 8px radius, 1px border #E5E1DC, 16px padding
+  - All cards: surface bg, 8px radius, 1px border #333333, 16px padding
   - Mobile first — design for 390px width first
 
 ```
@@ -812,3 +813,5 @@ Rules:
 *This file is the agent instruction layer.
 ProjectRequirements.md and System1DataModel.md are the domain knowledge layer.
 All three files together are what the agent needs to work correctly.*
+
+

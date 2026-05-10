@@ -2,38 +2,38 @@
 
 @theme {
   /* ── Color Palette (AGENTS.md Design System) ── */
-  --color-bg-base: #F9F7F4;
-  --color-bg-surface: #FFFFFF;
-  --color-bg-elevated: #FFFFFF;
-  --color-bg-hover: #EAF4F1;
-  --color-border: #E5E1DC;
-  --color-border-subtle: #E5E1DC;
+  --color-bg-base: #121212;
+  --color-bg-surface: #1E1E1E;
+  --color-bg-elevated: #252525;
+  --color-bg-hover: rgba(250, 204, 21, 0.15);
+  --color-border: #333333;
+  --color-border-subtle: #2A2A2A;
 
-  --color-primary: #1A6B5A;
-  --color-primary-dark: #155749;
-  --color-primary-light: #1A6B5A;
-  --color-primary-glow: rgba(26, 107, 90, 0.15);
+  --color-primary: #FACC15;
+  --color-primary-dark: #EAB308;
+  --color-primary-light: #FDE047;
+  --color-primary-glow: rgba(250, 204, 21, 0.25);
 
-  --color-accent: #1A6B5A;
-  --color-accent-glow: rgba(26, 107, 90, 0.15);
+  --color-accent: #10B981;
+  --color-accent-glow: rgba(16, 185, 129, 0.25);
 
-  --color-success: #1E7B45;
-  --color-success-bg: #EDFAF3;
-  --color-success-glow: rgba(30, 123, 69, 0.15);
+  --color-success: #22C55E;
+  --color-success-bg: rgba(34, 197, 94, 0.15);
+  --color-success-glow: rgba(34, 197, 94, 0.25);
   
-  --color-warning: #D4860B;
-  --color-warning-bg: #FEF7EC;
-  --color-warning-glow: rgba(212, 134, 11, 0.15);
+  --color-warning: #F59E0B;
+  --color-warning-bg: rgba(245, 158, 11, 0.15);
+  --color-warning-glow: rgba(245, 158, 11, 0.25);
   
-  --color-danger: #C0392B;
-  --color-danger-bg: #FDF0EE;
-  --color-danger-glow: rgba(192, 57, 43, 0.15);
+  --color-danger: #EF4444;
+  --color-danger-bg: rgba(239, 68, 68, 0.15);
+  --color-danger-glow: rgba(239, 68, 68, 0.25);
 
-  --color-locked: #8E9AAB;
+  --color-locked: #52525B;
 
-  --color-text-primary: #1A1814;
-  --color-text-secondary: #6B6560;
-  --color-text-muted: #A09A94;
+  --color-text-primary: #F5F5F5;
+  --color-text-secondary: #A0A0A0;
+  --color-text-muted: #666666;
 
   /* ── Typography ────────────────────────────────── */
   --font-sans: "Inter", system-ui, sans-serif;
@@ -127,7 +127,7 @@
 
   .btn-primary {
     background: var(--color-primary);
-    color: white;
+    color: #121212; /* Dark text on yellow button */
   }
 
   .btn-primary:hover:not(:disabled) {
@@ -230,9 +230,9 @@
   }
 
   .badge-primary {
-    background: var(--color-bg-hover);
+    background: var(--color-primary-glow);
     color: var(--color-primary);
-    border: 1px solid rgba(26, 107, 90, 0.3);
+    border: 1px solid rgba(250, 204, 21, 0.3);
   }
 
   .badge-muted {
