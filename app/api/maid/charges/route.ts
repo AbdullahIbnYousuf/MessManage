@@ -15,7 +15,7 @@ export async function GET() {
     const charges = await db.maidCharge.findMany({
       where: { month: monthDate },
       include: {
-        user: { select: { id: true, name: true, avatarUrl: true, status: true } },
+        user: { select: { id: true, name: true, nickname: true, avatarUrl: true, status: true } },
       },
       orderBy: { user: { name: "asc" } },
     });
@@ -29,7 +29,7 @@ export async function GET() {
         charges: charges.map((c) => ({
           id: c.id,
           userId: c.userId,
-          userName: c.user.name,
+          userName: c.user.nickname || c.user.name,
           userAvatar: c.user.avatarUrl,
           amount: c.amount.toFixed(2),
           appliedAt: c.appliedAt.toISOString(),

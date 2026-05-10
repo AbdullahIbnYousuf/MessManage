@@ -13,8 +13,8 @@ export async function GET() {
       include: {
         activeTrip: {
           include: {
-            assignee1: { select: { id: true, name: true, avatarUrl: true } },
-            assignee2: { select: { id: true, name: true, avatarUrl: true } },
+            assignee1: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
+            assignee2: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
           },
         },
       },
@@ -31,8 +31,8 @@ export async function GET() {
         status: trip.status,
         triggeredAt: trip.triggeredAt.toISOString(),
         shoppingNotes: trip.shoppingNotes,
-        assignee1: trip.assignee1,
-        assignee2: trip.assignee2,
+        assignee1: trip.assignee1 ? { ...trip.assignee1, name: trip.assignee1.nickname || trip.assignee1.name } : null,
+        assignee2: trip.assignee2 ? { ...trip.assignee2, name: trip.assignee2.nickname || trip.assignee2.name } : null,
       },
     });
   } catch (err) {
@@ -55,7 +55,7 @@ export async function POST() {
     // Calculate visit counts to suggest assignees
     const members = await db.user.findMany({
       where: { status: "active" },
-      select: { id: true, name: true, avatarUrl: true },
+      select: { id: true, name: true, nickname: true, avatarUrl: true },
     });
 
     const expenseCounts = await db.bazarExpense.groupBy({
@@ -97,8 +97,8 @@ export async function POST() {
         status: trip.status,
         triggeredAt: trip.triggeredAt.toISOString(),
         shoppingNotes: null,
-        assignee1: a1 ? { id: a1.id, name: a1.name, avatarUrl: a1.avatarUrl } : null,
-        assignee2: a2 ? { id: a2.id, name: a2.name, avatarUrl: a2.avatarUrl } : null,
+        assignee1: a1 ? { id: a1.id, name: a1.nickname || a1.name, avatarUrl: a1.avatarUrl } : null,
+        assignee2: a2 ? { id: a2.id, name: a2.nickname || a2.name, avatarUrl: a2.avatarUrl } : null,
       },
     }, { status: 201 });
   } catch (err) {

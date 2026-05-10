@@ -17,7 +17,7 @@ export async function GET() {
     const monthEnd = currentMonthEnd();
 
     const members = await db.user.findMany({
-      select: { id: true, name: true, avatarUrl: true, status: true },
+      select: { id: true, name: true, nickname: true, avatarUrl: true, status: true },
       orderBy: { name: "asc" },
     });
 
@@ -96,7 +96,7 @@ export async function GET() {
 
       return {
         userId: m.id,
-        name: m.name,
+        name: m.nickname || m.name,
         avatarUrl: m.avatarUrl,
         status: m.status,
         balance: balance.toFixed(2),

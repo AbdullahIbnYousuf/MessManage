@@ -15,6 +15,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     id: session.user.id,
     email: session.user.email ?? "",
     name: session.user.name ?? "",
+    nickname: (session.user as any).nickname ?? null,
     avatarUrl: session.user.avatarUrl ?? null,
     role: (session.user.role as SessionUser["role"]) ?? "member",
     status: (session.user.status as SessionUser["status"]) ?? "active",

@@ -10,7 +10,7 @@ export async function GET() {
     // Get all completed expenses with user info
     const expenses = await db.bazarExpense.findMany({
       include: {
-        user: { select: { id: true, name: true, avatarUrl: true } },
+        user: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
         trip: { select: { id: true, completedAt: true } },
       },
       orderBy: { submittedAt: "desc" },
@@ -31,7 +31,7 @@ export async function GET() {
       } else {
         leaderMap.set(e.userId, {
           userId: e.userId,
-          name: e.user.name,
+          name: e.user.nickname || e.user.name,
           avatarUrl: e.user.avatarUrl,
           visits: 1,
           totalSpend: e.amount.toFixed(2),
@@ -47,7 +47,7 @@ export async function GET() {
         expenses: expenses.map((e) => ({
           id: e.id,
           userId: e.userId,
-          userName: e.user.name,
+          userName: e.user.nickname || e.user.name,
           userAvatar: e.user.avatarUrl,
           amount: e.amount.toFixed(2),
           note: e.note,

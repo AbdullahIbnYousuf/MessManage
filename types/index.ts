@@ -7,6 +7,7 @@ export type SessionUser = {
   id: string;
   email: string;
   name: string;
+  nickname: string | null;
   avatarUrl: string | null;
   role: "member" | "admin";
   status: "active" | "deactivated";
@@ -23,6 +24,7 @@ export type ApiResponse<T> = ApiSuccess<T> | ApiError;
 export type MemberSummary = {
   id: string;
   name: string;
+  nickname: string | null;
   email: string;
   avatarUrl: string | null;
   role: "member" | "admin";
@@ -109,7 +111,7 @@ export type SettlementTransfer = {
 };
 
 export type DashboardData = {
-  todayMeals: Array<{ userId: string; name: string; avatarUrl: string | null; mealCount: number }>;
+  todayMeals: Array<{ userId: string; name: string; nickname: string | null; avatarUrl: string | null; mealCount: number }>;
   todayTotal: number;
   activeTrip: BazarTrip | null;
   monthlyTotalBazar: string;

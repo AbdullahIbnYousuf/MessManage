@@ -13,7 +13,7 @@ export async function GET() {
     // Return all payments, most recent first
     const payments = await db.maidPayment.findMany({
       include: {
-        paidBy: { select: { id: true, name: true, avatarUrl: true } },
+        paidBy: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
       },
       orderBy: { paidAt: "desc" },
       take: 30,
@@ -26,7 +26,7 @@ export async function GET() {
         month: p.month.toISOString().slice(0, 7),
         note: p.note,
         paidAt: p.paidAt.toISOString(),
-        paidBy: p.paidBy,
+        paidBy: { ...p.paidBy, name: p.paidBy.nickname || p.paidBy.name },
       })),
     });
   } catch (err) {

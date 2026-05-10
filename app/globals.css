@@ -1,42 +1,49 @@
 @import "tailwindcss";
 
 @theme {
-  /* ── Color Palette ─────────────────────────────── */
-  --color-bg-base: #0a0f1e;
-  --color-bg-surface: #111827;
-  --color-bg-elevated: #1a2235;
-  --color-bg-hover: #1f2d45;
-  --color-border: #1e2d45;
-  --color-border-subtle: #162032;
+  /* ── Color Palette (AGENTS.md Design System) ── */
+  --color-bg-base: #F9F7F4;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-elevated: #FFFFFF;
+  --color-bg-hover: #EAF4F1;
+  --color-border: #E5E1DC;
+  --color-border-subtle: #E5E1DC;
 
-  --color-primary: #3b82f6;
-  --color-primary-dark: #2563eb;
-  --color-primary-light: #60a5fa;
-  --color-primary-glow: rgba(59, 130, 246, 0.15);
+  --color-primary: #1A6B5A;
+  --color-primary-dark: #155749;
+  --color-primary-light: #1A6B5A;
+  --color-primary-glow: rgba(26, 107, 90, 0.15);
 
-  --color-accent: #8b5cf6;
-  --color-accent-glow: rgba(139, 92, 246, 0.15);
+  --color-accent: #1A6B5A;
+  --color-accent-glow: rgba(26, 107, 90, 0.15);
 
-  --color-success: #10b981;
-  --color-success-glow: rgba(16, 185, 129, 0.15);
-  --color-warning: #f59e0b;
-  --color-warning-glow: rgba(245, 158, 11, 0.15);
-  --color-danger: #ef4444;
-  --color-danger-glow: rgba(239, 68, 68, 0.15);
+  --color-success: #1E7B45;
+  --color-success-bg: #EDFAF3;
+  --color-success-glow: rgba(30, 123, 69, 0.15);
+  
+  --color-warning: #D4860B;
+  --color-warning-bg: #FEF7EC;
+  --color-warning-glow: rgba(212, 134, 11, 0.15);
+  
+  --color-danger: #C0392B;
+  --color-danger-bg: #FDF0EE;
+  --color-danger-glow: rgba(192, 57, 43, 0.15);
 
-  --color-text-primary: #f1f5f9;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #475569;
+  --color-locked: #8E9AAB;
+
+  --color-text-primary: #1A1814;
+  --color-text-secondary: #6B6560;
+  --color-text-muted: #A09A94;
 
   /* ── Typography ────────────────────────────────── */
   --font-sans: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
   /* ── Radius ────────────────────────────────────── */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
 }
 
 /* ── Base ──────────────────────────────────────────────────────────────────── */
@@ -74,15 +81,17 @@
   .card {
     background: var(--color-bg-surface);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    padding: 1.25rem;
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
   }
 
   .card-elevated {
     background: var(--color-bg-elevated);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    padding: 1.25rem;
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
   }
 
   /* Glassmorphism panels */
@@ -203,33 +212,33 @@
   }
 
   .badge-success {
-    background: var(--color-success-glow);
+    background: var(--color-success-bg);
     color: var(--color-success);
-    border: 1px solid rgba(16, 185, 129, 0.3);
+    border: 1px solid rgba(30, 123, 69, 0.3);
   }
 
   .badge-warning {
-    background: var(--color-warning-glow);
+    background: var(--color-warning-bg);
     color: var(--color-warning);
-    border: 1px solid rgba(245, 158, 11, 0.3);
+    border: 1px solid rgba(212, 134, 11, 0.3);
   }
 
   .badge-danger {
-    background: var(--color-danger-glow);
+    background: var(--color-danger-bg);
     color: var(--color-danger);
-    border: 1px solid rgba(239, 68, 68, 0.3);
+    border: 1px solid rgba(192, 57, 43, 0.3);
   }
 
   .badge-primary {
-    background: var(--color-primary-glow);
-    color: var(--color-primary-light);
-    border: 1px solid rgba(59, 130, 246, 0.3);
+    background: var(--color-bg-hover);
+    color: var(--color-primary);
+    border: 1px solid rgba(26, 107, 90, 0.3);
   }
 
   .badge-muted {
-    background: rgba(71, 85, 105, 0.2);
+    background: var(--color-bg-base);
     color: var(--color-text-muted);
-    border: 1px solid rgba(71, 85, 105, 0.3);
+    border: 1px solid var(--color-border);
   }
 
   /* Divider */
@@ -291,9 +300,9 @@
 
   /* Page wrapper */
   .page-container {
-    max-width: 1100px;
+    max-width: 768px;
     margin: 0 auto;
-    padding: 2rem 1.5rem;
+    padding: 1rem;
   }
 
   /* Section header */

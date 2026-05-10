@@ -61,6 +61,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             id: true,
             email: true,
             name: true,
+            nickname: true,
             avatarUrl: true,
             role: true,
             status: true,
@@ -71,6 +72,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.role = dbUser.role;
           token.status = dbUser.status;
           token.avatarUrl = dbUser.avatarUrl;
+          token.nickname = dbUser.nickname;
         }
       }
       return token;
@@ -82,6 +84,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = token.role as string;
         session.user.status = token.status as string;
         session.user.avatarUrl = token.avatarUrl as string | null;
+        (session.user as any).nickname = token.nickname as string | null;
       }
       return session;
     },

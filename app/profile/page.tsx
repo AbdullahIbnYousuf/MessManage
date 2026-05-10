@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import { signOut } from "@/lib/auth";
+import NicknameForm from "./nickname-form";
 
 export const metadata = {
   title: "Profile — MealSync",
@@ -53,6 +54,8 @@ export default async function ProfilePage() {
               <span className="text-muted">Google OAuth</span>
               <span className="badge badge-success">Connected</span>
             </div>
+            
+            <NicknameForm initialNickname={user.nickname} />
           </div>
         </div>
 

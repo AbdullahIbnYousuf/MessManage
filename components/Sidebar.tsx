@@ -178,10 +178,10 @@ export default function Sidebar({ user }: { user: SessionUser }) {
             className="hover:bg-[var(--color-bg-elevated)]"
           >
             {user.avatarUrl ? (
-              <Image src={user.avatarUrl} alt={user.name} width={32} height={32} className="avatar avatar-sm" />
+              <Image src={user.avatarUrl} alt={user.nickname || user.name} width={32} height={32} className="avatar avatar-sm" />
             ) : (
               <div className="avatar-fallback" style={{ width: 32, height: 32, fontSize: "0.75rem" }}>
-                {user.name.charAt(0).toUpperCase()}
+                {(user.nickname || user.name).charAt(0).toUpperCase()}
               </div>
             )}
             <div style={{ flex: 1, overflow: "hidden" }}>
@@ -195,7 +195,7 @@ export default function Sidebar({ user }: { user: SessionUser }) {
                   whiteSpace: "nowrap",
                 }}
               >
-                {user.name}
+                {user.nickname || user.name}
               </div>
               <div style={{ fontSize: "0.6875rem", color: "var(--color-text-muted)", textTransform: "capitalize" }}>
                 {user.role}
@@ -295,14 +295,14 @@ export default function Sidebar({ user }: { user: SessionUser }) {
               style={{ display: "flex", alignItems: "center", gap: "1rem", textDecoration: "none" }}
             >
               {user.avatarUrl ? (
-                <Image src={user.avatarUrl} alt={user.name} width={40} height={40} className="avatar avatar-md" />
+                <Image src={user.avatarUrl} alt={user.nickname || user.name} width={40} height={40} className="avatar avatar-md" />
               ) : (
                 <div className="avatar-fallback" style={{ width: 40, height: 40, fontSize: "1rem" }}>
-                  {user.name.charAt(0).toUpperCase()}
+                  {(user.nickname || user.name).charAt(0).toUpperCase()}
                 </div>
               )}
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: "1rem", fontWeight: 600, color: "var(--color-text-primary)" }}>{user.name}</div>
+                <div style={{ fontSize: "1rem", fontWeight: 600, color: "var(--color-text-primary)" }}>{user.nickname || user.name}</div>
                 <div style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", textTransform: "capitalize" }}>{user.role}</div>
               </div>
             </Link>

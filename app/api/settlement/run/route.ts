@@ -27,7 +27,7 @@ export async function POST() {
     }
 
     const members = await db.user.findMany({
-      select: { id: true, name: true, avatarUrl: true },
+      select: { id: true, name: true, nickname: true, avatarUrl: true },
     });
 
     // Gather all the same aggregates as the balance route
@@ -78,7 +78,7 @@ export async function POST() {
       const mealCost = mealRate ? mealRate.mul(userMeals) : ZERO;
       return {
         userId: m.id,
-        name: m.name,
+        name: m.nickname || m.name,
         avatarUrl: m.avatarUrl,
         balance: computeNetBalance({
           totalBazarSpend: bazarMap.get(m.id) ?? ZERO,

@@ -17,7 +17,7 @@ export async function GET() {
     // Today's meals — all active members
     const members = await db.user.findMany({
       where: { status: "active" },
-      select: { id: true, name: true, avatarUrl: true },
+      select: { id: true, name: true, nickname: true, avatarUrl: true },
       orderBy: { name: "asc" },
     });
 
@@ -33,7 +33,8 @@ export async function GET() {
 
     const todayMeals = members.map((m) => ({
       userId: m.id,
-      name: m.name,
+      name: m.nickname || m.name, // Use nickname if available, fallback to name
+      nickname: m.nickname,
       avatarUrl: m.avatarUrl,
       mealCount: mealCountMap.get(m.id) ?? 0,
     }));
@@ -45,8 +46,8 @@ export async function GET() {
       include: {
         activeTrip: {
           include: {
-            assignee1: { select: { id: true, name: true, avatarUrl: true } },
-            assignee2: { select: { id: true, name: true, avatarUrl: true } },
+            assignee1: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
+            assignee2: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
           },
         },
       },
@@ -58,8 +59,8 @@ export async function GET() {
           status: config.activeTrip.status,
           triggeredAt: config.activeTrip.triggeredAt.toISOString(),
           shoppingNotes: config.activeTrip.shoppingNotes,
-          assignee1: config.activeTrip.assignee1,
-          assignee2: config.activeTrip.assignee2,
+          assignee1: config.activeTrip.assignee1 ? { ...config.activeTrip.assignee1, name: config.activeTrip.assignee1.nickname || config.activeTrip.assignee1.name } : null,
+          assignee2: config.activeTrip.assignee2 ? { ...config.activeTrip.assignee2, name: config.activeTrip.assignee2.nickname || config.activeTrip.assignee2.name } : null,
         }
       : null;
 

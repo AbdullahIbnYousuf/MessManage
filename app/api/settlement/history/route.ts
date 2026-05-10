@@ -9,8 +9,8 @@ export async function GET() {
 
     const settlements = await db.monthlySettlement.findMany({
       include: {
-        fromUser: { select: { id: true, name: true, avatarUrl: true } },
-        toUser: { select: { id: true, name: true, avatarUrl: true } },
+        fromUser: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
+        toUser: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
       },
       orderBy: { month: "desc" },
     });
@@ -29,8 +29,8 @@ export async function GET() {
         settledAt: rows[0]!.settledAt.toISOString(),
         transfers: rows.map((r) => ({
           id: r.id,
-          fromUser: r.fromUser,
-          toUser: r.toUser,
+          fromUser: { ...r.fromUser, name: r.fromUser.nickname || r.fromUser.name },
+          toUser: { ...r.toUser, name: r.toUser.nickname || r.toUser.name },
           amount: r.amount.toFixed(2),
         })),
       })),

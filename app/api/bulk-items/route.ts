@@ -13,7 +13,7 @@ export async function GET() {
         cycles: {
           where: { status: "active" },
           include: {
-            purchasedBy: { select: { id: true, name: true, avatarUrl: true } },
+            purchasedBy: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
           },
           take: 1,
         },
@@ -35,7 +35,7 @@ export async function GET() {
                 cost: active.cost.toFixed(2),
                 purchaseDate: active.purchaseDate.toISOString().slice(0, 10),
                 startedAt: active.startedAt.toISOString(),
-                purchasedBy: active.purchasedBy,
+                purchasedBy: { ...active.purchasedBy, name: active.purchasedBy.nickname || active.purchasedBy.name },
               }
             : null,
         };

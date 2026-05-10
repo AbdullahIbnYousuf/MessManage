@@ -774,6 +774,40 @@ npx eslint .
 ```
 
 ---
+## Design System
+
+Font: Inter (Google Fonts)
+Base unit: 4px
+
+Colors:
+  background:       #F9F7F4
+  surface:          #FFFFFF
+  border:           #E5E1DC
+  text-primary:     #1A1814
+  text-secondary:   #6B6560
+  text-muted:       #A09A94
+  brand:            #1A6B5A
+  brand-hover:      #155749
+  brand-light:      #EAF4F1
+  positive:         #1E7B45
+  positive-bg:      #EDFAF3
+  negative:         #C0392B
+  negative-bg:      #FDF0EE
+  warning:          #D4860B
+  warning-bg:       #FEF7EC
+  locked:           #8E9AAB
+
+Rules:
+  - Never use red for anything except negative balance and errors
+  - Never use green for anything except positive balance and success
+  - Money amounts always use font-variant-numeric: tabular-nums
+  - Max content width: 768px centred
+  - All cards: white bg, 8px radius, 1px border #E5E1DC, 16px padding
+  - Mobile first — design for 390px width first
+
+```
+
+---
 
 *This file is the agent instruction layer.
 ProjectRequirements.md and System1DataModel.md are the domain knowledge layer.
