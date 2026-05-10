@@ -71,8 +71,12 @@ export default function BulkItemsClient() {
             Track gas, rice, and other bulk purchases across their full usage cycle.
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAddForm(true)}>
-          + Add Item
+        <button 
+          className="btn btn-ghost btn-sm text-muted" 
+          onClick={() => setShowAddForm(true)}
+          style={{ fontWeight: 400 }}
+        >
+          + Add custom item
         </button>
       </div>
 
