@@ -66,10 +66,12 @@ export async function POST() {
     const maidChargeRows = await db.maidCharge.groupBy({ by: ["userId"], _sum: { amount: true } });
     const maidPaymentRows = await db.maidPayment.groupBy({ by: ["paidById"], _sum: { amount: true } });
     const bulkAllocRows = await db.bulkAllocation.groupBy({ by: ["userId"], _sum: { amount: true } });
+    const bulkPurchaseRows = await db.bulkCycle.groupBy({ by: ["purchasedById"], _sum: { cost: true } });
 
     const maidChargeMap = new Map(maidChargeRows.map((r) => [r.userId, new Decimal(r._sum.amount?.toString() ?? "0")]));
     const maidPaymentMap = new Map(maidPaymentRows.map((r) => [r.paidById, new Decimal(r._sum.amount?.toString() ?? "0")]));
     const bulkAllocMap = new Map(bulkAllocRows.map((r) => [r.userId, new Decimal(r._sum.amount?.toString() ?? "0")]));
+    const bulkPurchaseMap = new Map(bulkPurchaseRows.map((r) => [r.purchasedById, new Decimal(r._sum.cost?.toString() ?? "0")]));
 
     const ZERO = new Decimal(0);
 
@@ -83,6 +85,7 @@ export async function POST() {
         balance: computeNetBalance({
           totalBazarSpend: bazarMap.get(m.id) ?? ZERO,
           totalMaidPayments: maidPaymentMap.get(m.id) ?? ZERO,
+          totalBulkPurchases: bulkPurchaseMap.get(m.id) ?? ZERO,
           totalMealCost: mealCost,
           totalMaidCharges: maidChargeMap.get(m.id) ?? ZERO,
           totalBulkAllocations: bulkAllocMap.get(m.id) ?? ZERO,

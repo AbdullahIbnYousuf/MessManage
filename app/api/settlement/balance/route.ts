@@ -73,12 +73,19 @@ export async function GET() {
     });
     const maidPaymentMap = new Map(maidPaymentRows.map((r) => [r.paidById, new Decimal(r._sum.amount?.toString() ?? "0")]));
 
-    // Bulk allocations
+    // Bulk allocations (consumed)
     const bulkAllocRows = await db.bulkAllocation.groupBy({
       by: ["userId"],
       _sum: { amount: true },
     });
     const bulkAllocMap = new Map(bulkAllocRows.map((r) => [r.userId, new Decimal(r._sum.amount?.toString() ?? "0")]));
+
+    // Bulk purchases (contributed)
+    const bulkPurchaseRows = await db.bulkCycle.groupBy({
+      by: ["purchasedById"],
+      _sum: { cost: true },
+    });
+    const bulkPurchaseMap = new Map(bulkPurchaseRows.map((r) => [r.purchasedById, new Decimal(r._sum.cost?.toString() ?? "0")]));
 
     const ZERO = new Decimal(0);
 
@@ -89,6 +96,7 @@ export async function GET() {
       const balance = computeNetBalance({
         totalBazarSpend: bazarMap.get(m.id) ?? ZERO,
         totalMaidPayments: maidPaymentMap.get(m.id) ?? ZERO,
+        totalBulkPurchases: bulkPurchaseMap.get(m.id) ?? ZERO,
         totalMealCost: mealCost,
         totalMaidCharges: maidChargeMap.get(m.id) ?? ZERO,
         totalBulkAllocations: bulkAllocMap.get(m.id) ?? ZERO,
@@ -103,6 +111,7 @@ export async function GET() {
         breakdown: {
           bazarContributed: (bazarMap.get(m.id) ?? ZERO).toFixed(2),
           maidPayments: (maidPaymentMap.get(m.id) ?? ZERO).toFixed(2),
+          bulkPurchases: (bulkPurchaseMap.get(m.id) ?? ZERO).toFixed(2),
           mealCost: mealCost.toFixed(2),
           maidCharge: (maidChargeMap.get(m.id) ?? ZERO).toFixed(2),
           bulkAllocations: (bulkAllocMap.get(m.id) ?? ZERO).toFixed(2),

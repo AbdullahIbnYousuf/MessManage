@@ -76,10 +76,11 @@ export function computeSettlement(balances: BalanceEntry[]): SettlementTransfer[
 /**
  * Computes net balance for a single user.
  *
- * Formula (from agents.md Rule 5):
+ * Formula:
  *   Net Balance =
  *     sum(BazarExpense.amount)
  *     + sum(MaidPayment.amount)
+ *     + sum(BulkCycle.cost)
  *     - sum(MealRecord.meal_count × meal_rate)
  *     - sum(MaidCharge.amount)
  *     - sum(BulkAllocation.amount)
@@ -87,12 +88,14 @@ export function computeSettlement(balances: BalanceEntry[]): SettlementTransfer[
 export function computeNetBalance(params: {
   totalBazarSpend: Decimal;
   totalMaidPayments: Decimal;
+  totalBulkPurchases: Decimal;
   totalMealCost: Decimal;   // meal_count × meal_rate already computed by caller
   totalMaidCharges: Decimal;
   totalBulkAllocations: Decimal;
 }): Decimal {
   return params.totalBazarSpend
     .add(params.totalMaidPayments)
+    .add(params.totalBulkPurchases)
     .sub(params.totalMealCost)
     .sub(params.totalMaidCharges)
     .sub(params.totalBulkAllocations);

@@ -13,6 +13,7 @@ interface BalanceEntry {
   breakdown: {
     bazarContributed: string;
     maidPayments: string;
+    bulkPurchases: string;
     mealCost: string;
     maidCharge: string;
     bulkAllocations: string;
@@ -148,6 +149,7 @@ export default function SettlementClient({ isAdmin }: Props) {
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.375rem" }}>
                           <span className="text-secondary">Bazar contributed:</span><span style={{ color: "var(--color-success)", textAlign: "right" }}>+৳{parseFloat(b.breakdown.bazarContributed).toLocaleString()}</span>
                           <span className="text-secondary">Maid payments:</span><span style={{ color: "var(--color-success)", textAlign: "right" }}>+৳{parseFloat(b.breakdown.maidPayments).toLocaleString()}</span>
+                          <span className="text-secondary">Bulk purchases:</span><span style={{ color: "var(--color-success)", textAlign: "right" }}>+৳{parseFloat(b.breakdown.bulkPurchases).toLocaleString()}</span>
                           <span className="text-secondary">Meal cost:</span><span style={{ color: "var(--color-danger)", textAlign: "right" }}>−৳{parseFloat(b.breakdown.mealCost).toLocaleString()}</span>
                           <span className="text-secondary">Maid charge:</span><span style={{ color: "var(--color-danger)", textAlign: "right" }}>−৳{parseFloat(b.breakdown.maidCharge).toLocaleString()}</span>
                           <span className="text-secondary">Bulk allocations:</span><span style={{ color: "var(--color-danger)", textAlign: "right" }}>−৳{parseFloat(b.breakdown.bulkAllocations).toLocaleString()}</span>
