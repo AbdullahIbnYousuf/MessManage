@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   title: "MealSync — Household Meal & Expense Manager",
   description:
     "Shared meal tracking, bazar management, and expense settlement for household groups",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default async function RootLayout({
