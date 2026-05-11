@@ -17,5 +17,5 @@ export default async function DashboardPage() {
     select: { nickname: true },
   });
 
-  return <DashboardClient name={sessionUser.name} nickname={dbUser?.nickname ?? null} />;
+  return <DashboardClient userId={sessionUser.id} name={sessionUser.name} nickname={dbUser?.nickname ?? null} />;
 }

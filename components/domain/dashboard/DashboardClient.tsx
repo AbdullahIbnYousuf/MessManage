@@ -30,20 +30,40 @@ interface DashboardData {
 }
 
 interface Props {
+  userId: string;
   name: string;
   nickname: string | null;
 }
 
-export default function DashboardClient({ name, nickname }: Props) {
+export default function DashboardClient({ userId, name, nickname }: Props) {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [balance, setBalance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/dashboard");
-    const json = await res.json() as { data?: DashboardData };
-    setData(json.data ?? null);
-    setLoading(false);
-  }, []);
+    try {
+      const [res, balRes] = await Promise.all([
+        fetch("/api/dashboard"),
+        fetch("/api/settlement/balance")
+      ]);
+      
+      const json = await res.json() as { data?: DashboardData };
+      const balJson = await balRes.json() as { data?: { balances: Array<{ userId: string, balance: string }> } };
+      
+      setData(json.data ?? null);
+      
+      if (balJson.data?.balances) {
+        const myBal = balJson.data.balances.find((b) => b.userId === userId);
+        if (myBal) {
+          setBalance(myBal.balance);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -113,6 +133,29 @@ export default function DashboardClient({ name, nickname }: Props) {
               ))}
             </div>
           </div>
+
+          {/* My Balance Card */}
+          {balance !== null && (
+            <div className="card" style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "space-between", 
+              background: "linear-gradient(to right, var(--color-bg-elevated), rgba(59,130,246,0.05))",
+              borderLeft: "4px solid var(--color-primary)" 
+            }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: "1rem", color: "var(--color-text-primary)" }}>My Balance</div>
+                <div style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", marginTop: "0.2rem" }}>Current month net settlement</div>
+              </div>
+              <div style={{ 
+                fontSize: "1.75rem", 
+                fontWeight: 800, 
+                color: parseFloat(balance) >= 0 ? "var(--color-primary-light)" : "var(--color-warning)" 
+              }}>
+                {parseFloat(balance) >= 0 ? "+" : ""}৳{Math.abs(parseFloat(balance)).toFixed(2)}
+              </div>
+            </div>
+          )}
 
           {/* Monthly stats row */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem" }}>
