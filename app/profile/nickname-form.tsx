@@ -6,11 +6,15 @@ import { updateNickname } from "./actions";
 export default function NicknameForm({ initialNickname }: { initialNickname: string | null }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "1rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.875rem" }}>
-        <span className="text-muted">Nickname</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <span className="text-muted">Nickname</span>
+          {success && <span className="badge badge-success">Saved!</span>}
+        </div>
         {!isEditing && (
           <button 
             type="button" 
@@ -31,9 +35,12 @@ export default function NicknameForm({ initialNickname }: { initialNickname: str
         <form 
           action={async (formData) => {
             setIsPending(true);
+            setSuccess(false);
             try {
               await updateNickname(formData);
               setIsEditing(false);
+              setSuccess(true);
+              setTimeout(() => setSuccess(false), 3000);
             } finally {
               setIsPending(false);
             }

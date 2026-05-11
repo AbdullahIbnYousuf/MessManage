@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import { signOut } from "@/lib/auth";
+import { db } from "@/lib/db";
 import NicknameForm from "./nickname-form";
 
 export const metadata = {
@@ -8,8 +9,15 @@ export const metadata = {
 };
 
 export default async function ProfilePage() {
-  const user = await getSessionUser();
-  if (!user) redirect("/auth/login");
+  const sessionUser = await getSessionUser();
+  if (!sessionUser) redirect("/auth/login");
+
+  const dbUser = await db.user.findUnique({
+    where: { id: sessionUser.id },
+    select: { nickname: true },
+  });
+
+  const user = { ...sessionUser, nickname: dbUser?.nickname ?? null };
 
   return (
     <div className="page-container">
