@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
+import { db } from "@/lib/db";
 import DashboardClient from "@/components/domain/dashboard/DashboardClient";
 
 export const metadata = {
@@ -8,7 +9,13 @@ export const metadata = {
 };
 
 export default async function DashboardPage() {
-  const user = await getSessionUser();
-  if (!user) redirect("/auth/login");
-  return <DashboardClient userName={user.nickname || user.name} />;
+  const sessionUser = await getSessionUser();
+  if (!sessionUser) redirect("/auth/login");
+
+  const dbUser = await db.user.findUnique({
+    where: { id: sessionUser.id },
+    select: { nickname: true },
+  });
+
+  return <DashboardClient name={sessionUser.name} nickname={dbUser?.nickname ?? null} />;
 }

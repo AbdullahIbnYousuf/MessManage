@@ -30,10 +30,11 @@ interface DashboardData {
 }
 
 interface Props {
-  userName: string;
+  name: string;
+  nickname: string | null;
 }
 
-export default function DashboardClient({ userName }: Props) {
+export default function DashboardClient({ name, nickname }: Props) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -47,13 +48,14 @@ export default function DashboardClient({ userName }: Props) {
   useEffect(() => { void load(); }, [load]);
 
   const monthName = new Date().toLocaleString("en-US", { month: "long", year: "numeric" });
+  const displayName = nickname ? nickname : name.split(" ")[0];
 
   return (
     <div className="page-container">
       {/* Header */}
       <div style={{ marginBottom: "2rem" }}>
         <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>
-          Welcome back, {userName.split(" ")[0]}! 👋
+          Welcome back, {displayName}! 👋
         </h1>
         <p className="text-secondary" style={{ fontSize: "0.875rem" }}>{monthName}</p>
       </div>

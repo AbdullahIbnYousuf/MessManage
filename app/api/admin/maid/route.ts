@@ -12,9 +12,9 @@ export async function POST() {
     const monthKey = currentMonthKey();
     const monthDate = new Date(monthKey);
 
-    // Check if charges already applied this month
+    // Check if charges > 0 already applied this month
     const existing = await db.maidCharge.findFirst({
-      where: { month: monthDate },
+      where: { month: monthDate, amount: { gt: 0 } },
     });
 
     if (existing) {
@@ -23,6 +23,11 @@ export async function POST() {
         { status: 400 }
       );
     }
+
+    // Delete any existing 0-amount charges so we can recreate them
+    await db.maidCharge.deleteMany({
+      where: { month: monthDate, amount: 0 }
+    });
 
     const config = await db.systemConfig.findFirst();
     const defaultCharge = new Decimal(config?.maidChargeDefault.toString() ?? "700");
