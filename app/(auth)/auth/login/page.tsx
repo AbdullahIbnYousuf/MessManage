@@ -1,4 +1,5 @@
 import { signIn } from "@/lib/auth";
+import Image from "next/image";
 
 export const metadata = {
   title: "Sign In — MealSync",
@@ -44,20 +45,18 @@ export default function LoginPage() {
         {/* Logo */}
         <div
           style={{
-            width: 52,
-            height: 52,
+            width: 64,
+            height: 64,
             borderRadius: "14px",
-            background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             margin: "0 auto 1.25rem",
+            overflow: "hidden",
             boxShadow: "0 0 24px var(--color-primary-glow)",
           }}
         >
-          <svg width="26" height="26" fill="white" viewBox="0 0 24 24">
-            <path d="M12 3C6.48 3 2 6.58 2 11c0 2.42 1.28 4.59 3.34 6.06L4 21l4.35-2.17C9.39 19.27 10.66 19.5 12 19.5c5.52 0 10-3.58 10-8.5S17.52 3 12 3z" />
-          </svg>
+          <Image src="/logo.png" alt="MealSync Logo" width={64} height={64} style={{ objectFit: "cover" }} />
         </div>
 
         <h1

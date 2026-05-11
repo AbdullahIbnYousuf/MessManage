@@ -100,19 +100,17 @@ export default function Sidebar({ user }: { user: SessionUser }) {
           <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
             <div
               style={{
-                width: 32,
-                height: 32,
+                width: 36,
+                height: 36,
                 borderRadius: "8px",
-                background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
+                overflow: "hidden"
               }}
             >
-              <svg width="18" height="18" fill="white" viewBox="0 0 24 24">
-                <path d="M12 3C6.48 3 2 6.58 2 11c0 2.42 1.28 4.59 3.34 6.06L4 21l4.35-2.17C9.39 19.27 10.66 19.5 12 19.5c5.52 0 10-3.58 10-8.5S17.52 3 12 3z" />
-              </svg>
+              <Image src="/logo.png" alt="MealSync Logo" width={36} height={36} style={{ objectFit: "cover" }} />
             </div>
             <span
               style={{
@@ -244,18 +242,16 @@ export default function Sidebar({ user }: { user: SessionUser }) {
             <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
               <div
                 style={{
-                  width: 32,
-                  height: 32,
+                  width: 36,
+                  height: 36,
                   borderRadius: "8px",
-                  background: "linear-gradient(135deg, var(--color-primary), var(--color-accent))",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  overflow: "hidden"
                 }}
               >
-                <svg width="18" height="18" fill="white" viewBox="0 0 24 24">
-                  <path d="M12 3C6.48 3 2 6.58 2 11c0 2.42 1.28 4.59 3.34 6.06L4 21l4.35-2.17C9.39 19.27 10.66 19.5 12 19.5c5.52 0 10-3.58 10-8.5S17.52 3 12 3z" />
-                </svg>
+                <Image src="/logo.png" alt="MealSync Logo" width={36} height={36} style={{ objectFit: "cover" }} />
               </div>
               <span className="gradient-text" style={{ fontWeight: 700, fontSize: "1.125rem" }}>MealSync</span>
             </div>
