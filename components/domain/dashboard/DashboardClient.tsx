@@ -177,7 +177,7 @@ export default function DashboardClient({ userId, name, nickname, isAlertPeriod,
                 fontWeight: 800, 
                 color: parseFloat(balance) >= 0 ? "var(--color-primary-light)" : "var(--color-warning)" 
               }}>
-                {parseFloat(balance) >= 0 ? "+" : ""}৳{Math.abs(parseFloat(balance)).toFixed(2)}
+                {parseFloat(balance) >= 0 ? "+" : "−"}৳{Math.abs(parseFloat(balance)).toFixed(2)}
               </div>
             </div>
           )}
