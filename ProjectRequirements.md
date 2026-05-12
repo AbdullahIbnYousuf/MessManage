@@ -48,7 +48,7 @@ Bazar represents what a person contributed to the system. Meals and shared costs
 | Bulk item allocation | - debit | User consumed a share of a bulk item |
 | Maid payment on behalf of group | + credit | User paid the maid for the whole group |
 
-- **Net Balance** = Bazar contributions + Maid payments made - Meal cost - Maid charge - Bulk item allocations. Always derived at query time, never stored. Positive = member is owed money. Negative = member owes money.
+- **Net Balance** = Bazar contributions + Maid payments made + Bulk purchases made - Meal cost - Maid charge - Bulk item allocations. Always derived at query time, never stored. Positive = member is owed money. Negative = member owes money.
 - Money sent and received between members belongs to System 2 only and does not affect the System 1 balance.
 
 ---
@@ -211,7 +211,7 @@ Visit count is always derived by counting completed bazar expense entries per us
 - Fixed monthly charge per active member. Does not depend on meal count.
 - Applied as a separate line item each month — never blended into the meal rate.
 - Default charge is 700 taka per member per month, stored in system configuration.
-- Admin can change the default. Changes affect the next month only — already-posted charges are never altered.
+- Admin can change the default. Changes do not automatically affect already-posted charges. However, admins have a "Reset Current Month Charges" action to delete and reapply charges for the current month based on the new rate.
 - Deactivated members are not charged for any month where they are fully deactivated.
 
 ### 7.2 Maid Payment
@@ -417,6 +417,7 @@ Since System 2 involves real money movement, the User entity includes optional c
 
 | Field | Type | Purpose |
 |---|---|---|
+| nickname | String, nullable | Preferred display name for the dashboard and leaderboards |
 | phone_number | String, nullable | Local phone number for contact |
 | bkash_number | String, nullable | bKash mobile banking number — often same as phone but not always |
 | bank_name | String, nullable | e.g. AB Bank, Dutch Bangla |

@@ -71,6 +71,7 @@ Represents every person in the household system — both regular members and adm
 | id | UUID | Primary key |
 | email | String, unique | Gmail address from Google OAuth |
 | name | String | Display name from Google profile |
+| nickname | String, nullable | Preferred display name for UI |
 | avatar_url | String, nullable | Profile photo URL from Google, optional |
 | role | Enum: member, admin | Multiple admins allowed |
 | status | Enum: active, deactivated | No pending state — pending lives in MembershipRequest |

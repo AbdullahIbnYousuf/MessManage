@@ -43,6 +43,26 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
     }
   }
 
+  async function handleReactivate() {
+    if (!confirm(`Reactivate ${member.name}? This will restore their future meal records.`)) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/members/${member.id}/reactivate`, { method: "POST" });
+      const json = await res.json() as { error?: string };
+      if (!res.ok) {
+        setError(json.error ?? "Something went wrong.");
+      } else {
+        setDeactivated(false);
+        onDeactivated(); // Note: could rename this to onStatusChanged but keeping it for simplicity
+      }
+    } catch {
+      setError("Network error.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const joinDate = new Date(member.joinedAt).toLocaleDateString("en-US", {
     month: "short",
     year: "numeric",
@@ -87,6 +107,16 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
             style={{ color: "var(--color-danger)" }}
           >
             {loading ? <span className="spinner" /> : "Deactivate"}
+          </button>
+        )}
+        {deactivated && member.id !== currentUserId && (
+          <button
+            className="btn btn-sm btn-ghost"
+            onClick={handleReactivate}
+            disabled={loading}
+            style={{ color: "var(--color-success)" }}
+          >
+            {loading ? <span className="spinner" /> : "Reactivate"}
           </button>
         )}
         {member.id === currentUserId && (

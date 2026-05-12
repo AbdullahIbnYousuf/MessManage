@@ -337,6 +337,7 @@ User allocation = Cost per meal × user's MealRecord.meal_count during cycle per
 Net Balance =
   sum(BazarExpense.amount for user)
   + sum(MaidPayment.amount for user)
+  + sum(BulkCycle.cost for user)
   - sum(MealRecord.meal_count for user × meal rate for that month)
   - sum(MaidCharge.amount for user)
   - sum(BulkAllocation.amount for user)
@@ -364,14 +365,15 @@ Read ProjectRequirements.md and System1DataModel.md for full context.
 These are the rules most likely to be broken by a code agent.
 
 ### Meal Rules
-- A MealRecord can only be edited on the exact same calendar day it represents
+- Future individual meal records (tomorrow onwards) can be edited directly without changing the global pattern.
+- Today's meal record can be edited directly before the admin-configurable `mealDeadline`.
+- After the deadline passes, today's meal can only be edited by submitting a `MealEditRequest`, which requires Admin approval.
 - After midnight, `is_locked = true` permanently. There is no override. Not for any admin. Not ever.
-- A MealEditRequest always references today's record only — never a past day
-- Pending MealEditRequests auto-expire at midnight — the cron job sets their status to `expired`
-- When a MealPattern changes, auto-update all future MealRecord rows from today onwards for
-  the current month. Past records are never touched.
-- There is exactly one MealPattern per user, updated in place. No history is kept.
-- A deactivated user's future MealRecords (from tomorrow onwards) are set to meal_count = 0
+- A `MealEditRequest` always references today's record only — never a past or future day.
+- Pending `MealEditRequests` auto-expire at midnight — the cron job sets their status to `expired`.
+- When a `MealPattern` changes, auto-update all future `MealRecord` rows from today onwards for the current month. Past records are never touched.
+- There is exactly one `MealPattern` per user, updated in place. No history is kept.
+- A deactivated user's future `MealRecords` (from tomorrow onwards) are set to meal_count = 0.
 
 ### Bazar Rules
 - Only one BazarTrip with status = open may exist at any time. Enforced via partial unique
@@ -398,7 +400,7 @@ These are the rules most likely to be broken by a code agent.
 ### Maid Rules
 - MaidCharge is a flat fee per active member per month. It does not depend on meal count.
 - MaidPayment is separate from BazarExpense and must never affect the meal rate.
-- Changing SystemConfig.maidChargeDefault does not affect already-posted MaidCharge rows.
+- Changing SystemConfig.maidChargeDefault does not automatically affect already-posted MaidCharge rows. Admins must use the "Reset Current Month Charges" action to delete and reapply charges for the current month based on the new rate.
 - Deactivated members do not receive a MaidCharge for months where they are fully deactivated.
 
 ### Settlement Rules
@@ -446,6 +448,7 @@ export type SessionUser = {
   id: string
   email: string
   name: string
+  nickname: string | null
   avatarUrl: string | null
   role: 'member' | 'admin'
   status: 'active' | 'deactivated'
