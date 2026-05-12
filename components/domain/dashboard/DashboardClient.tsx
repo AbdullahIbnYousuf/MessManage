@@ -33,9 +33,12 @@ interface Props {
   userId: string;
   name: string;
   nickname: string | null;
+  isAlertPeriod: boolean;
+  isPreviousMonthSettled: boolean;
+  previousMonthLabel: string;
 }
 
-export default function DashboardClient({ userId, name, nickname }: Props) {
+export default function DashboardClient({ userId, name, nickname, isAlertPeriod, isPreviousMonthSettled, previousMonthLabel }: Props) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [balance, setBalance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,6 +89,28 @@ export default function DashboardClient({ userId, name, nickname }: Props) {
         </div>
       ) : data ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          
+          {/* System Alert Banner */}
+          {isAlertPeriod && !isPreviousMonthSettled && (
+            <div style={{ 
+              background: "var(--color-warning-glow)", 
+              border: "1px solid rgba(245,158,11,0.3)", 
+              borderRadius: "var(--radius-md)", 
+              padding: "1rem", 
+              color: "var(--color-warning-dark)", 
+              fontSize: "0.875rem",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "0.75rem"
+            }}>
+              <span style={{ fontSize: "1.25rem" }}>⚠️</span>
+              <div>
+                <strong style={{ display: "block", marginBottom: "0.25rem", color: "var(--color-warning)" }}>Auto-settlement Incoming</strong>
+                Auto-settlement for {previousMonthLabel} will run on the 5th. Please resolve any pending issues.
+              </div>
+            </div>
+          )}
+
           {/* Today's meal table — maid view (MOVED TO TOP) */}
           <div className="card" style={{ border: "1px solid var(--color-primary-glow)", boxShadow: "0 0 20px rgba(59,130,246,0.05)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
