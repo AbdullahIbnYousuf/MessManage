@@ -1,29 +1,31 @@
-// POST /api/settlement/run — run month-end settlement (admin only)
+// GET /api/cron/auto-settle — cron job to automatically run month-end settlement
+// Runs on the 5th of every month. Settles the *previous* calendar month.
 
-import { requireAdmin } from "@/lib/session";
 import { db } from "@/lib/db";
 import { computeSettlement, computeNetBalance, type BalanceEntry } from "@/lib/domain/settlement";
 import { computeMealRate } from "@/lib/domain/meal";
-import { today, currentMonthStart, currentMonthEnd, currentMonthKey, isDeadlinePassed } from "@/lib/utils/dates";
+import { previousMonthKey, previousMonthStart, previousMonthEnd } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 import { sum } from "@/lib/utils/decimal";
 
-export async function POST() {
+export async function GET(request: Request) {
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return Response.json({ error: "Unauthorised" }, { status: 401 });
+  }
+
   try {
-    await requireAdmin();
-
-    const monthKey = currentMonthKey();
+    const monthKey = previousMonthKey();
     const monthDate = new Date(monthKey);
-    const todayDate = new Date(today());
-    const monthStart = currentMonthStart();
-    const monthEnd = currentMonthEnd();
+    const monthStart = previousMonthStart();
+    const monthEnd = previousMonthEnd();
 
-    // Block duplicate settlement
+    // Block duplicate settlement — skip silently if already settled (idempotent)
     const existing = await db.monthlySettlement.findFirst({
       where: { month: monthDate },
     });
     if (existing) {
-      return Response.json({ error: "This month has already been settled." }, { status: 400 });
+      return Response.json({ message: "Already settled for the previous month." });
     }
 
     const members = await db.user.findMany({
@@ -37,23 +39,10 @@ export async function POST() {
       _sum: { amount: true },
     });
 
-    const config = await db.systemConfig.findFirst({
-      select: { mealDeadline: true },
-    });
-    const deadlineStr = config?.mealDeadline ?? "11:00";
-    const passed = isDeadlinePassed(deadlineStr);
-
-    const mealCondition = {
-      date: { gte: monthStart, lte: monthEnd },
-      OR: [
-        { date: passed ? { lte: todayDate } : { lt: todayDate } },
-        { isLocked: true },
-      ],
-    };
-
+    // Meals (since it's the previous month, all days are past the deadline and locked, so we just use the date filter)
     const mealRows = await db.mealRecord.groupBy({
       by: ["userId"],
-      where: mealCondition,
+      where: { date: { gte: monthStart, lte: monthEnd } },
       _sum: { mealCount: true },
     });
 
@@ -61,25 +50,27 @@ export async function POST() {
     const totalMonthMeals = mealRows.reduce((s, r) => s + (r._sum.mealCount ?? 0), 0);
     const mealRate = computeMealRate(totalMonthBazar, totalMonthMeals);
 
-    const bazarMap = new Map(bazarSpendRows.map((r) => [r.userId, new Decimal(r._sum.amount?.toString() ?? "0")]));
-    const mealMap = new Map(mealRows.map((r) => [r.userId, r._sum.mealCount ?? 0]));
-
     const maidChargeRows = await db.maidCharge.groupBy({ by: ["userId"], where: { month: monthDate }, _sum: { amount: true } });
     const maidPaymentRows = await db.maidPayment.groupBy({ by: ["paidById"], where: { month: monthDate }, _sum: { amount: true } });
     const bulkAllocRows = await db.bulkAllocation.groupBy({ by: ["userId"], where: { allocatedAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } });
     const bulkPurchaseRows = await db.bulkCycle.groupBy({ by: ["purchasedById"], where: { finishedAt: { gte: monthStart, lte: monthEnd } }, _sum: { cost: true } });
+    const fridgePaymentRows = await db.fridgePayment.groupBy({ by: ["paidById"], where: { paidAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } });
+    const fridgeBills = await db.fridgeBill.findMany({ where: { postedAt: { gte: monthStart, lte: monthEnd } }, select: { perMemberAmount: true } });
 
+    // Block if no data to settle (e.g., app just deployed, or system inactive)
+    const hasData = totalMonthMeals > 0 || Number(totalMonthBazar) > 0 || maidChargeRows.length > 0 || fridgeBills.length > 0 || bulkPurchaseRows.length > 0;
+    if (!hasData) {
+      return Response.json({ message: "No data to settle for the previous month." });
+    }
+
+    const bazarMap = new Map(bazarSpendRows.map((r) => [r.userId, new Decimal(r._sum.amount?.toString() ?? "0")]));
+    const mealMap = new Map(mealRows.map((r) => [r.userId, r._sum.mealCount ?? 0]));
     const maidChargeMap = new Map(maidChargeRows.map((r) => [r.userId, new Decimal(r._sum.amount?.toString() ?? "0")]));
     const maidPaymentMap = new Map(maidPaymentRows.map((r) => [r.paidById, new Decimal(r._sum.amount?.toString() ?? "0")]));
     const bulkAllocMap = new Map(bulkAllocRows.map((r) => [r.userId, new Decimal(r._sum.amount?.toString() ?? "0")]));
     const bulkPurchaseMap = new Map(bulkPurchaseRows.map((r) => [r.purchasedById, new Decimal(r._sum.cost?.toString() ?? "0")]));
-
-    // Fridge payments (credited)
-    const fridgePaymentRows = await db.fridgePayment.groupBy({ by: ["paidById"], where: { paidAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } });
     const fridgePaymentMap = new Map(fridgePaymentRows.map((r) => [r.paidById, new Decimal(r._sum.amount?.toString() ?? "0")]));
 
-    // Fridge bill share (debited equally to all members)
-    const fridgeBills = await db.fridgeBill.findMany({ where: { postedAt: { gte: monthStart, lte: monthEnd } }, select: { perMemberAmount: true } });
     const totalFridgeBillShare = fridgeBills.reduce(
       (s, b) => s.add(new Decimal(b.perMemberAmount.toString())),
       new Decimal(0)
@@ -121,21 +112,9 @@ export async function POST() {
       })),
     });
 
-    return Response.json({
-      data: {
-        month: monthKey,
-        transfers: transfers.map((t) => ({
-          fromUserId: t.fromUserId,
-          fromUserName: t.fromUserName,
-          toUserId: t.toUserId,
-          toUserName: t.toUserName,
-          amount: t.amount.toFixed(2),
-        })),
-      },
-    });
+    return Response.json({ message: "Auto-settlement completed successfully.", transfers });
   } catch (err) {
-    if (err instanceof Response) return err;
     console.error(err);
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return Response.json({ error: "Something went wrong." }, { status: 500 });
   }
 }

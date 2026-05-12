@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
 import { computeNetBalance } from "@/lib/domain/settlement";
 import { computeMealRate } from "@/lib/domain/meal";
-import { today, currentMonthStart, currentMonthEnd, isDeadlinePassed } from "@/lib/utils/dates";
+import { today, currentMonthStart, currentMonthEnd, currentMonthKey, isDeadlinePassed } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 import { sum } from "@/lib/utils/decimal";
 
@@ -59,9 +59,12 @@ export async function GET() {
     const bazarMap = new Map(bazarSpendRows.map((r) => [r.userId, new Decimal(r._sum.amount?.toString() ?? "0")]));
     const mealMap = new Map(mealRows.map((r) => [r.userId, r._sum.mealCount ?? 0]));
 
+    const monthDate = new Date(currentMonthKey());
+
     // Maid charges
     const maidChargeRows = await db.maidCharge.groupBy({
       by: ["userId"],
+      where: { month: monthDate },
       _sum: { amount: true },
     });
     const maidChargeMap = new Map(maidChargeRows.map((r) => [r.userId, new Decimal(r._sum.amount?.toString() ?? "0")]));
@@ -69,6 +72,7 @@ export async function GET() {
     // Maid payments
     const maidPaymentRows = await db.maidPayment.groupBy({
       by: ["paidById"],
+      where: { month: monthDate },
       _sum: { amount: true },
     });
     const maidPaymentMap = new Map(maidPaymentRows.map((r) => [r.paidById, new Decimal(r._sum.amount?.toString() ?? "0")]));
@@ -76,6 +80,7 @@ export async function GET() {
     // Bulk allocations (consumed)
     const bulkAllocRows = await db.bulkAllocation.groupBy({
       by: ["userId"],
+      where: { allocatedAt: { gte: monthStart, lte: monthEnd } },
       _sum: { amount: true },
     });
     const bulkAllocMap = new Map(bulkAllocRows.map((r) => [r.userId, new Decimal(r._sum.amount?.toString() ?? "0")]));
@@ -83,6 +88,7 @@ export async function GET() {
     // Bulk purchases (contributed)
     const bulkPurchaseRows = await db.bulkCycle.groupBy({
       by: ["purchasedById"],
+      where: { finishedAt: { gte: monthStart, lte: monthEnd } },
       _sum: { cost: true },
     });
     const bulkPurchaseMap = new Map(bulkPurchaseRows.map((r) => [r.purchasedById, new Decimal(r._sum.cost?.toString() ?? "0")]));
@@ -90,12 +96,14 @@ export async function GET() {
     // Fridge payments (credited to payer)
     const fridgePaymentRows = await db.fridgePayment.groupBy({
       by: ["paidById"],
+      where: { paidAt: { gte: monthStart, lte: monthEnd } },
       _sum: { amount: true },
     });
     const fridgePaymentMap = new Map(fridgePaymentRows.map((r) => [r.paidById, new Decimal(r._sum.amount?.toString() ?? "0")]));
 
-    // Fridge bill share — same debit for every member per posted bill
+    // Fridge bill share — same debit for every member per posted bill this month
     const fridgeBills = await db.fridgeBill.findMany({
+      where: { postedAt: { gte: monthStart, lte: monthEnd } },
       select: { perMemberAmount: true },
     });
     const totalFridgeBillShare = fridgeBills.reduce(
