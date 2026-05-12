@@ -80,23 +80,29 @@ export function computeSettlement(balances: BalanceEntry[]): SettlementTransfer[
  *   Net Balance =
  *     sum(BazarExpense.amount)
  *     + sum(MaidPayment.amount)
+ *     + sum(FridgePayment.amount)
  *     + sum(BulkCycle.cost)
  *     - sum(MealRecord.meal_count × meal_rate)
  *     - sum(MaidCharge.amount)
+ *     - sum(FridgeBill.per_member_amount)
  *     - sum(BulkAllocation.amount)
  */
 export function computeNetBalance(params: {
   totalBazarSpend: Decimal;
   totalMaidPayments: Decimal;
+  totalFridgePayments: Decimal;
   totalBulkPurchases: Decimal;
   totalMealCost: Decimal;   // meal_count × meal_rate already computed by caller
   totalMaidCharges: Decimal;
+  totalFridgeBillShare: Decimal;
   totalBulkAllocations: Decimal;
 }): Decimal {
   return params.totalBazarSpend
     .add(params.totalMaidPayments)
+    .add(params.totalFridgePayments)
     .add(params.totalBulkPurchases)
     .sub(params.totalMealCost)
     .sub(params.totalMaidCharges)
+    .sub(params.totalFridgeBillShare)
     .sub(params.totalBulkAllocations);
 }

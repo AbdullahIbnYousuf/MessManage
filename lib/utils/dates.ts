@@ -52,10 +52,34 @@ export function currentMonthEnd(): Date {
 
 /**
  * Returns the first day of the current month as a YYYY-MM-DD string.
- * Used as month reference keys (e.g. MaidCharge.month, MonthlySettlement.month).
+ * Used as month reference keys (e.g. MaidCharge.month, MonthlySettlement.month)
  */
 export function currentMonthKey(): string {
   return toDateString(currentMonthStart());
+}
+
+/**
+ * Returns the first day of the previous calendar month as a Date (local midnight).
+ */
+export function previousMonthStart(): Date {
+  const now = new Date();
+  return firstDayOfMonth(now.getFullYear(), now.getMonth()); // getMonth() is 0-indexed = previous month
+}
+
+/**
+ * Returns the last day of the previous calendar month as a Date (local midnight).
+ */
+export function previousMonthEnd(): Date {
+  const now = new Date();
+  return lastDayOfMonth(now.getFullYear(), now.getMonth()); // getMonth() is 0-indexed = previous month
+}
+
+/**
+ * Returns the first day of the previous month as a YYYY-MM-DD string.
+ * Used as the month key for FridgeBill.
+ */
+export function previousMonthKey(): string {
+  return toDateString(previousMonthStart());
 }
 
 /**

@@ -30,7 +30,7 @@ export async function POST() {
       select: { id: true, name: true, nickname: true, avatarUrl: true },
     });
 
-    // Gather all the same aggregates as the balance route
+    // Bazar spend
     const bazarSpendRows = await db.bazarExpense.groupBy({
       by: ["userId"],
       where: { date: { gte: monthStart, lte: monthEnd } },
@@ -56,6 +56,7 @@ export async function POST() {
       where: mealCondition,
       _sum: { mealCount: true },
     });
+
     const totalMonthBazar = sum(bazarSpendRows.map((r) => r._sum.amount?.toString() ?? "0"));
     const totalMonthMeals = mealRows.reduce((s, r) => s + (r._sum.mealCount ?? 0), 0);
     const mealRate = computeMealRate(totalMonthBazar, totalMonthMeals);
@@ -73,6 +74,17 @@ export async function POST() {
     const bulkAllocMap = new Map(bulkAllocRows.map((r) => [r.userId, new Decimal(r._sum.amount?.toString() ?? "0")]));
     const bulkPurchaseMap = new Map(bulkPurchaseRows.map((r) => [r.purchasedById, new Decimal(r._sum.cost?.toString() ?? "0")]));
 
+    // Fridge payments (credited)
+    const fridgePaymentRows = await db.fridgePayment.groupBy({ by: ["paidById"], _sum: { amount: true } });
+    const fridgePaymentMap = new Map(fridgePaymentRows.map((r) => [r.paidById, new Decimal(r._sum.amount?.toString() ?? "0")]));
+
+    // Fridge bill share (debited equally to all members)
+    const fridgeBills = await db.fridgeBill.findMany({ select: { perMemberAmount: true } });
+    const totalFridgeBillShare = fridgeBills.reduce(
+      (s, b) => s.add(new Decimal(b.perMemberAmount.toString())),
+      new Decimal(0)
+    );
+
     const ZERO = new Decimal(0);
 
     const balances: BalanceEntry[] = members.map((m) => {
@@ -85,9 +97,11 @@ export async function POST() {
         balance: computeNetBalance({
           totalBazarSpend: bazarMap.get(m.id) ?? ZERO,
           totalMaidPayments: maidPaymentMap.get(m.id) ?? ZERO,
+          totalFridgePayments: fridgePaymentMap.get(m.id) ?? ZERO,
           totalBulkPurchases: bulkPurchaseMap.get(m.id) ?? ZERO,
           totalMealCost: mealCost,
           totalMaidCharges: maidChargeMap.get(m.id) ?? ZERO,
+          totalFridgeBillShare,
           totalBulkAllocations: bulkAllocMap.get(m.id) ?? ZERO,
         }),
       };

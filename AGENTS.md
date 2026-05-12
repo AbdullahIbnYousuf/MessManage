@@ -3,7 +3,6 @@
 
 ## Source of Truth — Read These First
 
-@ProjectRequirements.md
 @System1DataModel.md
 
 Read both documents completely before writing any code or answering any question.
@@ -337,9 +336,11 @@ User allocation = Cost per meal × user's MealRecord.meal_count during cycle per
 Net Balance =
   sum(BazarExpense.amount for user)
   + sum(MaidPayment.amount for user)
-  + sum(BulkCycle.cost for user)
-  - sum(MealRecord.meal_count for user × meal rate for that month)
+  + sum(FridgePayment.amount for user)    
+  + sum(BulkPayment.amount for user)       
+  - sum(MealRecord.meal_count × meal rate for that month)
   - sum(MaidCharge.amount for user)
+  - sum(FridgeBill.per_member_amount for user)
   - sum(BulkAllocation.amount for user)
 ```
 Positive = member is owed money. Negative = member owes money.
@@ -361,7 +362,7 @@ Positive = member is owed money. Negative = member owes money.
 
 ## Business Rules the Agent Must Never Get Wrong
 
-Read ProjectRequirements.md and System1DataModel.md for full context.
+Read System1DataModel.md for full system 1 data model.
 These are the rules most likely to be broken by a code agent.
 
 ### Meal Rules
@@ -402,6 +403,17 @@ These are the rules most likely to be broken by a code agent.
 - MaidPayment is separate from BazarExpense and must never affect the meal rate.
 - Changing SystemConfig.maidChargeDefault does not automatically affect already-posted MaidCharge rows. Admins must use the "Reset Current Month Charges" action to delete and reapply charges for the current month based on the new rate.
 - Deactivated members do not receive a MaidCharge for months where they are fully deactivated.
+
+### Fridge Bill Rules
+- FridgeBill.month refers to the previous month being settled — not the current month
+- per_member_amount is calculated at posting time: total_amount ÷ count of all members
+  who were active at any point during the bill month
+- Deactivated members are included if they were active during the bill month — identical
+  behaviour to BulkAllocation
+- per_member_amount is a frozen snapshot — never recalculated after posting
+- Only one FridgeBill per month. Block duplicates at the application layer.
+- FridgePayment mirrors MaidPayment exactly — payer gets credit, all members carry their debit
+- FridgeBill never enters the meal rate formula
 
 ### Settlement Rules
 - A month can only be settled once. Block duplicate settlement at the application layer.
@@ -656,6 +668,10 @@ NEVER write business logic inside a route handler
 NEVER write database calls inside a domain function
 NEVER use the Pages Router — this project uses the App Router only
 NEVER use getServerSideProps or getStaticProps — they do not exist in App Router
+NEVER recalculate FridgeBill.per_member_amount after it has been posted
+NEVER post a FridgeBill for the current or a future month
+NEVER allow more than one FridgeBill per month
+NEVER blend FridgeBill cost into the meal rate formula
 ```
 
 ---
@@ -814,7 +830,7 @@ Rules:
 ---
 
 *This file is the agent instruction layer.
-ProjectRequirements.md and System1DataModel.md are the domain knowledge layer.
+System1DataModel.md are the domain knowledge layer.
 All three files together are what the agent needs to work correctly.*
 
 

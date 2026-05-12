@@ -84,6 +84,7 @@ model User {
   bulkAllocations     BulkAllocation[]
   maidCharges         MaidCharge[]
   maidPayments        MaidPayment[]
+  fridgePayments      FridgePayment[]
   settlementsFrom     MonthlySettlement[] @relation("SettlementFrom")
   settlementsTo       MonthlySettlement[] @relation("SettlementTo")
   reviewedMemberships MembershipRequest[] @relation("MembershipRequestReviewer")
@@ -91,6 +92,43 @@ model User {
   systemConfigUpdates SystemConfig[]
 
   @@map("User")
+}
+
+// ─── 15. FridgeBill ───────────────────────────────────────────────────────────
+// One bill per month (the previous month). Split equally among all members who
+// were active at any point during that month. per_member_amount is a frozen
+// snapshot calculated at posting time.
+
+model FridgeBill {
+  id              String   @id @default(uuid())
+  month           DateTime @db.Date
+  totalAmount     Decimal  @map("total_amount") @db.Decimal(12, 2)
+  perMemberAmount Decimal  @map("per_member_amount") @db.Decimal(12, 2)
+  memberCount     Int      @map("member_count")
+  postedAt        DateTime @map("posted_at")
+  postedById      String   @map("posted_by")
+
+  payments FridgePayment[]
+
+  @@unique([month])
+  @@map("FridgeBill")
+}
+
+// ─── 16. FridgePayment ────────────────────────────────────────────────────────
+// Records who paid the fridge electricity bill on behalf of the group.
+// Mirrors MaidPayment exactly — payer gets full amount credited, all members
+// carry their per_member_amount debit from FridgeBill.
+
+model FridgePayment {
+  id          String     @id @default(uuid())
+  billId      String     @map("bill_id")
+  bill        FridgeBill @relation(fields: [billId], references: [id])
+  paidById    String     @map("paid_by")
+  paidBy      User       @relation(fields: [paidById], references: [id])
+  amount      Decimal    @db.Decimal(12, 2)
+  paidAt      DateTime   @map("paid_at")
+
+  @@map("FridgePayment")
 }
 
 // ─── 2. MembershipRequest ─────────────────────────────────────────────────────

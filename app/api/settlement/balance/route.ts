@@ -87,6 +87,22 @@ export async function GET() {
     });
     const bulkPurchaseMap = new Map(bulkPurchaseRows.map((r) => [r.purchasedById, new Decimal(r._sum.cost?.toString() ?? "0")]));
 
+    // Fridge payments (credited to payer)
+    const fridgePaymentRows = await db.fridgePayment.groupBy({
+      by: ["paidById"],
+      _sum: { amount: true },
+    });
+    const fridgePaymentMap = new Map(fridgePaymentRows.map((r) => [r.paidById, new Decimal(r._sum.amount?.toString() ?? "0")]));
+
+    // Fridge bill share — same debit for every member per posted bill
+    const fridgeBills = await db.fridgeBill.findMany({
+      select: { perMemberAmount: true },
+    });
+    const totalFridgeBillShare = fridgeBills.reduce(
+      (s, b) => s.add(new Decimal(b.perMemberAmount.toString())),
+      new Decimal(0)
+    );
+
     const ZERO = new Decimal(0);
 
     const balances = members.map((m) => {
@@ -96,9 +112,11 @@ export async function GET() {
       const balance = computeNetBalance({
         totalBazarSpend: bazarMap.get(m.id) ?? ZERO,
         totalMaidPayments: maidPaymentMap.get(m.id) ?? ZERO,
+        totalFridgePayments: fridgePaymentMap.get(m.id) ?? ZERO,
         totalBulkPurchases: bulkPurchaseMap.get(m.id) ?? ZERO,
         totalMealCost: mealCost,
         totalMaidCharges: maidChargeMap.get(m.id) ?? ZERO,
+        totalFridgeBillShare,
         totalBulkAllocations: bulkAllocMap.get(m.id) ?? ZERO,
       });
 
@@ -111,9 +129,11 @@ export async function GET() {
         breakdown: {
           bazarContributed: (bazarMap.get(m.id) ?? ZERO).toFixed(2),
           maidPayments: (maidPaymentMap.get(m.id) ?? ZERO).toFixed(2),
+          fridgePayments: (fridgePaymentMap.get(m.id) ?? ZERO).toFixed(2),
           bulkPurchases: (bulkPurchaseMap.get(m.id) ?? ZERO).toFixed(2),
           mealCost: mealCost.toFixed(2),
           maidCharge: (maidChargeMap.get(m.id) ?? ZERO).toFixed(2),
+          fridgeBillShare: totalFridgeBillShare.toFixed(2),
           bulkAllocations: (bulkAllocMap.get(m.id) ?? ZERO).toFixed(2),
         },
       };
