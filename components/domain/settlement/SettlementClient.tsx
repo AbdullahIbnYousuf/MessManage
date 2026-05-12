@@ -15,9 +15,11 @@ interface BalanceEntry {
     bazarContributed: string;
     maidPayments: string;
     bulkPurchases: string;
+    fridgePayments: string;
     mealCost: string;
     maidCharge: string;
     bulkAllocations: string;
+    fridgeBillShare: string;
   };
 }
 
@@ -151,9 +153,11 @@ export default function SettlementClient({ isAdmin }: Props) {
                           <span className="text-secondary">Bazar contributed:</span><span style={{ color: "var(--color-success)", textAlign: "right" }}>+৳{parseFloat(b.breakdown.bazarContributed).toLocaleString()}</span>
                           <span className="text-secondary">Maid payments:</span><span style={{ color: "var(--color-success)", textAlign: "right" }}>+৳{parseFloat(b.breakdown.maidPayments).toLocaleString()}</span>
                           <span className="text-secondary">Bulk purchases:</span><span style={{ color: "var(--color-success)", textAlign: "right" }}>+৳{parseFloat(b.breakdown.bulkPurchases).toLocaleString()}</span>
+                          <span className="text-secondary">Fridge payments:</span><span style={{ color: "var(--color-success)", textAlign: "right" }}>+৳{parseFloat(b.breakdown.fridgePayments).toLocaleString()}</span>
                           <span className="text-secondary">Meal cost:</span><span style={{ color: "var(--color-danger)", textAlign: "right" }}>−৳{parseFloat(b.breakdown.mealCost).toLocaleString()}</span>
                           <span className="text-secondary">Maid charge:</span><span style={{ color: "var(--color-danger)", textAlign: "right" }}>−৳{parseFloat(b.breakdown.maidCharge).toLocaleString()}</span>
                           <span className="text-secondary">Bulk allocations:</span><span style={{ color: "var(--color-danger)", textAlign: "right" }}>−৳{parseFloat(b.breakdown.bulkAllocations).toLocaleString()}</span>
+                          <span className="text-secondary">Fridge share:</span><span style={{ color: "var(--color-danger)", textAlign: "right" }}>−৳{parseFloat(b.breakdown.fridgeBillShare).toLocaleString()}</span>
                         </div>
                       </div>
                     )}
