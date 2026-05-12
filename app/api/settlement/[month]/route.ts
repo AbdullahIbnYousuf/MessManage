@@ -1,4 +1,4 @@
-// GET /api/settlement/[month] — fetch all details for a settled month report
+// GET /api/settlement/[month] — full data for the post-settlement monthly report
 
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
@@ -8,137 +8,206 @@ import Decimal from "decimal.js";
 import { sum } from "@/lib/utils/decimal";
 
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ month: string }> }
 ) {
   try {
-    const session = await requireAuth();
-    const { month: monthKey } = await params; // e.g. "2024-11"
+    await requireAuth();
+    const { month: monthKey } = await params; // e.g. "2025-05"
 
     const [yearStr, monthStr] = monthKey.split("-");
     if (!yearStr || !monthStr) {
       return Response.json({ error: "Invalid month format." }, { status: 400 });
     }
 
-    const year = parseInt(yearStr);
+    const year  = parseInt(yearStr);
     const month = parseInt(monthStr);
-    const monthDate = new Date(`${monthKey}-01`);
+    const monthDate  = new Date(`${monthKey}-01`);
     const monthStart = firstDayOfMonth(year, month);
-    const monthEnd = lastDayOfMonth(year, month);
+    const monthEnd   = lastDayOfMonth(year, month);
 
-    // 1. Check if the month is settled
+    // ── 1. Verify the month is settled ──────────────────────────────────────
     const settlements = await db.monthlySettlement.findMany({
       where: { month: monthDate },
       include: {
         fromUser: { select: { name: true, nickname: true, avatarUrl: true } },
-        toUser: { select: { name: true, nickname: true, avatarUrl: true } },
+        toUser:   { select: { name: true, nickname: true, avatarUrl: true } },
       },
+      orderBy: { amount: "desc" },
     });
 
     if (settlements.length === 0) {
-      return Response.json({ error: "This month has not been settled yet." }, { status: 404 });
+      return Response.json(
+        { error: "This month has not been settled yet." },
+        { status: 404 }
+      );
     }
 
-    // 2. Gather historical data for that specific month
-    const [bazarExpenses, mealRecords, maidCharges, maidPayments, bulkAllocations, bulkCycles, fridgePayments, fridgeBills] = await Promise.all([
+    // ── 2. Pull all historical data for this month ───────────────────────────
+    const [
+      bazarExpenses,
+      mealRecords,
+      maidCharges,
+      maidPayments,
+      bulkAllocations,
+      bulkCycles,
+      fridgePayments,
+      fridgeBills,
+      members,
+    ] = await Promise.all([
       db.bazarExpense.findMany({
         where: { date: { gte: monthStart, lte: monthEnd } },
-        include: { user: { select: { id: true, name: true, nickname: true } } },
       }),
       db.mealRecord.findMany({
-        where: { date: { gte: monthStart, lte: monthEnd } },
-        include: { user: { select: { id: true, name: true, nickname: true } } },
+        where: { date: { gte: monthStart, lte: monthEnd }, mealCount: { gt: 0 } },
       }),
-      db.maidCharge.findMany({
-        where: { month: monthDate },
-      }),
-      db.maidPayment.findMany({
-        where: { month: monthDate },
-      }),
+      db.maidCharge.findMany({ where: { month: monthDate } }),
+      db.maidPayment.findMany({ where: { month: monthDate } }),
       db.bulkAllocation.findMany({
         where: { allocatedAt: { gte: monthStart, lte: monthEnd } },
+        include: { cycle: { include: { bulkItem: { select: { name: true } } } } },
       }),
       db.bulkCycle.findMany({
         where: { finishedAt: { gte: monthStart, lte: monthEnd } },
+        include: { bulkItem: { select: { name: true } }, purchasedBy: { select: { id: true, name: true, nickname: true } } },
       }),
       db.fridgePayment.findMany({
         where: { paidAt: { gte: monthStart, lte: monthEnd } },
       }),
       db.fridgeBill.findMany({
         where: { postedAt: { gte: monthStart, lte: monthEnd } },
+        select: { perMemberAmount: true, totalAmount: true },
+      }),
+      db.user.findMany({
+        select: { id: true, name: true, nickname: true, avatarUrl: true },
       }),
     ]);
 
-    const members = await db.user.findMany({
-      select: { id: true, name: true, nickname: true, avatarUrl: true },
-    });
+    // ── 3. Group Stats ───────────────────────────────────────────────────────
+    const totalBazar     = sum(bazarExpenses.map((e) => e.amount.toString()));
+    const totalMeals     = mealRecords.reduce((s, r) => s + r.mealCount, 0);
+    const mealRate       = computeMealRate(totalBazar, totalMeals);
+    const tripCount      = new Set(bazarExpenses.map((e) => e.tripId)).size;
 
-    // 3. Compute Stats
-    const totalBazar = sum(bazarExpenses.map((e) => e.amount.toString()));
-    const totalMeals = mealRecords.reduce((s, r) => s + r.mealCount, 0);
-    const mealRate = computeMealRate(totalBazar, totalMeals);
+    // top bazar contributor by spend
+    const spendByUser = new Map<string, Decimal>();
+    for (const e of bazarExpenses) {
+      const prev = spendByUser.get(e.userId) ?? new Decimal(0);
+      spendByUser.set(e.userId, prev.add(e.amount.toString()));
+    }
+    let topSpenderUserId: string | null = null;
+    let topSpenderAmount = new Decimal(0);
+    for (const [uid, amt] of spendByUser) {
+      if (amt.gt(topSpenderAmount)) { topSpenderAmount = amt; topSpenderUserId = uid; }
+    }
+    const topSpender = members.find((m) => m.id === topSpenderUserId);
 
-    // 4. Leaderboard
-    const leaderboard = members.map((m) => {
-      const userExpenses = bazarExpenses.filter((e) => e.userId === m.id);
-      const totalSpent = sum(userExpenses.map((e) => e.amount.toString()));
-      const visitCount = userExpenses.length;
-      return {
-        userId: m.id,
-        name: m.nickname || m.name,
-        avatarUrl: m.avatarUrl,
-        totalSpent: totalSpent.toString(),
-        visitCount,
-      };
-    }).sort((a, b) => new Decimal(b.totalSpent).minus(new Decimal(a.totalSpent)).toNumber());
+    // bulk cycles that closed this month
+    const closedCycles = bulkCycles.map((c) => ({
+      id: c.id,
+      itemName: c.bulkItem.name,
+      cost: c.cost.toString(),
+      purchasedBy: c.purchasedBy.nickname ?? c.purchasedBy.name,
+    }));
 
-    // 5. Per-person breakdown
+    // fridge total for the month
+    const totalFridgeBillAmount = sum(fridgeBills.map((b) => b.totalAmount.toString()));
+    const perMemberFridgeShare  = sum(fridgeBills.map((b) => b.perMemberAmount.toString()));
+
+    // ── 4. Per-Person Breakdown ──────────────────────────────────────────────
     const personBreakdown = members.map((m) => {
-      const userMeals = mealRecords.filter((r) => r.userId === m.id).reduce((s, r) => s + r.mealCount, 0);
-      const userMealCost = mealRate ? mealRate.mul(userMeals) : new Decimal(0);
-      const userMaidCharge = sum(maidCharges.filter((c) => c.userId === m.id).map((c) => c.amount.toString()));
-      const userBulkAlloc = sum(bulkAllocations.filter((a) => a.userId === m.id).map((a) => a.amount.toString()));
-      
-      // Fridge bill share
-      const userFridgeBillShare = sum(fridgeBills.map(b => b.perMemberAmount.toString()));
+      // Credits
+      const bazarContributed = sum(bazarExpenses.filter((e) => e.userId === m.id).map((e) => e.amount.toString()));
+      const maidPaymentMade  = sum(maidPayments.filter((p) => p.paidById === m.id).map((p) => p.amount.toString()));
+      const bulkPurchaseMade = sum(bulkCycles.filter((c) => c.purchasedById === m.id).map((c) => c.cost.toString()));
+      const fridgePaymentMade = sum(fridgePayments.filter((p) => p.paidById === m.id).map((p) => p.amount.toString()));
 
-      const totalConsumption = userMealCost.add(userMaidCharge).add(userBulkAlloc).add(userFridgeBillShare);
-      const costPerMeal = userMeals > 0 ? totalConsumption.div(userMeals) : null;
+      // Debits
+      const userMeals       = mealRecords.filter((r) => r.userId === m.id).reduce((s, r) => s + r.mealCount, 0);
+      const mealCost        = mealRate ? mealRate.mul(userMeals) : new Decimal(0);
+      const maidCharge      = sum(maidCharges.filter((c) => c.userId === m.id).map((c) => c.amount.toString()));
+
+      // Bulk allocations — group by item name for display
+      const userBulkAllocs  = bulkAllocations.filter((a) => a.userId === m.id);
+      const bulkAllocByItem = userBulkAllocs.map((a) => ({
+        itemName: a.cycle.bulkItem.name,
+        amount:   a.amount.toString(),
+      }));
+      const bulkAllocTotal  = sum(userBulkAllocs.map((a) => a.amount.toString()));
+
+      const fridgeShare = perMemberFridgeShare;
+
+      // Net
+      const credits = bazarContributed.add(maidPaymentMade).add(bulkPurchaseMade).add(fridgePaymentMade);
+      const debits  = mealCost.add(maidCharge).add(bulkAllocTotal).add(fridgeShare);
+      const netBalance = credits.sub(debits);
 
       return {
-        userId: m.id,
-        name: m.nickname || m.name,
+        userId:   m.id,
+        name:     m.nickname ?? m.name,
         avatarUrl: m.avatarUrl,
-        meals: userMeals,
-        breakdown: {
-          mealCost: userMealCost.toString(),
-          maidCharge: userMaidCharge.toString(),
-          bulkAllocation: userBulkAlloc.toString(),
-          fridgeBillShare: userFridgeBillShare.toString(),
-          totalConsumption: totalConsumption.toString(),
+        meals:    userMeals,
+        mealRate: mealRate ? mealRate.toString() : null,
+        credits: {
+          bazarContributed:  bazarContributed.toString(),
+          maidPaymentMade:   maidPaymentMade.toString(),
+          bulkPurchaseMade:  bulkPurchaseMade.toString(),
+          fridgePaymentMade: fridgePaymentMade.toString(),
         },
-        costPerMeal: costPerMeal ? costPerMeal.toString() : null,
+        debits: {
+          mealCost:       mealCost.toString(),
+          maidCharge:     maidCharge.toString(),
+          bulkAllocTotal: bulkAllocTotal.toString(),
+          bulkAllocByItem,
+          fridgeShare:    fridgeShare.toString(),
+        },
+        netBalance: netBalance.toString(),
       };
     });
 
+    // ── 5. Bazar Leaderboard ─────────────────────────────────────────────────
+    const visitsByUser = new Map<string, number>();
+    for (const e of bazarExpenses) {
+      visitsByUser.set(e.userId, (visitsByUser.get(e.userId) ?? 0) + 1);
+    }
+
+    const leaderboard = members
+      .map((m) => ({
+        userId:     m.id,
+        name:       m.nickname ?? m.name,
+        avatarUrl:  m.avatarUrl,
+        totalSpent: (spendByUser.get(m.id) ?? new Decimal(0)).toString(),
+        visitCount: visitsByUser.get(m.id) ?? 0,
+      }))
+      .filter((l) => l.visitCount > 0)
+      .sort((a, b) => new Decimal(b.totalSpent).minus(new Decimal(a.totalSpent)).toNumber());
+
+    // ── 6. Response ──────────────────────────────────────────────────────────
     return Response.json({
       data: {
-        month: monthKey,
+        month:     monthKey,
         settledAt: settlements[0]?.settledAt,
         stats: {
-          totalBazar: totalBazar.toString(),
+          totalBazar:           totalBazar.toString(),
           totalMeals,
-          mealRate: mealRate ? mealRate.toString() : null,
+          mealRate:             mealRate ? mealRate.toString() : null,
+          tripCount,
+          topSpenderName:       topSpender ? (topSpender.nickname ?? topSpender.name) : null,
+          topSpenderAmount:     topSpenderAmount.toString(),
+          closedCycles,
+          totalFridgeBillAmount: totalFridgeBillAmount.toString(),
         },
-        settlements: settlements.map(s => ({
-          id: s.id,
-          from: s.fromUser.nickname || s.fromUser.name,
-          to: s.toUser.nickname || s.toUser.name,
+        settlementPlan: settlements.map((s) => ({
+          id:     s.id,
+          from:   s.fromUser.nickname ?? s.fromUser.name,
+          fromAvatar: s.fromUser.avatarUrl,
+          to:     s.toUser.nickname ?? s.toUser.name,
+          toAvatar: s.toUser.avatarUrl,
           amount: s.amount.toString(),
         })),
-        leaderboard,
         personBreakdown,
-      }
+        leaderboard,
+      },
     });
   } catch (err) {
     console.error(err);
