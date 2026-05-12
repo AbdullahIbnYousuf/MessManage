@@ -50,12 +50,12 @@ export async function GET(request: Request) {
     const totalMonthMeals = mealRows.reduce((s, r) => s + (r._sum.mealCount ?? 0), 0);
     const mealRate = computeMealRate(totalMonthBazar, totalMonthMeals);
 
-    const maidChargeRows = await db.maidCharge.groupBy({ by: ["userId"], _sum: { amount: true } });
-    const maidPaymentRows = await db.maidPayment.groupBy({ by: ["paidById"], _sum: { amount: true } });
-    const bulkAllocRows = await db.bulkAllocation.groupBy({ by: ["userId"], _sum: { amount: true } });
-    const bulkPurchaseRows = await db.bulkCycle.groupBy({ by: ["purchasedById"], _sum: { cost: true } });
-    const fridgePaymentRows = await db.fridgePayment.groupBy({ by: ["paidById"], _sum: { amount: true } });
-    const fridgeBills = await db.fridgeBill.findMany({ select: { perMemberAmount: true } });
+    const maidChargeRows = await db.maidCharge.groupBy({ by: ["userId"], where: { month: monthDate }, _sum: { amount: true } });
+    const maidPaymentRows = await db.maidPayment.groupBy({ by: ["paidById"], where: { month: monthDate }, _sum: { amount: true } });
+    const bulkAllocRows = await db.bulkAllocation.groupBy({ by: ["userId"], where: { allocatedAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } });
+    const bulkPurchaseRows = await db.bulkCycle.groupBy({ by: ["purchasedById"], where: { finishedAt: { gte: monthStart, lte: monthEnd } }, _sum: { cost: true } });
+    const fridgePaymentRows = await db.fridgePayment.groupBy({ by: ["paidById"], where: { paidAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } });
+    const fridgeBills = await db.fridgeBill.findMany({ where: { postedAt: { gte: monthStart, lte: monthEnd } }, select: { perMemberAmount: true } });
 
     // Block if no data to settle (e.g., app just deployed, or system inactive)
     const hasData = totalMonthMeals > 0 || Number(totalMonthBazar) > 0 || maidChargeRows.length > 0 || fridgeBills.length > 0 || bulkPurchaseRows.length > 0;

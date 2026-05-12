@@ -64,10 +64,10 @@ export async function POST() {
     const bazarMap = new Map(bazarSpendRows.map((r) => [r.userId, new Decimal(r._sum.amount?.toString() ?? "0")]));
     const mealMap = new Map(mealRows.map((r) => [r.userId, r._sum.mealCount ?? 0]));
 
-    const maidChargeRows = await db.maidCharge.groupBy({ by: ["userId"], _sum: { amount: true } });
-    const maidPaymentRows = await db.maidPayment.groupBy({ by: ["paidById"], _sum: { amount: true } });
-    const bulkAllocRows = await db.bulkAllocation.groupBy({ by: ["userId"], _sum: { amount: true } });
-    const bulkPurchaseRows = await db.bulkCycle.groupBy({ by: ["purchasedById"], _sum: { cost: true } });
+    const maidChargeRows = await db.maidCharge.groupBy({ by: ["userId"], where: { month: monthDate }, _sum: { amount: true } });
+    const maidPaymentRows = await db.maidPayment.groupBy({ by: ["paidById"], where: { month: monthDate }, _sum: { amount: true } });
+    const bulkAllocRows = await db.bulkAllocation.groupBy({ by: ["userId"], where: { allocatedAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } });
+    const bulkPurchaseRows = await db.bulkCycle.groupBy({ by: ["purchasedById"], where: { finishedAt: { gte: monthStart, lte: monthEnd } }, _sum: { cost: true } });
 
     const maidChargeMap = new Map(maidChargeRows.map((r) => [r.userId, new Decimal(r._sum.amount?.toString() ?? "0")]));
     const maidPaymentMap = new Map(maidPaymentRows.map((r) => [r.paidById, new Decimal(r._sum.amount?.toString() ?? "0")]));
@@ -75,11 +75,11 @@ export async function POST() {
     const bulkPurchaseMap = new Map(bulkPurchaseRows.map((r) => [r.purchasedById, new Decimal(r._sum.cost?.toString() ?? "0")]));
 
     // Fridge payments (credited)
-    const fridgePaymentRows = await db.fridgePayment.groupBy({ by: ["paidById"], _sum: { amount: true } });
+    const fridgePaymentRows = await db.fridgePayment.groupBy({ by: ["paidById"], where: { paidAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } });
     const fridgePaymentMap = new Map(fridgePaymentRows.map((r) => [r.paidById, new Decimal(r._sum.amount?.toString() ?? "0")]));
 
     // Fridge bill share (debited equally to all members)
-    const fridgeBills = await db.fridgeBill.findMany({ select: { perMemberAmount: true } });
+    const fridgeBills = await db.fridgeBill.findMany({ where: { postedAt: { gte: monthStart, lte: monthEnd } }, select: { perMemberAmount: true } });
     const totalFridgeBillShare = fridgeBills.reduce(
       (s, b) => s.add(new Decimal(b.perMemberAmount.toString())),
       new Decimal(0)
