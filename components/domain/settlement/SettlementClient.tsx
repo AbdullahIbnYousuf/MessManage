@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { formatTaka } from "@/lib/utils/decimal";
 import Decimal from "decimal.js";
 
@@ -168,10 +169,17 @@ export default function SettlementClient({ isAdmin }: Props) {
               <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "1rem" }}>Settlement History</div>
               {history.map((h) => (
                 <div key={h.month} style={{ marginBottom: "1rem", paddingBottom: "1rem", borderBottom: "1px solid var(--color-border-subtle)" }}>
-                  <div style={{ fontWeight: 600, marginBottom: "0.5rem" }}>
-                    {new Date(h.month + "-01").toLocaleString("en-US", { month: "long", year: "numeric" })}
-                    <span className="badge badge-muted" style={{ marginLeft: "0.5rem", fontWeight: 400 }}>
-                      {new Date(h.settledAt).toLocaleDateString()}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                    <Link 
+                      href={`/settlement/${h.month}`}
+                      style={{ fontWeight: 600, textDecoration: "none", color: "var(--color-primary-light)" }}
+                      className="hover-underline"
+                    >
+                      {new Date(h.month + "-01").toLocaleString("en-US", { month: "long", year: "numeric" })}
+                      <span style={{ fontSize: "0.75rem", marginLeft: "0.5rem" }}>→ View Details</span>
+                    </Link>
+                    <span className="badge badge-muted" style={{ fontWeight: 400 }}>
+                      Settled {new Date(h.settledAt).toLocaleDateString()}
                     </span>
                   </div>
                   {h.transfers.map((t) => (
