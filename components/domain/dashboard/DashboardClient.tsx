@@ -136,6 +136,9 @@ export default function DashboardClient({
   const [data, setData] = useState<DashboardData | null>(null);
   const [balance, setBalance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isMealsExpanded, setIsMealsExpanded] = useState(false);
+
+  const dayName = new Date().toLocaleString("en-US", { weekday: "long" });
 
   const load = useCallback(async () => {
     try {
@@ -214,79 +217,93 @@ export default function DashboardClient({
             </div>
           )}
 
-          {/* ── Today's Meals ── */}
+          {/* ── Meal Count (Collapsible) ── */}
           <div className="card-hero slide-up-delay-1">
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "1rem" }}>
+            <div 
+              style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: isMealsExpanded ? "1rem" : 0, cursor: "pointer" }}
+              onClick={() => setIsMealsExpanded(prev => !prev)}
+            >
               <div>
-                <div style={{ fontWeight: 700, fontSize: "0.9375rem", marginBottom: "0.2rem" }}>
-                  Today&apos;s Meals
+                <div style={{ fontWeight: 700, fontSize: "0.9375rem", marginBottom: "0.1rem" }}>
+                  Meal Count
                 </div>
-                <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
-                  How many meals to cook today
+                <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--color-primary)", letterSpacing: "-0.01em" }}>
+                  {dayName}
                 </div>
               </div>
 
-              {/* Total pill — solid terracotta, no glow */}
-              <div style={{
-                background: "var(--color-primary)",
-                borderRadius: "var(--radius-md)",
-                padding: "0.4rem 0.875rem",
-                textAlign: "center",
-                minWidth: 56,
-              }}>
-                <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.65)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                  Total
-                </div>
-                <div style={{ fontSize: "1.625rem", fontWeight: 900, color: "#fff", lineHeight: 1 }}>
-                  <AnimatedNumber value={data.todayTotal} />
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-              {data.todayMeals.map((m, i) => (
-                <div
-                  key={m.userId}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.75rem",
-                    padding: "0.5rem 0.625rem",
-                    borderRadius: "var(--radius-md)",
-                    /* Subtle warm tint for active rows — no glow */
-                    background: m.mealCount > 0 ? "var(--color-bg-elevated)" : "transparent",
-                    opacity: m.mealCount === 0 ? 0.4 : 1,
-                    animation: `slideUp 0.3s cubic-bezier(0.16,1,0.3,1) ${0.05 * i + 0.12}s both`,
-                  }}
-                >
-                  {m.avatarUrl
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={m.avatarUrl} alt={m.name} className="avatar avatar-sm" />
-                    : <div className="avatar-fallback" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>{m.name.charAt(0)}</div>
-                  }
-                  <span style={{ flex: 1, fontSize: "0.875rem", fontWeight: m.mealCount > 0 ? 600 : 400 }}>
-                    {m.name}
-                  </span>
-                  {/* Count circle — filled only when > 0 */}
-                  <div style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: m.mealCount > 0 ? "var(--color-primary)" : "var(--color-bg-base)",
-                    border: `1px solid ${m.mealCount > 0 ? "var(--color-primary)" : "var(--color-border)"}`,
-                    fontWeight: 800,
-                    fontSize: "0.8125rem",
-                    color: m.mealCount > 0 ? "#fff" : "var(--color-text-muted)",
-                    flexShrink: 0,
-                  }}>
-                    {m.mealCount}
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                {/* Total pill */}
+                <div style={{
+                  background: "var(--color-primary)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "0.4rem 0.875rem",
+                  textAlign: "center",
+                  minWidth: 56,
+                }}>
+                  <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.65)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                    Total
+                  </div>
+                  <div style={{ fontSize: "1.625rem", fontWeight: 900, color: "#fff", lineHeight: 1 }}>
+                    <AnimatedNumber value={data.todayTotal} />
                   </div>
                 </div>
-              ))}
+                
+                {/* Chevron icon */}
+                <div style={{ 
+                  color: "var(--color-text-muted)", 
+                  transform: isMealsExpanded ? "rotate(180deg)" : "rotate(0deg)", 
+                  transition: "transform 0.2s ease" 
+                }}>
+                  ▼
+                </div>
+              </div>
             </div>
+
+            {isMealsExpanded && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", borderTop: "1px solid var(--color-border)", paddingTop: "0.875rem", marginTop: "0.5rem" }}>
+                {data.todayMeals.map((m, i) => (
+                  <div
+                    key={m.userId}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.75rem",
+                      padding: "0.5rem 0.625rem",
+                      borderRadius: "var(--radius-md)",
+                      background: m.mealCount > 0 ? "var(--color-bg-elevated)" : "transparent",
+                      opacity: m.mealCount === 0 ? 0.4 : 1,
+                      animation: `slideUp 0.3s cubic-bezier(0.16,1,0.3,1) ${0.05 * i}s both`,
+                    }}
+                  >
+                    {m.avatarUrl
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={m.avatarUrl} alt={m.name} className="avatar avatar-sm" />
+                      : <div className="avatar-fallback" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>{m.name.charAt(0)}</div>
+                    }
+                    <span style={{ flex: 1, fontSize: "0.875rem", fontWeight: m.mealCount > 0 ? 600 : 400 }}>
+                      {m.name}
+                    </span>
+                    <div style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: "50%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: m.mealCount > 0 ? "var(--color-primary)" : "var(--color-bg-base)",
+                      border: `1px solid ${m.mealCount > 0 ? "var(--color-primary)" : "var(--color-border)"}`,
+                      fontWeight: 800,
+                      fontSize: "0.8125rem",
+                      color: m.mealCount > 0 ? "#fff" : "var(--color-text-muted)",
+                      flexShrink: 0,
+                    }}>
+                      {m.mealCount}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* ── Balance Card ── */}
