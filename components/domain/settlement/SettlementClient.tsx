@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { formatTaka } from "@/lib/utils/decimal";
+import { formatNumericDate } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 
 interface BalanceEntry {
@@ -183,7 +184,7 @@ export default function SettlementClient({ isAdmin }: Props) {
                       <span style={{ fontSize: "0.75rem", marginLeft: "0.5rem" }}>→ View Details</span>
                     </Link>
                     <span className="badge badge-muted" style={{ fontWeight: 400 }}>
-                      Settled {new Date(h.settledAt).toLocaleDateString()}
+                      Settled {formatNumericDate(h.settledAt)}
                     </span>
                   </div>
                   {h.transfers.map((t) => (

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import ActiveTripCard from "@/components/domain/bazar/ActiveTripCard";
 import ExpenseForm from "@/components/domain/bazar/ExpenseForm";
+import { formatNumericDate } from "@/lib/utils/dates";
 
 interface Assignee {
   id: string;
@@ -200,7 +201,7 @@ export default function BazarClient() {
                             <span style={{ fontSize: "0.875rem" }}>{e.userName}</span>
                           </div>
                         </td>
-                        <td className="text-secondary" style={{ fontSize: "0.8125rem" }}>{e.date}</td>
+                        <td className="text-secondary" style={{ fontSize: "0.8125rem" }}>{formatNumericDate(e.date)}</td>
                         <td style={{ fontWeight: 600, color: "var(--color-success)" }}>৳{parseFloat(e.amount).toLocaleString()}</td>
                         <td className="text-secondary" style={{ fontSize: "0.8125rem" }}>{e.note ?? "—"}</td>
                       </tr>

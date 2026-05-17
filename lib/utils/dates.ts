@@ -145,6 +145,23 @@ export function formatDateLabel(dateStr: string): string {
 }
 
 /**
+ * Converts a YYYY-MM-DD string or Date object to a DD-MM-YYYY string for UI display.
+ */
+export function formatNumericDate(dateInput: Date | string): string {
+  if (typeof dateInput === "string") {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+      const [y, m, d] = dateInput.split("-");
+      return `${d}-${m}-${y}`;
+    }
+    dateInput = new Date(dateInput);
+  }
+  const y = dateInput.getFullYear();
+  const m = String(dateInput.getMonth() + 1).padStart(2, "0");
+  const d = String(dateInput.getDate()).padStart(2, "0");
+  return `${d}-${m}-${y}`;
+}
+
+/**
  * Returns the day-of-week key for a given date string.
  * Maps to MealPattern field names.
  */

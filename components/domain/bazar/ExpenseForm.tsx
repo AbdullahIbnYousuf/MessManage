@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { today } from "@/lib/utils/dates";
+import { today, formatNumericDate } from "@/lib/utils/dates";
 
 interface Props {
   onSubmitted: () => void;
@@ -85,7 +85,7 @@ export default function ExpenseForm({ onSubmitted, tripNotes }: Props) {
             )}
             <div style={{ marginBottom: "0.5rem" }}>
               <span className="text-secondary" style={{ fontSize: "0.8125rem" }}>Date: </span>
-              <span style={{ fontSize: "0.875rem" }}>{date}</span>
+              <span style={{ fontSize: "0.875rem" }}>{formatNumericDate(date)}</span>
             </div>
             {tripNotes && (
               <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--color-border-subtle)" }}>
