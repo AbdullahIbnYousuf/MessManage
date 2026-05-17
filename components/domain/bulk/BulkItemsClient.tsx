@@ -118,6 +118,7 @@ export default function BulkItemsClient({ isAdmin }: Props) {
             <BulkCycleCard
               key={item.id}
               item={item}
+              isAdmin={isAdmin}
               onCycleStarted={load}
               onCycleFinished={load}
             />

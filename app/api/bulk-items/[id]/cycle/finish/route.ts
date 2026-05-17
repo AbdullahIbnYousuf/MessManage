@@ -13,6 +13,9 @@ export async function POST(
 ) {
   try {
     const user = await requireAuth();
+    if (user.role !== 'admin') {
+      return Response.json({ error: "Forbidden. Only admins can finish a bulk cycle." }, { status: 403 });
+    }
     const { id: bulkItemId } = await params;
 
     // Find the active cycle for this item

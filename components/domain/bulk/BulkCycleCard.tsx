@@ -19,11 +19,12 @@ interface BulkItem {
 
 interface Props {
   item: BulkItem;
+  isAdmin: boolean;
   onCycleStarted: () => void;
   onCycleFinished: () => void;
 }
 
-export default function BulkCycleCard({ item, onCycleStarted, onCycleFinished }: Props) {
+export default function BulkCycleCard({ item, isAdmin, onCycleStarted, onCycleFinished }: Props) {
   const [showNewCycleForm, setShowNewCycleForm] = useState(false);
   const [cost, setCost] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0, 10));
@@ -134,14 +135,16 @@ export default function BulkCycleCard({ item, onCycleStarted, onCycleFinished }:
 
       {/* Actions */}
       {item.activeCycle ? (
-        <button
-          className="btn btn-sm btn-secondary"
-          onClick={() => void finishCycle()}
-          disabled={finishing}
-          style={{ borderColor: "rgba(239,68,68,0.4)", color: "var(--color-danger)" }}
-        >
-          {finishing ? <span className="spinner" /> : "Mark as Finished"}
-        </button>
+        isAdmin && (
+          <button
+            className="btn btn-sm btn-secondary"
+            onClick={() => void finishCycle()}
+            disabled={finishing}
+            style={{ borderColor: "rgba(239,68,68,0.4)", color: "var(--color-danger)" }}
+          >
+            {finishing ? <span className="spinner" /> : "Mark as Finished"}
+          </button>
+        )
       ) : showNewCycleForm ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
           <input
