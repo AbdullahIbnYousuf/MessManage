@@ -60,7 +60,7 @@ export default function ContactForm({ initialData }: { initialData: ContactFormD
         <h4 style={{ fontSize: "0.875rem", fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
           Personal Contact
         </h4>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
           <div className="form-group">
             <label className="form-label">Phone Number</label>
             <input type="tel" name="phoneNumber" className="form-input" defaultValue={initialData.phoneNumber || ""} placeholder="e.g. 01700000000" />
@@ -81,7 +81,7 @@ export default function ContactForm({ initialData }: { initialData: ContactFormD
           <label className="form-label">bKash Number</label>
           <input type="tel" name="bkashNumber" className="form-input" defaultValue={initialData.bkashNumber || ""} placeholder="e.g. 01700000000" />
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
           <div className="form-group">
             <label className="form-label">Bank Name</label>
             <input type="text" name="bankName" className="form-input" defaultValue={initialData.bankName || ""} placeholder="e.g. Dutch Bangla Bank" />
@@ -102,7 +102,7 @@ export default function ContactForm({ initialData }: { initialData: ContactFormD
           <label className="form-label">Contact Name</label>
           <input type="text" name="emergencyContactName" className="form-input" defaultValue={initialData.emergencyContactName || ""} placeholder="e.g. Jane Doe" />
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
           <div className="form-group">
             <label className="form-label">Contact Phone</label>
             <input type="tel" name="emergencyContactPhone" className="form-input" defaultValue={initialData.emergencyContactPhone || ""} placeholder="e.g. 01700000000" />
