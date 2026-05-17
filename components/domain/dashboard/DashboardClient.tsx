@@ -308,18 +308,21 @@ export default function DashboardClient({
 
           {/* ── Balance Card ── */}
           {balanceNum !== null && (
-            <div
+            <Link
+              href={`/members/${userId}`}
               className="slide-up-delay-2"
               style={{
+                textDecoration: "none",
+                display: "flex",
                 background: "var(--color-bg-surface)",
                 border: `1px solid ${isPositive ? "rgba(78,158,106,0.3)" : "rgba(192,80,80,0.3)"}`,
                 borderRadius: "var(--radius-xl)",
                 padding: "1.125rem 1.25rem",
-                display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 /* Soft shadow only, no glow */
                 boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                color: "inherit",
               }}
             >
               <div>
@@ -339,7 +342,7 @@ export default function DashboardClient({
               }}>
                 {isPositive ? "+" : "−"}৳<AnimatedNumber value={Math.abs(balanceNum)} decimals={2} />
               </div>
-            </div>
+            </Link>
           )}
 
           {/* ── Monthly Stats ── */}
