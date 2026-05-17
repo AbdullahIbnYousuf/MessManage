@@ -41,93 +41,83 @@ interface Props {
 /* ── Animated number counter ── */
 function AnimatedNumber({
   value,
-  prefix = "",
   decimals = 0,
 }: {
   value: number;
-  prefix?: string;
   decimals?: number;
 }) {
   const [display, setDisplay] = useState(0);
   const rafRef = useRef<number | null>(null);
-  const startRef = useRef<number | null>(null);
-  const duration = 900;
+  const duration = 800;
 
   useEffect(() => {
     if (value === 0) { setDisplay(0); return; }
     const start = performance.now();
-    startRef.current = start;
 
     const tick = (now: number) => {
       const elapsed = now - start;
       const progress = Math.min(elapsed / duration, 1);
-      // ease-out cubic
       const eased = 1 - Math.pow(1 - progress, 3);
       setDisplay(eased * value);
-      if (progress < 1) {
-        rafRef.current = requestAnimationFrame(tick);
-      }
+      if (progress < 1) rafRef.current = requestAnimationFrame(tick);
     };
 
     rafRef.current = requestAnimationFrame(tick);
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [value]);
 
-  const formatted = decimals > 0
-    ? display.toFixed(decimals)
-    : Math.round(display).toLocaleString();
-
-  return <>{prefix}{formatted}</>;
+  return <>{decimals > 0 ? display.toFixed(decimals) : Math.round(display).toLocaleString()}</>;
 }
 
 /* ── Skeleton block ── */
-function Skeleton({ height = 20, width = "100%", style = {} }: { height?: number; width?: string | number; style?: React.CSSProperties }) {
+function Skel({ h = 16, w = "100%", round = false }: { h?: number; w?: string | number; round?: boolean }) {
   return (
     <div
       className="skeleton"
-      style={{ height, width, borderRadius: "var(--radius-md)", ...style }}
+      style={{
+        height: h,
+        width: w,
+        borderRadius: round ? "50%" : "var(--radius-md)",
+        flexShrink: 0,
+      }}
     />
   );
 }
 
-/* ── Dashboard skeleton ── */
 function DashboardSkeleton() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-      {/* Meals card skeleton */}
-      <div className="card-hero">
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem" }}>
+      <div className="card-hero" style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            <Skeleton height={18} width={140} />
-            <Skeleton height={13} width={200} />
+            <Skel h={16} w={130} />
+            <Skel h={12} w={190} />
           </div>
-          <Skeleton height={56} width={64} style={{ borderRadius: "var(--radius-md)" }} />
+          <Skel h={52} w={60} />
         </div>
         {[1, 2, 3].map((i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0", marginBottom: "0.25rem" }}>
-            <Skeleton height={28} width={28} style={{ borderRadius: "50%", flexShrink: 0 }} />
-            <Skeleton height={14} width={120} />
-            <Skeleton height={20} width={24} style={{ marginLeft: "auto" }} />
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <Skel h={28} w={28} round />
+            <Skel h={13} w={110} />
+            <Skel h={26} w={26} round />
           </div>
         ))}
       </div>
 
-      {/* Balance card skeleton */}
       <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          <Skeleton height={16} width={100} />
-          <Skeleton height={12} width={180} />
+          <Skel h={15} w={90} />
+          <Skel h={11} w={170} />
         </div>
-        <Skeleton height={36} width={100} />
+        <Skel h={32} w={110} />
       </div>
 
-      {/* Stat cards skeleton */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "1rem" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "0.875rem" }}>
         {[1, 2, 3].map((i) => (
           <div key={i} className="stat-card" style={{ gap: "0.5rem" }}>
-            <Skeleton height={10} width={80} />
-            <Skeleton height={32} width={100} />
-            <Skeleton height={12} width={120} />
+            <Skel h={10} w={70} />
+            <Skel h={30} w={90} />
+            <Skel h={11} w={110} />
           </div>
         ))}
       </div>
@@ -153,14 +143,11 @@ export default function DashboardClient({
         fetch("/api/dashboard"),
         fetch("/api/settlement/balance"),
       ]);
-
       const json = (await res.json()) as { data?: DashboardData };
       const balJson = (await balRes.json()) as {
         data?: { balances: Array<{ userId: string; balance: string }> };
       };
-
       setData(json.data ?? null);
-
       if (balJson.data?.balances) {
         const myBal = balJson.data.balances.find((b) => b.userId === userId);
         if (myBal) setBalance(myBal.balance);
@@ -172,110 +159,90 @@ export default function DashboardClient({
     }
   }, [userId]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   const monthName = new Date().toLocaleString("en-US", { month: "long", year: "numeric" });
-  const displayName = nickname ? nickname : name.split(" ")[0];
-
+  const displayName = nickname ?? name.split(" ")[0];
   const balanceNum = balance !== null ? parseFloat(balance) : null;
   const isPositive = balanceNum !== null && balanceNum >= 0;
 
   return (
     <div className="page-container">
+
       {/* ── Header ── */}
       <div className="slide-up" style={{ marginBottom: "1.75rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
-          <span style={{ fontSize: "1.375rem" }}>👋</span>
-          <h1 style={{ fontSize: "1.625rem", fontWeight: 800, letterSpacing: "-0.02em", margin: 0 }}>
-            Hey, {displayName}!
-          </h1>
-        </div>
+        <h1 style={{
+          fontSize: "1.5rem",
+          fontWeight: 800,
+          letterSpacing: "-0.02em",
+          margin: "0 0 0.25rem",
+          color: "var(--color-text-primary)",
+        }}>
+          Hey, {displayName} 👋
+        </h1>
         <p style={{ color: "var(--color-text-muted)", fontSize: "0.875rem", margin: 0 }}>
           {monthName}
         </p>
       </div>
 
-      {loading ? (
-        <DashboardSkeleton />
-      ) : data ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+      {loading ? <DashboardSkeleton /> : data ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.125rem" }}>
 
           {/* ── Alert Banner ── */}
           {isAlertPeriod && !isPreviousMonthSettled && (
             <div
               className="slide-up"
               style={{
-                background: "linear-gradient(135deg, rgba(251,191,36,0.1), rgba(249,115,22,0.08))",
-                border: "1px solid rgba(251,191,36,0.3)",
+                background: "var(--color-warning-bg)",
+                border: "1px solid rgba(196,154,60,0.25)",
                 borderRadius: "var(--radius-lg)",
-                padding: "1rem 1.125rem",
+                padding: "0.875rem 1rem",
                 display: "flex",
                 alignItems: "flex-start",
-                gap: "0.875rem",
+                gap: "0.75rem",
               }}
             >
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: "50%",
-                  background: "rgba(251,191,36,0.15)",
-                  border: "1px solid rgba(251,191,36,0.3)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                  fontSize: "1rem",
-                }}
-              >
-                ⚠️
-              </div>
+              <span style={{ fontSize: "1rem", lineHeight: 1.5 }}>⚠️</span>
               <div>
                 <div style={{ fontWeight: 700, fontSize: "0.875rem", color: "var(--color-warning)", marginBottom: "0.2rem" }}>
                   Auto-settlement Incoming
                 </div>
                 <div style={{ fontSize: "0.8125rem", color: "var(--color-text-secondary)" }}>
-                  Auto-settlement for {previousMonthLabel} will run on the 5th. Please resolve any pending issues.
+                  Auto-settlement for {previousMonthLabel} will run on the 5th.
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── Today's Meals Card ── */}
+          {/* ── Today's Meals ── */}
           <div className="card-hero slide-up-delay-1">
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "1rem" }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: "1rem", color: "var(--color-text-primary)", marginBottom: "0.2rem" }}>
-                  🍽️ Today&apos;s Meals
+                <div style={{ fontWeight: 700, fontSize: "0.9375rem", marginBottom: "0.2rem" }}>
+                  Today&apos;s Meals
                 </div>
                 <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
                   How many meals to cook today
                 </div>
               </div>
 
-              {/* Total badge */}
-              <div
-                style={{
-                  background: "var(--color-primary)",
-                  borderRadius: "var(--radius-md)",
-                  padding: "0.5rem 0.875rem",
-                  textAlign: "center",
-                  boxShadow: "0 4px 16px rgba(249,115,22,0.4)",
-                  minWidth: 60,
-                }}
-              >
-                <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.75)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              {/* Total pill — solid terracotta, no glow */}
+              <div style={{
+                background: "var(--color-primary)",
+                borderRadius: "var(--radius-md)",
+                padding: "0.4rem 0.875rem",
+                textAlign: "center",
+                minWidth: 56,
+              }}>
+                <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.65)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                   Total
                 </div>
-                <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "#fff", lineHeight: 1 }}>
+                <div style={{ fontSize: "1.625rem", fontWeight: 900, color: "#fff", lineHeight: 1 }}>
                   <AnimatedNumber value={data.todayTotal} />
                 </div>
               </div>
             </div>
 
-            {/* Member rows */}
             <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
               {data.todayMeals.map((m, i) => (
                 <div
@@ -284,42 +251,37 @@ export default function DashboardClient({
                     display: "flex",
                     alignItems: "center",
                     gap: "0.75rem",
-                    padding: "0.5rem 0.75rem",
+                    padding: "0.5rem 0.625rem",
                     borderRadius: "var(--radius-md)",
-                    background: m.mealCount > 0 ? "rgba(249,115,22,0.06)" : "transparent",
-                    border: `1px solid ${m.mealCount > 0 ? "rgba(249,115,22,0.12)" : "transparent"}`,
-                    opacity: m.mealCount === 0 ? 0.45 : 1,
-                    transition: "all 0.18s ease",
-                    animation: `slideUp 0.3s cubic-bezier(0.16,1,0.3,1) ${0.05 * i + 0.15}s both`,
+                    /* Subtle warm tint for active rows — no glow */
+                    background: m.mealCount > 0 ? "var(--color-bg-elevated)" : "transparent",
+                    opacity: m.mealCount === 0 ? 0.4 : 1,
+                    animation: `slideUp 0.3s cubic-bezier(0.16,1,0.3,1) ${0.05 * i + 0.12}s both`,
                   }}
                 >
-                  {m.avatarUrl ? (
+                  {m.avatarUrl
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={m.avatarUrl} alt={m.name} className="avatar avatar-sm" />
-                  ) : (
-                    <div className="avatar-fallback" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>
-                      {m.name.charAt(0)}
-                    </div>
-                  )}
+                    ? <img src={m.avatarUrl} alt={m.name} className="avatar avatar-sm" />
+                    : <div className="avatar-fallback" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>{m.name.charAt(0)}</div>
+                  }
                   <span style={{ flex: 1, fontSize: "0.875rem", fontWeight: m.mealCount > 0 ? 600 : 400 }}>
                     {m.name}
                   </span>
-                  <div
-                    style={{
-                      minWidth: 28,
-                      height: 28,
-                      borderRadius: "50%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: m.mealCount > 0 ? "var(--color-primary)" : "var(--color-bg-elevated)",
-                      border: `1px solid ${m.mealCount > 0 ? "var(--color-primary)" : "var(--color-border)"}`,
-                      fontWeight: 800,
-                      fontSize: "0.875rem",
-                      color: m.mealCount > 0 ? "#fff" : "var(--color-text-muted)",
-                      boxShadow: m.mealCount > 0 ? "0 2px 8px rgba(249,115,22,0.35)" : "none",
-                    }}
-                  >
+                  {/* Count circle — filled only when > 0 */}
+                  <div style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: m.mealCount > 0 ? "var(--color-primary)" : "var(--color-bg-base)",
+                    border: `1px solid ${m.mealCount > 0 ? "var(--color-primary)" : "var(--color-border)"}`,
+                    fontWeight: 800,
+                    fontSize: "0.8125rem",
+                    color: m.mealCount > 0 ? "#fff" : "var(--color-text-muted)",
+                    flexShrink: 0,
+                  }}>
                     {m.mealCount}
                   </div>
                 </div>
@@ -327,55 +289,38 @@ export default function DashboardClient({
             </div>
           </div>
 
-          {/* ── My Balance Card ── */}
+          {/* ── Balance Card ── */}
           {balanceNum !== null && (
             <div
               className="slide-up-delay-2"
               style={{
-                background: isPositive
-                  ? "linear-gradient(135deg, var(--color-bg-elevated), rgba(34,197,94,0.06))"
-                  : "linear-gradient(135deg, var(--color-bg-elevated), rgba(239,68,68,0.06))",
-                border: `1px solid ${isPositive ? "rgba(34,197,94,0.25)" : "rgba(239,68,68,0.25)"}`,
+                background: "var(--color-bg-surface)",
+                border: `1px solid ${isPositive ? "rgba(78,158,106,0.3)" : "rgba(192,80,80,0.3)"}`,
                 borderRadius: "var(--radius-xl)",
-                padding: "1.25rem",
+                padding: "1.125rem 1.25rem",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                boxShadow: isPositive
-                  ? "0 4px 20px rgba(34,197,94,0.06)"
-                  : "0 4px 20px rgba(239,68,68,0.06)",
+                /* Soft shadow only, no glow */
+                boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
               }}
             >
               <div>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
-                  <div
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: isPositive ? "var(--color-success)" : "var(--color-danger)",
-                      boxShadow: isPositive ? "0 0 6px var(--color-success)" : "0 0 6px var(--color-danger)",
-                    }}
-                  />
-                  <div style={{ fontWeight: 700, fontSize: "0.9375rem", color: "var(--color-text-primary)" }}>
-                    My Balance
-                  </div>
+                <div style={{ fontWeight: 700, fontSize: "0.9375rem", marginBottom: "0.25rem" }}>
+                  My Balance
                 </div>
                 <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
                   Current month net settlement
                 </div>
               </div>
-              <div
-                style={{
-                  fontSize: "1.875rem",
-                  fontWeight: 900,
-                  color: isPositive ? "var(--color-success)" : "var(--color-danger)",
-                  fontVariantNumeric: "tabular-nums",
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                {isPositive ? "+" : "−"}৳
-                <AnimatedNumber value={Math.abs(balanceNum)} decimals={2} />
+              <div style={{
+                fontSize: "1.75rem",
+                fontWeight: 900,
+                color: isPositive ? "var(--color-success)" : "var(--color-danger)",
+                fontVariantNumeric: "tabular-nums",
+                letterSpacing: "-0.02em",
+              }}>
+                {isPositive ? "+" : "−"}৳<AnimatedNumber value={Math.abs(balanceNum)} decimals={2} />
               </div>
             </div>
           )}
@@ -385,87 +330,38 @@ export default function DashboardClient({
             className="slide-up-delay-3"
             style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "0.875rem" }}
           >
-            {/* Bazar */}
-            <div className="stat-card">
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
-                <div
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    background: "rgba(249,115,22,0.12)",
-                    border: "1px solid rgba(249,115,22,0.2)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  🛒
+            {[
+              {
+                label: "Total Bazar",
+                value: <><span className="gradient-text">৳<AnimatedNumber value={parseFloat(data.monthlyTotalBazar)} /></span></>,
+                sub: "this month",
+                dot: "var(--color-primary)",
+              },
+              {
+                label: "Total Meals",
+                value: <span style={{ color: "var(--color-accent)" }}><AnimatedNumber value={data.monthlyTotalMeals} /></span>,
+                sub: "recorded this month",
+                dot: "var(--color-accent)",
+              },
+              {
+                label: "Meal Rate",
+                value: data.mealRate
+                  ? <span style={{ color: "var(--color-warning)" }}>৳<AnimatedNumber value={parseFloat(data.mealRate)} decimals={2} /></span>
+                  : <span style={{ color: "var(--color-text-muted)", fontSize: "1.25rem" }}>—</span>,
+                sub: "per meal",
+                dot: "var(--color-warning)",
+              },
+            ].map((s) => (
+              <div key={s.label} className="stat-card">
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.125rem" }}>
+                  {/* Small dot instead of a glowing circle */}
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: s.dot, flexShrink: 0 }} />
+                  <div className="stat-label">{s.label}</div>
                 </div>
-                <div className="stat-label">Total Bazar</div>
+                <div className="stat-value">{s.value}</div>
+                <div className="stat-sub">{s.sub}</div>
               </div>
-              <div className="stat-value gradient-text">
-                ৳<AnimatedNumber value={parseFloat(data.monthlyTotalBazar)} decimals={0} />
-              </div>
-              <div className="stat-sub">this month</div>
-            </div>
-
-            {/* Meals */}
-            <div className="stat-card">
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
-                <div
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    background: "rgba(16,185,129,0.12)",
-                    border: "1px solid rgba(16,185,129,0.2)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  🍽️
-                </div>
-                <div className="stat-label">Total Meals</div>
-              </div>
-              <div className="stat-value" style={{ color: "var(--color-accent)" }}>
-                <AnimatedNumber value={data.monthlyTotalMeals} />
-              </div>
-              <div className="stat-sub">recorded this month</div>
-            </div>
-
-            {/* Meal Rate */}
-            <div className="stat-card">
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
-                <div
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    background: "rgba(251,191,36,0.12)",
-                    border: "1px solid rgba(251,191,36,0.2)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  📊
-                </div>
-                <div className="stat-label">Meal Rate</div>
-              </div>
-              <div className="stat-value" style={{ color: "var(--color-warning)" }}>
-                {data.mealRate ? (
-                  <>৳<AnimatedNumber value={parseFloat(data.mealRate)} decimals={2} /></>
-                ) : (
-                  <span style={{ color: "var(--color-text-muted)", fontSize: "1.25rem" }}>—</span>
-                )}
-              </div>
-              <div className="stat-sub">per meal</div>
-            </div>
+            ))}
           </div>
 
           {/* ── Active Bazar Trip ── */}
@@ -490,32 +386,32 @@ export default function DashboardClient({
             style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.75rem" }}
           >
             {[
-              { href: "/meals", label: "Meals", icon: "🍽️", color: "rgba(249,115,22,0.1)", border: "rgba(249,115,22,0.2)" },
-              { href: "/bazar", label: "Bazar", icon: "🛒", color: "rgba(16,185,129,0.1)", border: "rgba(16,185,129,0.2)" },
-              { href: "/settlement", label: "Balances", icon: "📊", color: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.2)" },
-              { href: "/maid", label: "Maid", icon: "🧹", color: "rgba(139,92,246,0.1)", border: "rgba(139,92,246,0.2)" },
+              { href: "/meals",      label: "Meals",    icon: "🍽️" },
+              { href: "/bazar",      label: "Bazar",    icon: "🛒" },
+              { href: "/settlement", label: "Balances", icon: "📊" },
+              { href: "/maid",       label: "Maid",     icon: "🧹" },
             ].map((link) => (
               <Link key={link.href} href={link.href} style={{ textDecoration: "none" }}>
                 <div
                   style={{
-                    background: link.color,
-                    border: `1px solid ${link.border}`,
+                    background: "var(--color-bg-surface)",
+                    border: "1px solid var(--color-border)",
                     borderRadius: "var(--radius-lg)",
                     padding: "0.875rem 0.5rem",
                     textAlign: "center",
                     cursor: "pointer",
-                    transition: "all 0.18s ease",
+                    transition: "border-color 0.18s, transform 0.18s",
                   }}
                   onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLDivElement).style.borderColor = "var(--color-primary)";
                     (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)";
-                    (e.currentTarget as HTMLDivElement).style.boxShadow = "0 6px 20px rgba(0,0,0,0.2)";
                   }}
                   onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLDivElement).style.borderColor = "var(--color-border)";
                     (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
-                    (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
                   }}
                 >
-                  <div style={{ fontSize: "1.375rem", marginBottom: "0.375rem" }}>{link.icon}</div>
+                  <div style={{ fontSize: "1.25rem", marginBottom: "0.375rem" }}>{link.icon}</div>
                   <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
                     {link.label}
                   </div>
@@ -526,13 +422,10 @@ export default function DashboardClient({
 
         </div>
       ) : (
-        <div
-          className="card"
-          style={{ textAlign: "center", padding: "3rem 2rem", color: "var(--color-text-muted)" }}
-        >
-          <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}>😕</div>
+        <div className="card" style={{ textAlign: "center", padding: "3rem 2rem" }}>
+          <div style={{ fontSize: "1.75rem", marginBottom: "0.75rem" }}>😕</div>
           <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>Could not load dashboard</div>
-          <div style={{ fontSize: "0.875rem" }}>Check your connection and try again.</div>
+          <div style={{ fontSize: "0.875rem", color: "var(--color-text-muted)" }}>Check your connection and try again.</div>
         </div>
       )}
     </div>

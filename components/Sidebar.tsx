@@ -110,13 +110,12 @@ export default function Sidebar({ user }: { user: SessionUser }) {
                 width: 38,
                 height: 38,
                 borderRadius: "10px",
-                background: "linear-gradient(135deg, var(--color-primary), #FBBF24)",
+                background: "var(--color-primary)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
                 overflow: "hidden",
-                boxShadow: "0 2px 12px rgba(249,115,22,0.4)",
               }}
             >
               <Image src="/logo.png" alt="MealSync Logo" width={38} height={38} style={{ objectFit: "cover" }} />
@@ -126,9 +125,7 @@ export default function Sidebar({ user }: { user: SessionUser }) {
                 fontWeight: 800,
                 fontSize: "1.0625rem",
                 letterSpacing: "-0.03em",
-                background: "linear-gradient(135deg, var(--color-primary-light), #FBBF24)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
+                color: "var(--color-primary-light)",
               }}
             >
               MealSync
@@ -237,7 +234,6 @@ export default function Sidebar({ user }: { user: SessionUser }) {
                 justifyContent: "center",
                 background: isActive(item.href) ? "var(--color-primary)" : "var(--color-bg-elevated)",
                 border: `1px solid ${isActive(item.href) ? "var(--color-primary)" : "var(--color-border)"}`,
-                boxShadow: isActive(item.href) ? "0 2px 10px rgba(249,115,22,0.4)" : "none",
                 transition: "all 0.2s ease",
               }}
             >
@@ -302,12 +298,11 @@ export default function Sidebar({ user }: { user: SessionUser }) {
                   width: 38,
                   height: 38,
                   borderRadius: "10px",
-                  background: "linear-gradient(135deg, var(--color-primary), #FBBF24)",
+                  background: "var(--color-primary)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   overflow: "hidden",
-                  boxShadow: "0 2px 12px rgba(249,115,22,0.4)",
                 }}
               >
                 <Image src="/logo.png" alt="MealSync Logo" width={38} height={38} style={{ objectFit: "cover" }} />
@@ -316,9 +311,7 @@ export default function Sidebar({ user }: { user: SessionUser }) {
                 style={{
                   fontWeight: 800,
                   fontSize: "1.125rem",
-                  background: "linear-gradient(135deg, var(--color-primary-light), #FBBF24)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
+                  color: "var(--color-primary-light)",
                 }}
               >
                 MealSync
@@ -485,7 +478,6 @@ function NavLink({
             ? "var(--color-primary)"
             : "var(--color-bg-elevated)",
           border: `1px solid ${active ? "var(--color-primary)" : "var(--color-border)"}`,
-          boxShadow: active ? "0 2px 10px rgba(249,115,22,0.35)" : "none",
           transition: "all 0.18s ease",
           color: active ? "#fff" : "var(--color-text-secondary)",
         }}
