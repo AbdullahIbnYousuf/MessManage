@@ -243,23 +243,41 @@ export default function Sidebar({ user }: { user: SessionUser }) {
             key={item.href}
             href={item.href}
             className={`mobile-nav-link ${isActive(item.href) ? "active" : ""}`}
+            style={{ position: "relative" }}
           >
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: "50%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: isActive(item.href) ? "var(--color-primary)" : "var(--color-bg-elevated)",
-                border: `1px solid ${isActive(item.href) ? "var(--color-primary)" : "var(--color-border)"}`,
-                transition: "all 0.2s ease",
-              }}
-            >
+            {/* Active pill indicator */}
+            {isActive(item.href) && (
+              <div style={{
+                position: "absolute",
+                top: 0,
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: 32,
+                height: 3,
+                borderRadius: "0 0 4px 4px",
+                background: "var(--color-primary)",
+              }} />
+            )}
+            <div style={{
+              color: isActive(item.href) ? "var(--color-primary)" : "var(--color-text-muted)",
+              transition: "color 0.18s",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 24,
+              height: 24,
+            }}>
               {item.icon}
             </div>
-            <span style={{ fontSize: "0.6rem", marginTop: "2px" }}>{item.label}</span>
+            <span style={{
+              fontSize: "0.6rem",
+              marginTop: "2px",
+              fontWeight: isActive(item.href) ? 700 : 400,
+              color: isActive(item.href) ? "var(--color-primary)" : "var(--color-text-muted)",
+              transition: "color 0.18s, font-weight 0.18s",
+            }}>
+              {item.label}
+            </span>
           </Link>
         ))}
 
@@ -267,25 +285,21 @@ export default function Sidebar({ user }: { user: SessionUser }) {
         <button
           onClick={() => setMobileMenuOpen(true)}
           className="mobile-nav-link"
-          style={{ background: "transparent", border: "none" }}
+          style={{ background: "transparent", border: "none", position: "relative" }}
         >
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "var(--color-bg-elevated)",
-              border: "1px solid var(--color-border)",
-            }}
-          >
+          <div style={{
+            color: "var(--color-text-muted)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 24,
+            height: 24,
+          }}>
             <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </div>
-          <span style={{ fontSize: "0.6rem", marginTop: "2px" }}>More</span>
+          <span style={{ fontSize: "0.6rem", marginTop: "2px", color: "var(--color-text-muted)" }}>More</span>
         </button>
       </nav>
 
