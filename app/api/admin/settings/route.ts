@@ -18,6 +18,7 @@ export async function GET() {
       data: {
         mealDeadline: config.mealDeadline,
         maidChargeDefault: config.maidChargeDefault.toString(),
+        electricityUnitPrice: config.electricityUnitPrice.toString(),
       },
     });
   } catch (err) {
@@ -31,7 +32,7 @@ export async function PUT(request: Request) {
     const user = await requireAuth();
     if (user.role !== "admin") return Response.json({ error: "Forbidden" }, { status: 403 });
 
-    const body = await request.json() as { mealDeadline?: string; maidChargeDefault?: string };
+    const body = await request.json() as { mealDeadline?: string; maidChargeDefault?: string; electricityUnitPrice?: string };
     
     let config = await db.systemConfig.findFirst();
     if (!config) {
@@ -40,7 +41,7 @@ export async function PUT(request: Request) {
       });
     }
 
-    const updateData: { mealDeadline?: string; maidChargeDefault?: Decimal } = {};
+    const updateData: { mealDeadline?: string; maidChargeDefault?: Decimal; electricityUnitPrice?: Decimal } = {};
     if (body.mealDeadline !== undefined) {
       // Basic validation for HH:mm
       if (!/^\d{2}:\d{2}$/.test(body.mealDeadline)) {
@@ -63,6 +64,16 @@ export async function PUT(request: Request) {
         });
       } catch {
         return Response.json({ error: "Invalid maid charge amount" }, { status: 400 });
+      }
+    }
+
+    if (body.electricityUnitPrice !== undefined) {
+      try {
+        const val = new Decimal(body.electricityUnitPrice);
+        if (val.lte(0)) throw new Error();
+        updateData.electricityUnitPrice = val;
+      } catch {
+        return Response.json({ error: "Invalid electricity unit price" }, { status: 400 });
       }
     }
 

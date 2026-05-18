@@ -98,10 +98,15 @@ model User {
 // One bill per month (the previous month). Split equally among all members who
 // were active at any point during that month. per_member_amount is a frozen
 // snapshot calculated at posting time.
+// Meter readings are stored for record-keeping. totalAmount is a frozen snapshot
+// computed at posting time: (currentReading - previousReading) * unitPrice.
 
 model FridgeBill {
   id              String   @id @default(uuid())
   month           DateTime @db.Date
+  previousReading Decimal  @map("previous_reading") @db.Decimal(10, 2)
+  currentReading  Decimal  @map("current_reading") @db.Decimal(10, 2)
+  unitPrice       Decimal  @map("unit_price") @db.Decimal(10, 4)
   totalAmount     Decimal  @map("total_amount") @db.Decimal(12, 2)
   perMemberAmount Decimal  @map("per_member_amount") @db.Decimal(12, 2)
   memberCount     Int      @map("member_count")
@@ -336,14 +341,15 @@ model MonthlySettlement {
 // Always exactly one row. Seeded automatically in the initial migration.
 
 model SystemConfig {
-  id                String     @id @default(uuid())
-  mealDeadline      String     @map("meal_deadline")
-  maidChargeDefault Decimal    @map("maid_charge_default") @db.Decimal(12, 2)
-  activeTripId      String?    @map("active_trip_id")
-  activeTrip        BazarTrip? @relation(fields: [activeTripId], references: [id])
-  updatedAt         DateTime   @updatedAt @map("updated_at")
-  updatedById       String?    @map("updated_by")
-  updatedBy         User?      @relation(fields: [updatedById], references: [id])
+  id                    String     @id @default(uuid())
+  mealDeadline          String     @map("meal_deadline")
+  maidChargeDefault     Decimal    @map("maid_charge_default") @db.Decimal(12, 2)
+  electricityUnitPrice  Decimal    @default(8) @map("electricity_unit_price") @db.Decimal(10, 4)
+  activeTripId          String?    @map("active_trip_id")
+  activeTrip            BazarTrip? @relation(fields: [activeTripId], references: [id])
+  updatedAt             DateTime   @updatedAt @map("updated_at")
+  updatedById           String?    @map("updated_by")
+  updatedBy             User?      @relation(fields: [updatedById], references: [id])
 
   @@map("SystemConfig")
 }

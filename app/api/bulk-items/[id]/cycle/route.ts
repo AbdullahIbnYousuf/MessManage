@@ -3,6 +3,7 @@
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
 import { validateBulkCost } from "@/lib/domain/bulk";
+import { getNow } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 
 export async function POST(
@@ -46,10 +47,10 @@ export async function POST(
       orderBy: { finishedAt: "desc" },
     });
 
-    const startedAt = lastFinished?.finishedAt ?? new Date();
+    const startedAt = lastFinished?.finishedAt ?? getNow();
     const purchaseDate = body.purchaseDate
       ? new Date(body.purchaseDate)
-      : new Date();
+      : getNow();
 
     const cycle = await db.bulkCycle.create({
       data: {

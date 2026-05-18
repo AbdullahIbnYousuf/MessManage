@@ -3,6 +3,7 @@
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
 import { effectiveBazarDate, validateBazarAmount } from "@/lib/domain/bazar";
+import { getNow } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 
 export async function POST(request: Request) {
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     }
 
     const amount = new Decimal(String(body.amount));
-    const requestedDate = body.date ?? new Date().toISOString().slice(0, 10);
+    const requestedDate = body.date ?? getNow().toISOString().slice(0, 10);
     const expenseDate = effectiveBazarDate(requestedDate);
 
     // Get active trip
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
           amount,
           note: body.note ?? null,
           date: new Date(expenseDate),
-          submittedAt: new Date(),
+          submittedAt: getNow(),
         },
       });
 
@@ -56,8 +57,8 @@ export async function POST(request: Request) {
         where: { id: trip.id },
         data: {
           status: "completed",
-          completedAt: new Date(),
-          shoppingNotes: null, // clear notes on completion
+          completedAt: getNow(),
+          shoppingNotes: null,
         },
       });
 

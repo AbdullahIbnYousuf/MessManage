@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
+import { today } from "@/lib/utils/dates";
 import BazarClient from "@/components/domain/bazar/BazarClient";
 
 export const metadata = {
@@ -11,5 +12,5 @@ export default async function BazarPage() {
   const user = await getSessionUser();
   if (!user) redirect("/auth/login");
 
-  return <BazarClient />;
+  return <BazarClient todayStr={today()} />;
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { today } from "@/lib/utils/dates";
 
 interface MealRecord {
   id: string;
@@ -17,6 +16,7 @@ interface Props {
   onUpdate: (date: string, count: number) => void;
   onRequestEdit: () => void;
   deadline: string;
+  todayStr: string;
 }
 
 const DAYS_HEADER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -28,10 +28,10 @@ export default function MealCalendar({
   onUpdate,
   onRequestEdit,
   deadline,
+  todayStr,
 }: Props) {
   const [savingDate, setSavingDate] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const todayStr = today();
 
   const updateMeal = useCallback(
     async (date: string, count: number) => {

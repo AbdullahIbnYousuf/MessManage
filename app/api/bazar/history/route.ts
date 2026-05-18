@@ -1,4 +1,4 @@
-// GET /api/bazar/history — bazar expense history + visit/spending leaderboard
+// GET /api/bazar/history — bazar expense history + visit leaderboard
 
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
@@ -7,40 +7,40 @@ export async function GET() {
   try {
     await requireAuth();
 
-    // Get all completed expenses with user info
+    // All-time visit counts via DB-level groupBy — no row limit, accurate for all history
+    const visitCounts = await db.bazarExpense.groupBy({
+      by: ["userId"],
+      _count: { id: true },
+    });
+
+    // Fetch user details for everyone who has at least one expense
+    const userIds = visitCounts.map((r) => r.userId);
+    const users = await db.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, nickname: true, avatarUrl: true },
+    });
+    const userMap = new Map(users.map((u) => [u.id, u]));
+
+    const leaderboard = visitCounts
+      .map((r) => {
+        const u = userMap.get(r.userId);
+        return {
+          userId: r.userId,
+          name: u ? (u.nickname || u.name) : "Unknown",
+          avatarUrl: u?.avatarUrl ?? null,
+          visits: r._count.id,
+        };
+      })
+      .sort((a, b) => b.visits - a.visits);
+
+    // Last 50 expenses for the recent history list only
     const expenses = await db.bazarExpense.findMany({
       include: {
         user: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
-        trip: { select: { id: true, completedAt: true } },
       },
       orderBy: { submittedAt: "desc" },
-      take: 50, // last 50 entries
+      take: 50,
     });
-
-    // Build leaderboard: visits = count of expenses per user, spending = sum
-    const leaderMap = new Map<
-      string,
-      { userId: string; name: string; avatarUrl: string | null; visits: number; totalSpend: string }
-    >();
-
-    for (const e of expenses) {
-      const existing = leaderMap.get(e.userId);
-      if (existing) {
-        existing.visits += 1;
-        existing.totalSpend = (parseFloat(existing.totalSpend) + parseFloat(e.amount.toString())).toFixed(2);
-      } else {
-        leaderMap.set(e.userId, {
-          userId: e.userId,
-          name: e.user.nickname || e.user.name,
-          avatarUrl: e.user.avatarUrl,
-          visits: 1,
-          totalSpend: e.amount.toFixed(2),
-        });
-      }
-    }
-
-    // Also include members with 0 visits from the all-time expense list isn't needed here
-    // Just return what we have from the expenses
 
     return Response.json({
       data: {
@@ -54,7 +54,7 @@ export async function GET() {
           date: e.date.toISOString().slice(0, 10),
           submittedAt: e.submittedAt.toISOString(),
         })),
-        leaderboard: Array.from(leaderMap.values()).sort((a, b) => b.visits - a.visits),
+        leaderboard,
       },
     });
   } catch (err) {

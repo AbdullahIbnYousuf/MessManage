@@ -4,14 +4,14 @@
 
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
-import { allDaysInMonth, getDayKey } from "@/lib/utils/dates";
+import { allDaysInMonth, getDayKey, getNow } from "@/lib/utils/dates";
 
 export async function GET(request: Request) {
   try {
     const user = await requireAuth();
     const { searchParams } = new URL(request.url);
 
-    const now = new Date();
+    const now = getNow();
     const year = parseInt(searchParams.get("year") ?? String(now.getFullYear()), 10);
     const month = parseInt(searchParams.get("month") ?? String(now.getMonth() + 1), 10);
 
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
     );
 
     const allDays = allDaysInMonth(year, month);
-    const today = new Date();
+    const today = getNow();
     today.setHours(0, 0, 0, 0);
 
     // Create missing records for all days

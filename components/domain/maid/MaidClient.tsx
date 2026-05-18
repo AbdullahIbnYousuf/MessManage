@@ -26,6 +26,61 @@ interface Props {
   defaultCharge: string;
 }
 
+function MaidPaymentRow({ payment: p, isLast }: { payment: Payment; isLast: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasNote = !!p.note;
+  const monthLabel = new Date(p.month + "-01T00:00:00").toLocaleString("en-US", { month: "long", year: "numeric" });
+
+  return (
+    <div>
+      <div
+        onClick={() => hasNote && setExpanded((v) => !v)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.75rem",
+          padding: "0.625rem 0",
+          borderBottom: isLast && !expanded ? "none" : "1px solid var(--color-border-subtle)",
+          cursor: hasNote ? "pointer" : "default",
+        }}
+      >
+        {p.paidBy.avatarUrl
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={p.paidBy.avatarUrl} alt={p.paidBy.name} className="avatar avatar-sm" />
+          : <div className="avatar-fallback" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>{p.paidBy.name.charAt(0)}</div>
+        }
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 500, fontSize: "0.875rem" }}>{p.paidBy.name}</div>
+          <div className="text-muted" style={{ fontSize: "0.75rem" }}>{monthLabel}</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
+          <span style={{ fontWeight: 700, color: "var(--color-success)", fontSize: "0.9375rem" }}>
+            +৳{parseFloat(p.amount).toLocaleString()}
+          </span>
+          {hasNote && (
+            <span style={{ fontSize: "1rem", color: expanded ? "var(--color-text-secondary)" : "var(--color-text-muted)", lineHeight: 1, userSelect: "none" }}>
+              {expanded ? "×" : "≡"}
+            </span>
+          )}
+        </div>
+      </div>
+      {expanded && p.note && (
+        <div style={{
+          padding: "0.5rem 0.75rem 0.625rem 2.75rem",
+          fontSize: "0.8125rem",
+          color: "var(--color-text-secondary)",
+          borderBottom: isLast ? "none" : "1px solid var(--color-border-subtle)",
+          background: "var(--color-bg-elevated)",
+          borderRadius: "0 0 var(--radius-md) var(--radius-md)",
+          whiteSpace: "pre-wrap",
+        }}>
+          {p.note}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MaidClient({ isAdmin, currentMonthKey, defaultCharge }: Props) {
   const [charges, setCharges] = useState<ChargeEntry[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -42,6 +97,7 @@ export default function MaidClient({ isAdmin, currentMonthKey, defaultCharge }: 
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [applySuccess, setApplySuccess] = useState(false);
+  const [pastPaymentsExpanded, setPastPaymentsExpanded] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -194,37 +250,49 @@ export default function MaidClient({ isAdmin, currentMonthKey, defaultCharge }: 
           </div>
 
           {/* Payment history */}
-          {payments.length > 0 && (
-            <div className="card">
-              <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "0.875rem" }}>Payment History</div>
-              <div className="table-container">
-                <table className="table">
-                  <thead>
-                    <tr><th>Paid By</th><th>Month</th><th>Amount</th><th>Note</th></tr>
-                  </thead>
-                  <tbody>
-                    {payments.map((p) => (
-                      <tr key={p.id}>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            {p.paidBy.avatarUrl
-                              // eslint-disable-next-line @next/next/no-img-element
-                              ? <img src={p.paidBy.avatarUrl} alt={p.paidBy.name} className="avatar avatar-sm" />
-                              : <div className="avatar-fallback" style={{ width: 24, height: 24, fontSize: "0.6875rem" }}>{p.paidBy.name.charAt(0)}</div>
-                            }
-                            <span style={{ fontSize: "0.875rem" }}>{p.paidBy.name}</span>
-                          </div>
-                        </td>
-                        <td className="text-secondary" style={{ fontSize: "0.8125rem" }}>{p.month}</td>
-                        <td style={{ fontWeight: 600, color: "var(--color-success)" }}>৳{parseFloat(p.amount).toLocaleString()}</td>
-                        <td className="text-secondary" style={{ fontSize: "0.8125rem" }}>{p.note ?? "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          {payments.length > 0 && (() => {
+            const currentMonth = currentMonthKey.slice(0, 7);
+            const monthLabel = new Date(currentMonthKey + "T00:00:00").toLocaleString("en-US", { month: "long", year: "numeric" });
+            const thisMonth = payments.filter((p) => p.month.startsWith(currentMonth));
+            const past = payments.filter((p) => !p.month.startsWith(currentMonth));
+            return (
+              <>
+                {thisMonth.length > 0 && (
+                  <div className="card">
+                    <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "0.875rem" }}>
+                      {monthLabel} Payments
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      {thisMonth.map((p, i) => (
+                        <MaidPaymentRow key={p.id} payment={p} isLast={i === thisMonth.length - 1} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {past.length > 0 && (
+                  <div className="card">
+                    <button
+                      onClick={() => setPastPaymentsExpanded((v) => !v)}
+                      style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between" }}
+                    >
+                      <span style={{ fontWeight: 600, fontSize: "0.9375rem" }}>Past Payments</span>
+                      <span style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                        {past.length} entries
+                        <span style={{ transition: "transform 0.2s", display: "inline-block", transform: pastPaymentsExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+                      </span>
+                    </button>
+                    {pastPaymentsExpanded && (
+                      <div style={{ marginTop: "0.875rem", display: "flex", flexDirection: "column" }} className="fade-in">
+                        {past.map((p, i) => (
+                          <MaidPaymentRow key={p.id} payment={p} isLast={i === past.length - 1} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
     </div>

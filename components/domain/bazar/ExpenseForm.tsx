@@ -1,17 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { today, formatNumericDate } from "@/lib/utils/dates";
+import { formatNumericDate } from "@/lib/utils/dates";
 
 interface Props {
   onSubmitted: () => void;
   tripNotes?: string | null;
+  todayStr: string;
 }
 
-export default function ExpenseForm({ onSubmitted, tripNotes }: Props) {
+export default function ExpenseForm({ onSubmitted, tripNotes, todayStr }: Props) {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const [date, setDate] = useState(today());
+  const [date, setDate] = useState(todayStr);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -47,7 +48,7 @@ export default function ExpenseForm({ onSubmitted, tripNotes }: Props) {
         // Reset form and notify parent
         setAmount("");
         setNote("");
-        setDate(today());
+        setDate(todayStr);
         onSubmitted();
       }
     } catch {
@@ -80,7 +81,7 @@ export default function ExpenseForm({ onSubmitted, tripNotes }: Props) {
             {note && (
               <div style={{ marginBottom: "0.5rem" }}>
                 <span className="text-secondary" style={{ fontSize: "0.8125rem" }}>Expense Note: </span>
-                <span style={{ fontSize: "0.875rem" }}>{note}</span>
+                <span style={{ fontSize: "0.875rem", whiteSpace: "pre-wrap", display: "block", marginTop: "0.25rem" }}>{note}</span>
               </div>
             )}
             <div style={{ marginBottom: "0.5rem" }}>
@@ -140,7 +141,7 @@ export default function ExpenseForm({ onSubmitted, tripNotes }: Props) {
             className="input"
             type="date"
             value={date}
-            max={today()}
+            max={todayStr}
             onChange={(e) => setDate(e.target.value)}
           />
         </div>

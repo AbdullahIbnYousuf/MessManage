@@ -4,6 +4,7 @@
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
 import { canOpenTrip, suggestAssignees } from "@/lib/domain/bazar";
+import { getNow } from "@/lib/utils/dates";
 
 export async function GET() {
   try {
@@ -80,7 +81,7 @@ export async function POST() {
           assignee1Id: a1?.id ?? null,
           assignee2Id: a2?.id ?? null,
           status: "open",
-          triggeredAt: new Date(),
+          triggeredAt: getNow(),
         },
       });
 

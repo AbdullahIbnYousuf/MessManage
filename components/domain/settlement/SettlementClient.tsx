@@ -37,9 +37,10 @@ interface HistoryMonth {
 
 interface Props {
   isAdmin: boolean;
+  monthName: string;
 }
 
-export default function SettlementClient({ isAdmin }: Props) {
+export default function SettlementClient({ isAdmin, monthName }: Props) {
   const [balances, setBalances] = useState<BalanceEntry[]>([]);
   const [mealRate, setMealRate] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryMonth[]>([]);
@@ -91,7 +92,7 @@ export default function SettlementClient({ isAdmin }: Props) {
         <div>
           <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>Settlement</h1>
           <p className="text-secondary" style={{ fontSize: "0.875rem" }}>
-            Current balances and month-end settlement.
+            {monthName}
             {mealRate && <> · Meal rate: <strong>৳{parseFloat(mealRate).toFixed(2)}/meal</strong></>}
           </p>
         </div>

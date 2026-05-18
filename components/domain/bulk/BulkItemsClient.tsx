@@ -11,18 +11,30 @@ interface Cycle {
   purchasedBy: { id: string; name: string; avatarUrl: string | null };
 }
 
+interface FinishedCycle {
+  id: string;
+  cost: string;
+  purchaseDate: string;
+  startedAt: string;
+  finishedAt: string;
+  purchasedBy: { name: string };
+  finishedBy: { name: string } | null;
+}
+
 interface BulkItem {
   id: string;
   name: string;
   unit: string | null;
   activeCycle: Cycle | null;
+  finishedCycles: FinishedCycle[];
 }
 
 interface Props {
   isAdmin: boolean;
+  todayStr: string;
 }
 
-export default function BulkItemsClient({ isAdmin }: Props) {
+export default function BulkItemsClient({ isAdmin, todayStr }: Props) {
   const [items, setItems] = useState<BulkItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -121,6 +133,7 @@ export default function BulkItemsClient({ isAdmin }: Props) {
               isAdmin={isAdmin}
               onCycleStarted={load}
               onCycleFinished={load}
+              todayStr={todayStr}
             />
           ))}
         </div>
