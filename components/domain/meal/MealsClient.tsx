@@ -18,9 +18,10 @@ interface MealsClientProps {
   year: number;
   month: number;
   todayStr: string; // passed from server so MOCK_CURRENT_TIME is respected
+  isAdmin: boolean;
 }
 
-export default function MealsClient({ deadline, year, month, todayStr }: MealsClientProps) {
+export default function MealsClient({ deadline, year, month, todayStr, isAdmin }: MealsClientProps) {
   const [records, setRecords] = useState<MealRecord[]>([]);
   const [pattern, setPattern] = useState<MealPattern | null>(null);
   const [editRequestStatus, setEditRequestStatus] = useState<
@@ -29,6 +30,9 @@ export default function MealsClient({ deadline, year, month, todayStr }: MealsCl
   const [loading, setLoading] = useState(true);
   const [requestingEdit, setRequestingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancelSuccess, setCancelSuccess] = useState(false);
 
   const deadlinePassed = isDeadlinePassed(deadline);
 
@@ -76,6 +80,27 @@ export default function MealsClient({ deadline, year, month, todayStr }: MealsCl
     }
   }
 
+  async function handleCancelToday() {
+    if (!confirm("Cancel all meals for today? This will set everyone's meal count to 0. This cannot be undone.")) return;
+    setCancelling(true);
+    setCancelError(null);
+    setCancelSuccess(false);
+    try {
+      const res = await fetch("/api/meals/cancel-today", { method: "POST" });
+      const json = await res.json() as { error?: string; data?: { cancelled: number } };
+      if (!res.ok) {
+        setCancelError(json.error ?? "Failed to cancel meals.");
+      } else {
+        setCancelSuccess(true);
+        void load();
+      }
+    } catch {
+      setCancelError("Network error.");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
   const totalMeals = records.filter(r => {
     if (r.date < todayStr) return true;
     if (r.date === todayStr && deadlinePassed) return true;
@@ -118,6 +143,28 @@ export default function MealsClient({ deadline, year, month, todayStr }: MealsCl
               }}
             >
               {editError}
+            </div>
+          )}
+
+          {/* Admin: Cancel today's meals */}
+          {isAdmin && (
+            <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>Cancel Today&apos;s Meals</div>
+                <div className="text-muted" style={{ fontSize: "0.8125rem" }}>
+                  Sets all members&apos; meal count to 0 for today. Use if cooking was cancelled.
+                </div>
+                {cancelError && <div style={{ color: "var(--color-danger)", fontSize: "0.8125rem", marginTop: "0.25rem" }}>{cancelError}</div>}
+                {cancelSuccess && <div style={{ color: "var(--color-success)", fontSize: "0.8125rem", marginTop: "0.25rem" }}>All meals cancelled for today.</div>}
+              </div>
+              <button
+                className="btn btn-sm btn-secondary"
+                onClick={() => void handleCancelToday()}
+                disabled={cancelling}
+                style={{ borderColor: "rgba(239,68,68,0.4)", color: "var(--color-danger)", flexShrink: 0 }}
+              >
+                {cancelling ? <span className="spinner" /> : "Cancel Today's Meals"}
+              </button>
             </div>
           )}
 

@@ -23,5 +23,5 @@ export default async function MealsPage() {
   const month = now.getMonth() + 1;
   const todayStr = `${year}-${String(month).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-  return <MealsClient deadline={deadline} year={year} month={month} todayStr={todayStr} />;
+  return <MealsClient deadline={deadline} year={year} month={month} todayStr={todayStr} isAdmin={user.role === "admin"} />;
 }
