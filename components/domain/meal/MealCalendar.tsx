@@ -91,132 +91,182 @@ export default function MealCalendar({
     return `${h12}:${m} ${ampm}`;
   };
 
+  // Calculate next lock day and time
+  const getNextLockInfo = () => {
+    const today = new Date(todayStr + "T00:00:00");
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const lockDay = deadlinePassed ? tomorrow : today;
+    const dayName = lockDay.toLocaleDateString("en-US", { weekday: "long" });
+    const lockTime = formatTime(deadline);
+    
+    if (deadlinePassed) {
+      return `Locks tomorrow (${dayName}) at ${lockTime}`;
+    } else {
+      return `Locks today at ${lockTime}`;
+    }
+  };
+
   return (
     <div className="card">
-      <div style={{ marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
+      <div style={{ marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
+        <div style={{ flex: "1 1 auto", minWidth: "200px" }}>
           <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>Meal Calendar</div>
           <div className="text-secondary" style={{ fontSize: "0.8125rem", marginTop: "0.2rem" }}>
-            Click +/− on today&apos;s cell to update your meal count.
+            Tap +/− to update your meal count
           </div>
         </div>
         {/* Edit request panel for today after deadline */}
         {deadlinePassed && editRequestStatus === null && (
-          <button className="btn btn-sm btn-secondary" onClick={onRequestEdit}>
+          <button className="btn btn-sm btn-secondary" onClick={onRequestEdit} style={{ flexShrink: 0 }}>
             Request Edit
           </button>
         )}
         {editRequestStatus === "pending" && (
-          <span className="badge badge-warning">Edit request pending</span>
+          <span className="badge badge-warning" style={{ flexShrink: 0 }}>Edit request pending</span>
         )}
         {editRequestStatus === "approved" && (
-          <span className="badge badge-success">Edit approved — update your count</span>
+          <span className="badge badge-success" style={{ flexShrink: 0 }}>Edit approved — update your count</span>
         )}
         {editRequestStatus === "rejected" && (
-          <span className="badge badge-danger">Edit request rejected</span>
+          <span className="badge badge-danger" style={{ flexShrink: 0 }}>Edit request rejected</span>
         )}
       </div>
 
-      {/* Scrollable calendar container */}
-      <div style={{ overflowX: "auto", margin: "0 -4px", padding: "0 4px", paddingBottom: "8px" }}>
-        <div style={{ minWidth: "min-content" }}>
-          {/* Day headers */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px", marginBottom: "4px" }}>
-        {DAYS_HEADER.map((d) => (
-          <div key={d} style={{ textAlign: "center", fontSize: "0.6875rem", color: "var(--color-text-muted)", fontWeight: 600, padding: "4px 0" }}>
-            {d}
+      {/* Calendar container - NO horizontal scroll */}
+      <div>
+        {/* Day headers */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "3px", marginBottom: "3px" }}>
+          {DAYS_HEADER.map((d) => (
+            <div key={d} style={{ textAlign: "center", fontSize: "0.6875rem", color: "var(--color-text-muted)", fontWeight: 600, padding: "6px 0" }}>
+              {d}
+            </div>
+          ))}
+        </div>
+
+        {/* Calendar grid */}
+        {weeks.map((week, wi) => (
+          <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "3px", marginBottom: "3px" }}>
+            {week.map((record, di) => {
+              if (!record) {
+                return <div key={di} />;
+              }
+
+              const isToday = record.date === todayStr;
+              const isFuture = record.date > todayStr;
+              const isPast = record.date < todayStr;
+              const canEdit = isFuture || (isToday && (!deadlinePassed || editRequestStatus === "approved"));
+              const isSaving = savingDate === record.date;
+              const err = errors[record.date];
+
+              const dayNum = new Date(record.date + "T00:00:00").getDate();
+
+              return (
+                <div
+                  key={record.id}
+                  style={{
+                    borderRadius: "6px",
+                    padding: "8px 4px",
+                    textAlign: "center",
+                    background: isToday
+                      ? "var(--color-primary-glow)"
+                      : isFuture
+                      ? "var(--color-bg-elevated)"
+                      : "var(--color-bg-surface)",
+                    border: `1px solid ${
+                      isToday
+                        ? "rgba(59,130,246,0.4)"
+                        : "var(--color-border-subtle)"
+                    }`,
+                    opacity: isPast && record.mealCount === 0 ? 0.5 : 1,
+                    position: "relative",
+                    minHeight: canEdit ? "80px" : "60px",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  {/* Date number */}
+                  <div style={{ fontSize: "0.6875rem", color: isToday ? "var(--color-primary-light)" : "var(--color-text-muted)", fontWeight: isToday ? 700 : 400 }}>
+                    {dayNum}
+                  </div>
+
+                  {/* Meal count */}
+                  {isSaving ? (
+                    <div style={{ display: "flex", justifyContent: "center", padding: "4px 0" }}>
+                      <span className="spinner" style={{ width: 16, height: 16 }} />
+                    </div>
+                  ) : (
+                    <div style={{ fontWeight: 700, fontSize: "1.125rem", color: record.mealCount > 0 ? "var(--color-text-primary)" : "var(--color-text-muted)", padding: "2px 0" }}>
+                      {record.mealCount}
+                    </div>
+                  )}
+
+                  {/* Controls for editable days - VERTICAL STACK */}
+                  {canEdit && !isSaving && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "3px", marginTop: "4px" }}>
+                      <button
+                        onClick={() => void updateMeal(record.date, record.mealCount + 1)}
+                        style={{ 
+                          width: "100%", 
+                          height: "24px", 
+                          borderRadius: "4px", 
+                          background: "var(--color-primary)", 
+                          border: "none", 
+                          cursor: "pointer", 
+                          color: "white", 
+                          fontSize: "0.875rem", 
+                          fontWeight: 600,
+                          display: "flex", 
+                          alignItems: "center", 
+                          justifyContent: "center",
+                          touchAction: "manipulation",
+                          WebkitTapHighlightColor: "transparent",
+                        }}
+                      >+</button>
+                      <button
+                        onClick={() => void updateMeal(record.date, Math.max(record.mealCount - 1, 0))}
+                        disabled={record.mealCount === 0}
+                        style={{ 
+                          width: "100%", 
+                          height: "24px", 
+                          borderRadius: "4px", 
+                          background: record.mealCount === 0 ? "var(--color-bg-base)" : "var(--color-bg-elevated)", 
+                          border: "1px solid var(--color-border)", 
+                          cursor: record.mealCount === 0 ? "not-allowed" : "pointer", 
+                          color: record.mealCount === 0 ? "var(--color-text-muted)" : "var(--color-text-secondary)", 
+                          fontSize: "0.875rem", 
+                          fontWeight: 600,
+                          display: "flex", 
+                          alignItems: "center", 
+                          justifyContent: "center",
+                          opacity: record.mealCount === 0 ? 0.5 : 1,
+                          touchAction: "manipulation",
+                          WebkitTapHighlightColor: "transparent",
+                        }}
+                      >−</button>
+                    </div>
+                  )}
+
+                  {/* Lock icon for locked past records */}
+                  {record.isLocked && (
+                    <div style={{ position: "absolute", top: 4, right: 4, fontSize: "0.625rem", color: "var(--color-text-muted)" }}>🔒</div>
+                  )}
+
+                  {err && (
+                    <div style={{ fontSize: "0.625rem", color: "var(--color-danger)", marginTop: "2px" }} title={err}>!</div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>
 
-      {/* Calendar grid */}
-      {weeks.map((week, wi) => (
-        <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px", marginBottom: "4px" }}>
-          {week.map((record, di) => {
-            if (!record) {
-              return <div key={di} />;
-            }
-
-            const isToday = record.date === todayStr;
-            const isFuture = record.date > todayStr;
-            const isPast = record.date < todayStr;
-            const canEdit = isFuture || (isToday && (!deadlinePassed || editRequestStatus === "approved"));
-            const isSaving = savingDate === record.date;
-            const err = errors[record.date];
-
-            const dayNum = new Date(record.date + "T00:00:00").getDate();
-
-            return (
-              <div
-                key={record.id}
-                style={{
-                  borderRadius: "8px",
-                  padding: "6px 4px",
-                  textAlign: "center",
-                  background: isToday
-                    ? "var(--color-primary-glow)"
-                    : isFuture
-                    ? "var(--color-bg-elevated)"
-                    : "var(--color-bg-surface)",
-                  border: `1px solid ${
-                    isToday
-                      ? "rgba(59,130,246,0.4)"
-                      : "var(--color-border-subtle)"
-                  }`,
-                  opacity: isPast && record.mealCount === 0 ? 0.5 : 1,
-                  position: "relative",
-                }}
-              >
-                {/* Date number */}
-                <div style={{ fontSize: "0.6875rem", color: isToday ? "var(--color-primary-light)" : "var(--color-text-muted)", fontWeight: isToday ? 700 : 400, marginBottom: "4px" }}>
-                  {dayNum}
-                </div>
-
-                {/* Meal count */}
-                {isSaving ? (
-                  <div style={{ display: "flex", justifyContent: "center" }}>
-                    <span className="spinner" style={{ width: 14, height: 14 }} />
-                  </div>
-                ) : (
-                  <div style={{ fontWeight: 700, fontSize: "1rem", color: record.mealCount > 0 ? "var(--color-text-primary)" : "var(--color-text-muted)" }}>
-                    {record.mealCount}
-                  </div>
-                )}
-
-                {/* Controls for editable days */}
-                {canEdit && !isSaving && (
-                  <div style={{ display: "flex", justifyContent: "center", gap: "2px", marginTop: "4px" }}>
-                    <button
-                      onClick={() => void updateMeal(record.date, Math.max(record.mealCount - 1, 0))}
-                      style={{ width: 18, height: 18, borderRadius: "4px", background: "var(--color-bg-base)", border: "1px solid var(--color-border)", cursor: "pointer", color: "var(--color-text-secondary)", fontSize: "0.625rem", display: "flex", alignItems: "center", justifyContent: "center" }}
-                    >−</button>
-                    <button
-                      onClick={() => void updateMeal(record.date, record.mealCount + 1)}
-                      style={{ width: 18, height: 18, borderRadius: "4px", background: "var(--color-primary)", border: "none", cursor: "pointer", color: "white", fontSize: "0.625rem", display: "flex", alignItems: "center", justifyContent: "center" }}
-                    >+</button>
-                  </div>
-                )}
-
-                {/* Lock icon for locked past records */}
-                {record.isLocked && (
-                  <div style={{ position: "absolute", top: 3, right: 4, fontSize: "0.5rem", color: "var(--color-text-muted)" }}>🔒</div>
-                )}
-
-                {err && (
-                  <div style={{ fontSize: "0.5rem", color: "var(--color-danger)", marginTop: "2px" }} title={err}>!</div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ))}
-        </div>
-      </div>
-
-      {/* Legend */}
-      <div style={{ display: "flex", gap: "1rem", marginTop: "0.75rem", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-        <span>🔒 Locked (past {formatTime(deadline)})</span>
-        <span style={{ color: "var(--color-primary-light)" }}>■ Today</span>
+      {/* Legend - with next lock info instead of "Today" */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "0.75rem", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+        <span>🔒 {getNextLockInfo()}</span>
       </div>
     </div>
   );
