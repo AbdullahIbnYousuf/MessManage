@@ -32,6 +32,7 @@ interface ProfileData {
     totalSpending: string;
     totalMeals: number;
     bazarVisits: number;
+    monthLabel: string;
     breakdown: {
       bazarContributed: string;
       maidPayments: string;
@@ -193,7 +194,7 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
             <div style={{ fontSize: "2rem", fontWeight: 900, color: isPositive ? "var(--color-success)" : "var(--color-danger)", letterSpacing: "-0.03em", lineHeight: 1 }}>
               {isPositive ? "+" : "−"}৳<AnimatedNumber value={Math.abs(balanceNum)} decimals={2} />
             </div>
-            <div className="text-muted" style={{ fontSize: "0.75rem", marginTop: "0.25rem" }}>this month</div>
+            <div className="text-muted" style={{ fontSize: "0.75rem", marginTop: "0.25rem" }}>{aggregates.monthLabel}</div>
           </div>
           <div style={{
             width: 48, height: 48, borderRadius: "50%",

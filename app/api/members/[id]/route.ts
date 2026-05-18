@@ -169,6 +169,7 @@ export async function GET(
         totalSpending: totalSpending.toFixed(2),
         totalMeals: userMealCount,
         bazarVisits: bazarVisitCount,
+        monthLabel: new Date(currentMonthKey()).toLocaleString("en-US", { month: "long", year: "numeric" }),
         breakdown: {
           bazarContributed: userBazarSpend.toFixed(2),
           maidPayments: userMaidPayments.toFixed(2),
