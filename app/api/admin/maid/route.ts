@@ -2,7 +2,7 @@
 
 import { requireAdmin } from "@/lib/session";
 import { db } from "@/lib/db";
-import { currentMonthKey } from "@/lib/utils/dates";
+import { currentMonthKey, getNow } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 
 export async function POST() {
@@ -33,7 +33,7 @@ export async function POST() {
       select: { id: true },
     });
 
-    const now = new Date();
+    const now = getNow();
     const chargeRows = members.map((m) => ({
       userId: m.id,
       amount: defaultCharge,

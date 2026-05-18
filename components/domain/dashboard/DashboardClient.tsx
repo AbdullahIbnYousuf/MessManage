@@ -36,6 +36,12 @@ interface Props {
   isAlertPeriod: boolean;
   isPreviousMonthSettled: boolean;
   previousMonthLabel: string;
+  daysUntilSettle: number;
+  monthName: string;
+  dayName: string;
+  isMaidChargeAlertPeriod: boolean;
+  isMaidChargeApplied: boolean;
+  daysUntilMaidCharge: number;
 }
 
 /* ── Animated number counter ── */
@@ -132,13 +138,17 @@ export default function DashboardClient({
   isAlertPeriod,
   isPreviousMonthSettled,
   previousMonthLabel,
+  daysUntilSettle,
+  monthName,
+  dayName,
+  isMaidChargeAlertPeriod,
+  isMaidChargeApplied,
+  daysUntilMaidCharge,
 }: Props) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [balance, setBalance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isMealsExpanded, setIsMealsExpanded] = useState(false);
-
-  const dayName = new Date().toLocaleString("en-US", { weekday: "long" });
 
   const load = useCallback(async () => {
     try {
@@ -164,7 +174,6 @@ export default function DashboardClient({
 
   useEffect(() => { void load(); }, [load]);
 
-  const monthName = new Date().toLocaleString("en-US", { month: "long", year: "numeric" });
   const displayName = nickname ?? name.split(" ")[0];
   const balanceNum = balance !== null ? parseFloat(balance) : null;
   const isPositive = balanceNum !== null && balanceNum >= 0;
@@ -191,7 +200,7 @@ export default function DashboardClient({
       {loading ? <DashboardSkeleton /> : data ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.125rem" }}>
 
-          {/* ── Alert Banner ── */}
+          {/* ── Alert Banner — Auto-settlement ── */}
           {isAlertPeriod && !isPreviousMonthSettled && (
             <div
               className="slide-up"
@@ -208,10 +217,44 @@ export default function DashboardClient({
               <span style={{ fontSize: "1rem", lineHeight: 1.5 }}>⚠️</span>
               <div>
                 <div style={{ fontWeight: 700, fontSize: "0.875rem", color: "var(--color-warning)", marginBottom: "0.2rem" }}>
-                  Auto-settlement Incoming
+                  {daysUntilSettle === 1 ? "Auto-settlement Tomorrow" : `Auto-settlement in ${daysUntilSettle} Days`}
                 </div>
                 <div style={{ fontSize: "0.8125rem", color: "var(--color-text-secondary)" }}>
-                  Auto-settlement for {previousMonthLabel} will run on the 5th.
+                  {daysUntilSettle === 1
+                    ? `Auto-settlement for ${previousMonthLabel} runs tomorrow.`
+                    : `Auto-settlement for ${previousMonthLabel} runs in ${daysUntilSettle} days on the 5th.`}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Alert Banner — Maid charges ── */}
+          {isMaidChargeAlertPeriod && !isMaidChargeApplied && (
+            <div
+              className="slide-up"
+              style={{
+                background: "rgba(16,185,129,0.08)",
+                border: "1px solid rgba(16,185,129,0.2)",
+                borderRadius: "var(--radius-lg)",
+                padding: "0.875rem 1rem",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "0.75rem",
+              }}
+            >
+              <span style={{ fontSize: "1rem", lineHeight: 1.5 }}>🧹</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: "0.875rem", color: "var(--color-secondary)", marginBottom: "0.2rem" }}>
+                  {daysUntilMaidCharge === 0
+                    ? "Maid Charges Applying Today"
+                    : daysUntilMaidCharge === 1
+                    ? "Maid Charges Apply Tomorrow"
+                    : `Maid Charges in ${daysUntilMaidCharge} Days`}
+                </div>
+                <div style={{ fontSize: "0.8125rem", color: "var(--color-text-secondary)" }}>
+                  {daysUntilMaidCharge === 0
+                    ? "Maid charges will be auto-applied to all active members today."
+                    : "Maid charges will be auto-applied to all active members on the 28th."}
                 </div>
               </div>
             </div>

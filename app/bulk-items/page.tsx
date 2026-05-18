@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
+import { today } from "@/lib/utils/dates";
 import BulkItemsClient from "@/components/domain/bulk/BulkItemsClient";
 
 export const metadata = {
@@ -10,5 +11,5 @@ export const metadata = {
 export default async function BulkItemsPage() {
   const user = await getSessionUser();
   if (!user) redirect("/auth/login");
-  return <BulkItemsClient isAdmin={user.role === "admin"} />;
+  return <BulkItemsClient isAdmin={user.role === "admin"} todayStr={today()} />;
 }

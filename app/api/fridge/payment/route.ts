@@ -4,17 +4,14 @@
 
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
+import { previousMonthKey } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 
 export async function POST(request: Request) {
   try {
     const user = await requireAuth();
 
-    const body = await request.json() as { billId: unknown; amount: unknown };
-
-    if (!body.billId || typeof body.billId !== "string") {
-      return Response.json({ error: "billId is required." }, { status: 400 });
-    }
+    const body = await request.json() as { amount: unknown; month?: string };
 
     const raw = body.amount;
     if (raw === undefined || raw === null || raw === "") {
@@ -32,9 +29,25 @@ export async function POST(request: Request) {
       return Response.json({ error: "amount must be greater than zero." }, { status: 400 });
     }
 
-    const bill = await db.fridgeBill.findUnique({ where: { id: body.billId } });
+    // Resolve the bill by month (defaults to previous month)
+    const monthStr = body.month ?? previousMonthKey();
+    const monthDate = new Date(monthStr);
+
+    const bill = await db.fridgeBill.findUnique({ where: { month: monthDate } });
     if (!bill) {
-      return Response.json({ error: "Fridge bill not found." }, { status: 404 });
+      return Response.json({ error: "No fridge bill found for this month." }, { status: 404 });
+    }
+
+    // Block payment if this bill's month has already been settled
+    const settled = await db.monthlySettlement.findFirst({
+      where: { month: bill.month },
+      select: { id: true },
+    });
+    if (settled) {
+      return Response.json(
+        { error: "This month has already been settled. Payments can no longer be recorded." },
+        { status: 400 }
+      );
     }
 
     const payment = await db.fridgePayment.create({

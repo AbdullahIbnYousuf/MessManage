@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 export default function SystemSettingsClient() {
   const [mealDeadline, setMealDeadline] = useState("22:00");
   const [maidChargeDefault, setMaidChargeDefault] = useState("700");
+  const [electricityUnitPrice, setElectricityUnitPrice] = useState("8");
   const [loading, setLoading] = useState(true);
 
   // Status for Meal Deadline Form
@@ -17,18 +18,25 @@ export default function SystemSettingsClient() {
   const [errorMaid, setErrorMaid] = useState<string | null>(null);
   const [successMaid, setSuccessMaid] = useState(false);
 
+  // Status for Electricity Unit Price Form
+  const [savingElec, setSavingElec] = useState(false);
+  const [errorElec, setErrorElec] = useState<string | null>(null);
+  const [successElec, setSuccessElec] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/settings");
-      const json = await res.json() as { data?: { mealDeadline: string; maidChargeDefault: string } };
+      const json = await res.json() as { data?: { mealDeadline: string; maidChargeDefault: string; electricityUnitPrice: string } };
       if (json.data) {
         setMealDeadline(json.data.mealDeadline);
         setMaidChargeDefault(json.data.maidChargeDefault);
+        setElectricityUnitPrice(json.data.electricityUnitPrice);
       }
     } catch {
       setErrorMeal("Failed to load settings.");
       setErrorMaid("Failed to load settings.");
+      setErrorElec("Failed to load settings.");
     } finally {
       setLoading(false);
     }
@@ -85,6 +93,32 @@ export default function SystemSettingsClient() {
       setErrorMaid("Network error.");
     } finally {
       setSavingMaid(false);
+    }
+  }
+
+  async function handleSaveElec(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingElec(true);
+    setErrorElec(null);
+    setSuccessElec(false);
+
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ electricityUnitPrice }),
+      });
+      const json = await res.json() as { error?: string };
+      if (!res.ok) {
+        setErrorElec(json.error ?? "Failed to save.");
+      } else {
+        setSuccessElec(true);
+        setTimeout(() => setSuccessElec(false), 3000);
+      }
+    } catch {
+      setErrorElec("Network error.");
+    } finally {
+      setSavingElec(false);
     }
   }
 
@@ -168,6 +202,42 @@ export default function SystemSettingsClient() {
           </div>
           <button type="submit" className="btn btn-primary" disabled={savingMaid} style={{ alignSelf: "flex-start" }}>
             {savingMaid ? <span className="spinner" style={{ width: 16, height: 16 }} /> : "Save Maid Charge"}
+          </button>
+        </form>
+      </div>
+      {/* Electricity Unit Price Card */}
+      <div className="card fade-in">
+        <h2 style={{ fontSize: "1.125rem", fontWeight: 600, marginBottom: "1rem" }}>Electricity Unit Price</h2>
+        {errorElec && (
+          <div style={{ marginBottom: "1rem", padding: "0.75rem", background: "var(--color-danger-glow)", color: "var(--color-danger)", borderRadius: "var(--radius-md)", fontSize: "0.875rem" }}>
+            {errorElec}
+          </div>
+        )}
+        {successElec && (
+          <div style={{ marginBottom: "1rem", padding: "0.75rem", background: "var(--color-success-glow)", color: "var(--color-success)", borderRadius: "var(--radius-md)", fontSize: "0.875rem" }}>
+            Electricity unit price saved successfully!
+          </div>
+        )}
+        <form onSubmit={(e) => void handleSaveElec(e)} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div>
+            <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 500, marginBottom: "0.5rem" }}>
+              Price per Unit (৳ / kWh)
+            </label>
+            <input
+              type="number"
+              required
+              min="0.01"
+              step="0.01"
+              className="input"
+              value={electricityUnitPrice}
+              onChange={(e) => setElectricityUnitPrice(e.target.value)}
+            />
+            <p className="text-muted" style={{ fontSize: "0.75rem", marginTop: "0.375rem" }}>
+              Default rate used when posting fridge electricity bills. Can be overridden per bill.
+            </p>
+          </div>
+          <button type="submit" className="btn btn-primary" disabled={savingElec} style={{ alignSelf: "flex-start" }}>
+            {savingElec ? <span className="spinner" style={{ width: 16, height: 16 }} /> : "Save Unit Price"}
           </button>
         </form>
       </div>

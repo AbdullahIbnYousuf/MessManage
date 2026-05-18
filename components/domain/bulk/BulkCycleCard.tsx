@@ -10,11 +10,22 @@ interface Cycle {
   purchasedBy: { id: string; name: string; avatarUrl: string | null };
 }
 
+interface FinishedCycle {
+  id: string;
+  cost: string;
+  purchaseDate: string;
+  startedAt: string;
+  finishedAt: string;
+  purchasedBy: { name: string };
+  finishedBy: { name: string } | null;
+}
+
 interface BulkItem {
   id: string;
   name: string;
   unit: string | null;
   activeCycle: Cycle | null;
+  finishedCycles: FinishedCycle[];
 }
 
 interface Props {
@@ -22,17 +33,20 @@ interface Props {
   isAdmin: boolean;
   onCycleStarted: () => void;
   onCycleFinished: () => void;
+  todayStr: string;
 }
 
-export default function BulkCycleCard({ item, isAdmin, onCycleStarted, onCycleFinished }: Props) {
+export default function BulkCycleCard({ item, isAdmin, onCycleStarted, onCycleFinished, todayStr }: Props) {
   const [showNewCycleForm, setShowNewCycleForm] = useState(false);
   const [cost, setCost] = useState("");
-  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0, 10));
+  const [purchaseDate, setPurchaseDate] = useState(todayStr);
   const [loading, setLoading] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pastExpanded, setPastExpanded] = useState(false);
   // Compute daysActive once on mount (stable — doesn't need to re-render every second)
-  const [nowMs] = useState(() => Date.now());
+  // Use todayStr (derived server-side via getNow()) so MOCK_CURRENT_TIME is respected.
+  const [nowMs] = useState(() => new Date(todayStr + "T00:00:00").getTime());
 
   async function startCycle() {
     setLoading(true);
@@ -175,6 +189,43 @@ export default function BulkCycleCard({ item, isAdmin, onCycleStarted, onCycleFi
         <button className="btn btn-sm btn-primary" onClick={() => setShowNewCycleForm(true)}>
           + Record Purchase
         </button>
+      )}
+      {/* Past cycles */}
+      {item.finishedCycles.length > 0 && (
+        <div style={{ marginTop: "0.875rem", borderTop: "1px solid var(--color-border-subtle)", paddingTop: "0.75rem" }}>
+          <button
+            onClick={() => setPastExpanded((v) => !v)}
+            style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between" }}
+          >
+            <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>Past Cycles</span>
+            <span style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: "0.375rem" }}>
+              {item.finishedCycles.length}
+              <span style={{ transition: "transform 0.2s", display: "inline-block", transform: pastExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+            </span>
+          </button>
+          {pastExpanded && (
+            <div style={{ marginTop: "0.625rem", display: "flex", flexDirection: "column", gap: "0.5rem", maxHeight: "240px", overflowY: "auto", paddingRight: "0.25rem" }} className="fade-in">
+              {item.finishedCycles.map((c) => {
+                const start = new Date(c.startedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+                const end = new Date(c.finishedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+                const days = Math.round((new Date(c.finishedAt).getTime() - new Date(c.startedAt).getTime()) / 86400000);
+                return (
+                  <div key={c.id} style={{ background: "var(--color-bg-elevated)", borderRadius: "var(--radius-md)", padding: "0.625rem 0.75rem", fontSize: "0.8125rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
+                      <span style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>৳{parseFloat(c.cost).toLocaleString()}</span>
+                      <span className="text-muted">{days}d</span>
+                    </div>
+                    <div className="text-muted">{start} → {end}</div>
+                    <div className="text-muted" style={{ marginTop: "0.125rem" }}>
+                      Bought by {c.purchasedBy.name}
+                      {c.finishedBy && <> · Closed by {c.finishedBy.name}</>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

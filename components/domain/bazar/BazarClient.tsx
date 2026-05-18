@@ -36,10 +36,93 @@ interface LeaderEntry {
   name: string;
   avatarUrl: string | null;
   visits: number;
-  totalSpend: string;
 }
 
-export default function BazarClient() {
+function PastExpensesCard({ expenses }: { expenses: Expense[] }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="card">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between" }}
+      >
+        <span style={{ fontWeight: 600, fontSize: "0.9375rem" }}>Past Expenses</span>
+        <span style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: "0.375rem" }}>
+          {expenses.length} entries
+          <span style={{ transition: "transform 0.2s", display: "inline-block", transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+        </span>
+      </button>
+      {expanded && (
+        <div style={{ marginTop: "0.875rem", display: "flex", flexDirection: "column" }} className="fade-in">
+          {expenses.map((e, i) => (
+            <ExpenseRow key={e.id} expense={e} isLast={i === expenses.length - 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExpenseRow({ expense: e, isLast }: { expense: Expense; isLast: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasNote = !!e.note;
+
+  return (
+    <div>
+      <div
+        onClick={() => hasNote && setExpanded((v) => !v)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.75rem",
+          padding: "0.625rem 0",
+          borderBottom: isLast && !expanded ? "none" : "1px solid var(--color-border-subtle)",
+          cursor: hasNote ? "pointer" : "default",
+        }}
+      >
+        {e.userAvatar
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={e.userAvatar} alt={e.userName} className="avatar avatar-sm" />
+          : <div className="avatar-fallback" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>{e.userName.charAt(0)}</div>
+        }
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 500, fontSize: "0.875rem" }}>{e.userName}</div>
+          <div className="text-muted" style={{ fontSize: "0.75rem" }}>{formatNumericDate(e.date)}</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
+          <span style={{ fontWeight: 700, color: "var(--color-success)", fontSize: "0.9375rem" }}>
+            +৳{parseFloat(e.amount).toLocaleString()}
+          </span>
+          {hasNote && (
+            <span style={{
+              fontSize: "1rem",
+              color: expanded ? "var(--color-text-secondary)" : "var(--color-text-muted)",
+              lineHeight: 1,
+              userSelect: "none",
+            }}>
+              {expanded ? "×" : "≡"}
+            </span>
+          )}
+        </div>
+      </div>
+      {expanded && e.note && (
+        <div style={{
+          padding: "0.5rem 0.75rem 0.625rem 2.75rem",
+          fontSize: "0.8125rem",
+          color: "var(--color-text-secondary)",
+          borderBottom: isLast ? "none" : "1px solid var(--color-border-subtle)",
+          background: "var(--color-bg-elevated)",
+          borderRadius: "0 0 var(--radius-md) var(--radius-md)",
+          whiteSpace: "pre-wrap",
+        }}>
+          {e.note}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function BazarClient({ todayStr }: { todayStr: string }) {
   const [trip, setTrip] = useState<Trip | null | undefined>(undefined); // undefined = loading
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderEntry[]>([]);
@@ -140,9 +223,6 @@ export default function BazarClient() {
                     )}
                     <span style={{ flex: 1, fontWeight: 500, fontSize: "0.875rem" }}>{entry.name}</span>
                     <span className="badge badge-primary">{entry.visits} trips</span>
-                    <span style={{ fontSize: "0.875rem", color: "var(--color-success)", fontWeight: 600, minWidth: 80, textAlign: "right" }}>
-                      ৳{parseFloat(entry.totalSpend).toLocaleString()}
-                    </span>
                   </div>
                 ))}
               </div>
@@ -156,7 +236,7 @@ export default function BazarClient() {
                 trip={trip}
                 onNotesUpdated={(notes) => setTrip((t) => t ? { ...t, shoppingNotes: notes } : t)}
               />
-              <ExpenseForm onSubmitted={handleExpenseSubmitted} tripNotes={trip.shoppingNotes} />
+              <ExpenseForm onSubmitted={handleExpenseSubmitted} tripNotes={trip.shoppingNotes} todayStr={todayStr} />
             </>
           ) : (
             <div className="card" style={{ textAlign: "center", padding: "2.5rem" }}>
@@ -173,44 +253,32 @@ export default function BazarClient() {
 
 
 
-          {/* Recent expenses */}
-          {expenses.length > 0 && (
-            <div className="card">
-              <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "1rem" }}>Recent Expenses</div>
-              <div className="table-container">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Member</th>
-                      <th>Date</th>
-                      <th>Amount</th>
-                      <th>Note</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {expenses.map((e) => (
-                      <tr key={e.id}>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            {e.userAvatar ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={e.userAvatar} alt={e.userName} className="avatar avatar-sm" />
-                            ) : (
-                              <div className="avatar-fallback" style={{ width: 24, height: 24, fontSize: "0.6875rem" }}>{e.userName.charAt(0)}</div>
-                            )}
-                            <span style={{ fontSize: "0.875rem" }}>{e.userName}</span>
-                          </div>
-                        </td>
-                        <td className="text-secondary" style={{ fontSize: "0.8125rem" }}>{formatNumericDate(e.date)}</td>
-                        <td style={{ fontWeight: 600, color: "var(--color-success)" }}>৳{parseFloat(e.amount).toLocaleString()}</td>
-                        <td className="text-secondary" style={{ fontSize: "0.8125rem" }}>{e.note ?? "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          {/* Expenses split by month */}
+          {(() => {
+            const currentMonth = todayStr.slice(0, 7);
+            const monthLabel = new Date(todayStr + "T00:00:00").toLocaleString("en-US", { month: "long", year: "numeric" });
+            const thisMonth = expenses.filter((e) => e.date.startsWith(currentMonth));
+            const past = expenses.filter((e) => !e.date.startsWith(currentMonth));
+            return (
+              <>
+                {thisMonth.length > 0 && (
+                  <div className="card">
+                    <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "0.875rem" }}>
+                      {monthLabel} Expenses
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      {thisMonth.map((e, i) => (
+                        <ExpenseRow key={e.id} expense={e} isLast={i === thisMonth.length - 1} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {past.length > 0 && (
+                  <PastExpensesCard expenses={past} />
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
     </div>

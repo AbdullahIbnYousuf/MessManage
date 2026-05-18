@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import MealCalendar from "@/components/domain/meal/MealCalendar";
 import PatternEditor from "@/components/domain/meal/PatternEditor";
-import { isDeadlinePassed, today } from "@/lib/utils/dates";
+import { isDeadlinePassed } from "@/lib/utils/dates";
 import type { MealPattern } from "@/types";
 
 interface MealRecord {
@@ -15,12 +15,12 @@ interface MealRecord {
 
 interface MealsClientProps {
   deadline: string; // e.g. "22:00"
+  year: number;
+  month: number;
+  todayStr: string; // passed from server so MOCK_CURRENT_TIME is respected
 }
 
-export default function MealsClient({ deadline }: MealsClientProps) {
-  const now = new Date();
-  const [year] = useState(now.getFullYear());
-  const [month] = useState(now.getMonth() + 1);
+export default function MealsClient({ deadline, year, month, todayStr }: MealsClientProps) {
   const [records, setRecords] = useState<MealRecord[]>([]);
   const [pattern, setPattern] = useState<MealPattern | null>(null);
   const [editRequestStatus, setEditRequestStatus] = useState<
@@ -76,7 +76,6 @@ export default function MealsClient({ deadline }: MealsClientProps) {
     }
   }
 
-  const todayStr = today();
   const totalMeals = records.filter(r => {
     if (r.date < todayStr) return true;
     if (r.date === todayStr && deadlinePassed) return true;
@@ -130,6 +129,7 @@ export default function MealsClient({ deadline }: MealsClientProps) {
             onUpdate={handleUpdate}
             onRequestEdit={() => void handleRequestEdit()}
             deadline={deadline}
+            todayStr={todayStr}
           />
 
           {/* Pattern editor */}

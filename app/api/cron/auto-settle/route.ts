@@ -4,7 +4,7 @@
 import { db } from "@/lib/db";
 import { computeSettlement, computeNetBalance, type BalanceEntry } from "@/lib/domain/settlement";
 import { computeMealRate } from "@/lib/domain/meal";
-import { previousMonthKey, previousMonthStart, previousMonthEnd } from "@/lib/utils/dates";
+import { previousMonthKey, previousMonthStart, previousMonthEnd, getNow } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 import { sum } from "@/lib/utils/decimal";
 
@@ -99,7 +99,7 @@ export async function GET(request: Request) {
     });
 
     const transfers = computeSettlement(balances);
-    const now = new Date();
+    const now = getNow();
 
     // Write all settlement rows atomically
     await db.monthlySettlement.createMany({

@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/session";
 import { db } from "@/lib/db";
 import { computeSettlement, computeNetBalance, type BalanceEntry } from "@/lib/domain/settlement";
 import { computeMealRate } from "@/lib/domain/meal";
-import { today, currentMonthStart, currentMonthEnd, currentMonthKey, isDeadlinePassed } from "@/lib/utils/dates";
+import { today, currentMonthStart, currentMonthEnd, currentMonthKey, isDeadlinePassed, getNow } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 import { sum } from "@/lib/utils/decimal";
 
@@ -108,7 +108,7 @@ export async function POST() {
     });
 
     const transfers = computeSettlement(balances);
-    const now = new Date();
+    const now = getNow();
 
     // Write all settlement rows atomically
     await db.monthlySettlement.createMany({

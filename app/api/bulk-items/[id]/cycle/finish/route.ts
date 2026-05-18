@@ -5,7 +5,7 @@ import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
 import { computeUserBulkAllocation } from "@/lib/domain/bulk";
 import Decimal from "decimal.js";
-import { today, isDeadlinePassed } from "@/lib/utils/dates";
+import { today, isDeadlinePassed, getNow } from "@/lib/utils/dates";
 
 export async function POST(
   _request: Request,
@@ -27,7 +27,7 @@ export async function POST(
       return Response.json({ error: "No active cycle found for this item." }, { status: 404 });
     }
 
-    const finishedAt = new Date();
+    const finishedAt = getNow();
     const todayDate = new Date(today());
 
     const config = await db.systemConfig.findFirst({
@@ -61,7 +61,7 @@ export async function POST(
     );
 
     const cycleCost = new Decimal(cycle.cost.toString());
-    const now = new Date();
+    const now = getNow();
 
     // Build allocation rows for all users who had meals during the cycle
     const allocationRows = mealTotals

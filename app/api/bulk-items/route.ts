@@ -1,4 +1,4 @@
-// GET  /api/bulk-items — list all bulk items with their active cycle
+// GET  /api/bulk-items — list all bulk items with their active cycle and finished cycles
 // POST /api/bulk-items — add a new bulk item type
 
 import { requireAuth } from "@/lib/session";
@@ -11,11 +11,11 @@ export async function GET() {
     const items = await db.bulkItem.findMany({
       include: {
         cycles: {
-          where: { status: "active" },
           include: {
             purchasedBy: { select: { id: true, name: true, nickname: true, avatarUrl: true } },
+            finishedBy: { select: { id: true, name: true, nickname: true } },
           },
-          take: 1,
+          orderBy: { startedAt: "desc" },
         },
       },
       orderBy: { createdAt: "asc" },
@@ -23,7 +23,8 @@ export async function GET() {
 
     return Response.json({
       data: items.map((item) => {
-        const active = item.cycles[0] ?? null;
+        const active = item.cycles.find((c) => c.status === "active") ?? null;
+        const finished = item.cycles.filter((c) => c.status === "finished");
         return {
           id: item.id,
           name: item.name,
@@ -38,6 +39,15 @@ export async function GET() {
                 purchasedBy: { ...active.purchasedBy, name: active.purchasedBy.nickname || active.purchasedBy.name },
               }
             : null,
+          finishedCycles: finished.map((c) => ({
+            id: c.id,
+            cost: c.cost.toFixed(2),
+            purchaseDate: c.purchaseDate.toISOString().slice(0, 10),
+            startedAt: c.startedAt.toISOString(),
+            finishedAt: c.finishedAt!.toISOString(),
+            purchasedBy: { name: c.purchasedBy.nickname || c.purchasedBy.name },
+            finishedBy: c.finishedBy ? { name: c.finishedBy.nickname || c.finishedBy.name } : null,
+          })),
         };
       }),
     });
