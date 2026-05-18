@@ -169,6 +169,16 @@ export async function GET(
         totalSpending: totalSpending.toFixed(2),
         totalMeals: userMealCount,
         bazarVisits: bazarVisitCount,
+        breakdown: {
+          bazarContributed: userBazarSpend.toFixed(2),
+          maidPayments: userMaidPayments.toFixed(2),
+          fridgePayments: userFridgePayments.toFixed(2),
+          bulkPurchases: userBulkPurchases.toFixed(2),
+          mealCost: userMealCost.toFixed(2),
+          maidCharge: userMaidCharges.toFixed(2),
+          fridgeBillShare: totalFridgeBillShare.toFixed(2),
+          bulkAllocations: userBulkAllocations.toFixed(2),
+        },
       },
       activity: {
         recentBazar: recentBazar.map(b => ({ id: b.id, amount: b.amount.toString(), date: b.date, note: b.note })),

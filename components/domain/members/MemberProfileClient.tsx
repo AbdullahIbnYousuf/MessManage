@@ -32,6 +32,16 @@ interface ProfileData {
     totalSpending: string;
     totalMeals: number;
     bazarVisits: number;
+    breakdown: {
+      bazarContributed: string;
+      maidPayments: string;
+      fridgePayments: string;
+      bulkPurchases: string;
+      mealCost: string;
+      maidCharge: string;
+      fridgeBillShare: string;
+      bulkAllocations: string;
+    };
   };
   activity: {
     recentBazar: Array<{ id: string; amount: string; date: string; note: string | null }>;
@@ -205,6 +215,45 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
           <div className="stat-label">Bazar Visits</div>
           <div className="stat-value"><AnimatedNumber value={aggregates.bazarVisits} /></div>
           <div className="stat-sub">this month</div>
+        </div>
+      </div>
+
+      {/* 2b. Balance Breakdown */}
+      <div className="card slide-up-delay-1">
+        <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "0.875rem" }}>Balance Breakdown</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.375rem 1rem", fontSize: "0.8125rem" }}>
+          <span className="text-secondary">Bazar contributed:</span>
+          <span style={{ color: "var(--color-success)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>+৳{parseFloat(aggregates.breakdown.bazarContributed).toLocaleString()}</span>
+
+          <span className="text-secondary">Maid payments:</span>
+          <span style={{ color: "var(--color-success)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>+৳{parseFloat(aggregates.breakdown.maidPayments).toLocaleString()}</span>
+
+          <span className="text-secondary">Fridge payments:</span>
+          <span style={{ color: "var(--color-success)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>+৳{parseFloat(aggregates.breakdown.fridgePayments).toLocaleString()}</span>
+
+          <span className="text-secondary">Bulk purchases:</span>
+          <span style={{ color: "var(--color-success)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>+৳{parseFloat(aggregates.breakdown.bulkPurchases).toLocaleString()}</span>
+
+          <div style={{ gridColumn: "1 / -1", borderTop: "1px solid var(--color-border-subtle)", margin: "0.25rem 0" }} />
+
+          <span className="text-secondary">Meal cost:</span>
+          <span style={{ color: "var(--color-danger)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>−৳{parseFloat(aggregates.breakdown.mealCost).toLocaleString()}</span>
+
+          <span className="text-secondary">Maid charge:</span>
+          <span style={{ color: "var(--color-danger)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>−৳{parseFloat(aggregates.breakdown.maidCharge).toLocaleString()}</span>
+
+          <span className="text-secondary">Fridge share:</span>
+          <span style={{ color: "var(--color-danger)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>−৳{parseFloat(aggregates.breakdown.fridgeBillShare).toLocaleString()}</span>
+
+          <span className="text-secondary">Bulk allocations:</span>
+          <span style={{ color: "var(--color-danger)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>−৳{parseFloat(aggregates.breakdown.bulkAllocations).toLocaleString()}</span>
+
+          <div style={{ gridColumn: "1 / -1", borderTop: "1px solid var(--color-border-subtle)", margin: "0.25rem 0" }} />
+
+          <span style={{ fontWeight: 700 }}>Net Balance:</span>
+          <span style={{ fontWeight: 800, color: isPositive ? "var(--color-success)" : "var(--color-danger)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+            {isPositive ? "+" : "−"}৳{Math.abs(balanceNum).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </span>
         </div>
       </div>
 
