@@ -38,6 +38,57 @@ interface LeaderEntry {
   visits: number;
 }
 
+function LeaderboardCard({ top3, rest, medals }: {
+  top3: LeaderEntry[];
+  rest: LeaderEntry[];
+  medals: string[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="card">
+      <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "1rem" }}>Bazar Leaderboard</div>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {top3.map((entry, i) => (
+          <div key={entry.userId} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0", borderBottom: "1px solid var(--color-border-subtle)" }}>
+            <span style={{ fontSize: "1.1rem", width: 24, textAlign: "center", flexShrink: 0 }}>{medals[i]}</span>
+            {entry.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={entry.avatarUrl} alt={entry.name} className="avatar avatar-sm" />
+            ) : (
+              <div className="avatar-fallback" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>{entry.name.charAt(0)}</div>
+            )}
+            <span style={{ flex: 1, fontWeight: 500, fontSize: "0.875rem" }}>{entry.name}</span>
+            <span className="badge badge-primary">{entry.visits} trips</span>
+          </div>
+        ))}
+        {rest.length > 0 && (
+          <>
+            {expanded && rest.map((entry, i) => (
+              <div key={entry.userId} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0", borderBottom: "1px solid var(--color-border-subtle)" }} className="fade-in">
+                <span style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", width: 24, textAlign: "center", fontWeight: 700, flexShrink: 0 }}>{i + 4}</span>
+                {entry.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={entry.avatarUrl} alt={entry.name} className="avatar avatar-sm" />
+                ) : (
+                  <div className="avatar-fallback" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>{entry.name.charAt(0)}</div>
+                )}
+                <span style={{ flex: 1, fontWeight: 500, fontSize: "0.875rem" }}>{entry.name}</span>
+                <span className="badge badge-primary">{entry.visits} trips</span>
+              </div>
+            ))}
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: "0.5rem 0", fontSize: "0.8125rem", color: "var(--color-text-muted)", textAlign: "left" }}
+            >
+              {expanded ? "▲ Show less" : `▼ +${rest.length} more`}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PastExpensesCard({ expenses }: { expenses: Expense[] }) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -206,28 +257,14 @@ export default function BazarClient({ todayStr }: { todayStr: string }) {
           )}
 
           {/* Leaderboard */}
-          {leaderboard.length > 0 && (
-            <div className="card">
-              <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "1rem" }}>Bazar Leaderboard</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                {leaderboard.map((entry, i) => (
-                  <div key={entry.userId} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0", borderBottom: i < leaderboard.length - 1 ? "1px solid var(--color-border-subtle)" : "none" }}>
-                    <span style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", width: 20, textAlign: "center", fontWeight: 700 }}>
-                      {i + 1}
-                    </span>
-                    {entry.avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={entry.avatarUrl} alt={entry.name} className="avatar avatar-sm" />
-                    ) : (
-                      <div className="avatar-fallback" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>{entry.name.charAt(0)}</div>
-                    )}
-                    <span style={{ flex: 1, fontWeight: 500, fontSize: "0.875rem" }}>{entry.name}</span>
-                    <span className="badge badge-primary">{entry.visits} trips</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {leaderboard.length > 0 && (() => {
+            const top3 = leaderboard.slice(0, 3);
+            const rest = leaderboard.slice(3);
+            const medals = ["🥇", "🥈", "🥉"];
+            return (
+              <LeaderboardCard top3={top3} rest={rest} medals={medals} />
+            );
+          })()}
 
           {/* Active trip */}
           {trip ? (
