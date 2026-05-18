@@ -178,82 +178,86 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
         </div>
       </div>
 
-      {/* 2. Financial Summary */}
-      <div className="slide-up-delay-1" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "0.875rem" }}>
-        {/* Balance Card */}
-        <div className="stat-card" style={{ border: `1px solid ${isPositive ? "rgba(78,158,106,0.3)" : "rgba(192,80,80,0.3)"}`, background: "var(--color-bg-surface)" }}>
-          <div className="stat-label">Balance</div>
-          <div style={{ fontSize: "1.5rem", fontWeight: 800, color: isPositive ? "var(--color-success)" : "var(--color-danger)", letterSpacing: "-0.02em" }}>
-            {isPositive ? "+" : "−"}৳<AnimatedNumber value={Math.abs(balanceNum)} decimals={2} />
+      {/* 2. Balance Card with Breakdown */}
+      <div className="slide-up-delay-1" style={{
+        background: "var(--color-bg-surface)",
+        border: `1px solid ${isPositive ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.2)"}`,
+        borderRadius: "var(--radius-xl)",
+        padding: "1.25rem",
+        boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
+      }}>
+        {/* Balance hero row */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+          <div>
+            <div className="stat-label" style={{ marginBottom: "0.25rem" }}>Net Balance</div>
+            <div style={{ fontSize: "2rem", fontWeight: 900, color: isPositive ? "var(--color-success)" : "var(--color-danger)", letterSpacing: "-0.03em", lineHeight: 1 }}>
+              {isPositive ? "+" : "−"}৳<AnimatedNumber value={Math.abs(balanceNum)} decimals={2} />
+            </div>
+            <div className="text-muted" style={{ fontSize: "0.75rem", marginTop: "0.25rem" }}>this month</div>
           </div>
-          <div className="stat-sub">net this month</div>
-        </div>
-        
-        {/* Spending Card */}
-        <div className="stat-card">
-          <div className="stat-label">Spending</div>
-          <div className="stat-value">৳<AnimatedNumber value={parseFloat(aggregates.routineSpending)} decimals={2} /></div>
-          <div className="stat-sub">routine cash out</div>
-        </div>
-
-        {/* Total Spending Card */}
-        <div className="stat-card">
-          <div className="stat-label">Total Spending</div>
-          <div className="stat-value" style={{ color: "var(--color-primary)" }}>৳<AnimatedNumber value={parseFloat(aggregates.totalSpending)} decimals={2} /></div>
-          <div className="stat-sub">includes bulk purchases</div>
+          <div style={{
+            width: 48, height: 48, borderRadius: "50%",
+            background: isPositive ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: "1.5rem",
+          }}>
+            {isPositive ? "↑" : "↓"}
+          </div>
         </div>
 
-        {/* Total Meals Card */}
+        {/* Breakdown */}
+        <div style={{ borderTop: "1px solid var(--color-border-subtle)", paddingTop: "0.875rem", display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+          {/* Credits */}
+          {[
+            { label: "Bazar contributed", value: aggregates.breakdown.bazarContributed, credit: true },
+            { label: "Maid payments", value: aggregates.breakdown.maidPayments, credit: true },
+            { label: "Fridge payments", value: aggregates.breakdown.fridgePayments, credit: true },
+            { label: "Bulk purchases", value: aggregates.breakdown.bulkPurchases, credit: true },
+          ].map((row) => (
+            <div key={row.label} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8125rem" }}>
+              <span className="text-secondary">{row.label}</span>
+              <span style={{ color: "var(--color-success)", fontVariantNumeric: "tabular-nums" }}>+৳{parseFloat(row.value).toLocaleString()}</span>
+            </div>
+          ))}
+
+          <div style={{ borderTop: "1px dashed var(--color-border-subtle)", margin: "0.25rem 0" }} />
+
+          {/* Debits */}
+          {[
+            { label: "Meal cost", value: aggregates.breakdown.mealCost },
+            { label: "Maid charge", value: aggregates.breakdown.maidCharge },
+            { label: "Fridge share", value: aggregates.breakdown.fridgeBillShare },
+            { label: "Bulk allocations", value: aggregates.breakdown.bulkAllocations },
+          ].map((row) => (
+            <div key={row.label} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8125rem" }}>
+              <span className="text-secondary">{row.label}</span>
+              <span style={{ color: "var(--color-danger)", fontVariantNumeric: "tabular-nums" }}>−৳{parseFloat(row.value).toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 3. 4 Stat Cards — 2×2 grid */}
+      <div className="slide-up-delay-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.875rem" }}>
         <div className="stat-card">
           <div className="stat-label">Total Meals</div>
           <div className="stat-value" style={{ color: "var(--color-accent)" }}><AnimatedNumber value={aggregates.totalMeals} /></div>
           <div className="stat-sub">this month</div>
         </div>
-
-        {/* Bazar Visits Card */}
         <div className="stat-card">
           <div className="stat-label">Bazar Visits</div>
           <div className="stat-value"><AnimatedNumber value={aggregates.bazarVisits} /></div>
           <div className="stat-sub">this month</div>
         </div>
-      </div>
-
-      {/* 2b. Balance Breakdown */}
-      <div className="card slide-up-delay-1">
-        <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "0.875rem" }}>Balance Breakdown</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.375rem 1rem", fontSize: "0.8125rem" }}>
-          <span className="text-secondary">Bazar contributed:</span>
-          <span style={{ color: "var(--color-success)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>+৳{parseFloat(aggregates.breakdown.bazarContributed).toLocaleString()}</span>
-
-          <span className="text-secondary">Maid payments:</span>
-          <span style={{ color: "var(--color-success)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>+৳{parseFloat(aggregates.breakdown.maidPayments).toLocaleString()}</span>
-
-          <span className="text-secondary">Fridge payments:</span>
-          <span style={{ color: "var(--color-success)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>+৳{parseFloat(aggregates.breakdown.fridgePayments).toLocaleString()}</span>
-
-          <span className="text-secondary">Bulk purchases:</span>
-          <span style={{ color: "var(--color-success)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>+৳{parseFloat(aggregates.breakdown.bulkPurchases).toLocaleString()}</span>
-
-          <div style={{ gridColumn: "1 / -1", borderTop: "1px solid var(--color-border-subtle)", margin: "0.25rem 0" }} />
-
-          <span className="text-secondary">Meal cost:</span>
-          <span style={{ color: "var(--color-danger)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>−৳{parseFloat(aggregates.breakdown.mealCost).toLocaleString()}</span>
-
-          <span className="text-secondary">Maid charge:</span>
-          <span style={{ color: "var(--color-danger)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>−৳{parseFloat(aggregates.breakdown.maidCharge).toLocaleString()}</span>
-
-          <span className="text-secondary">Fridge share:</span>
-          <span style={{ color: "var(--color-danger)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>−৳{parseFloat(aggregates.breakdown.fridgeBillShare).toLocaleString()}</span>
-
-          <span className="text-secondary">Bulk allocations:</span>
-          <span style={{ color: "var(--color-danger)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>−৳{parseFloat(aggregates.breakdown.bulkAllocations).toLocaleString()}</span>
-
-          <div style={{ gridColumn: "1 / -1", borderTop: "1px solid var(--color-border-subtle)", margin: "0.25rem 0" }} />
-
-          <span style={{ fontWeight: 700 }}>Net Balance:</span>
-          <span style={{ fontWeight: 800, color: isPositive ? "var(--color-success)" : "var(--color-danger)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-            {isPositive ? "+" : "−"}৳{Math.abs(balanceNum).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-          </span>
+        <div className="stat-card">
+          <div className="stat-label">Routine Spending</div>
+          <div className="stat-value">৳<AnimatedNumber value={parseFloat(aggregates.routineSpending)} decimals={2} /></div>
+          <div className="stat-sub">cash out</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Total Spending</div>
+          <div className="stat-value" style={{ color: "var(--color-primary)" }}>৳<AnimatedNumber value={parseFloat(aggregates.totalSpending)} decimals={2} /></div>
+          <div className="stat-sub">incl. bulk</div>
         </div>
       </div>
 
@@ -292,41 +296,6 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
             ) : (
               <div className="text-muted" style={{ fontSize: "0.875rem", fontStyle: "italic" }}>No pattern set.</div>
             )}
-          </div>
-
-          {/* 5. Contact & Banking Info */}
-          <div className="card">
-            <h3 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1.25rem" }}>Contact & Banking</h3>
-            
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1.25rem" }}>
-              {/* Personal Contact */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                <div style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", color: "var(--color-text-muted)", letterSpacing: "0.05em" }}>Personal Contact</div>
-                <div style={{ fontSize: "0.875rem" }}><span className="text-secondary">Phone:</span> {user.phoneNumber || "—"}</div>
-                <div style={{ fontSize: "0.875rem" }}><span className="text-secondary">Alt Phone:</span> {user.phoneNumber2 || "—"}</div>
-                <div style={{ fontSize: "0.875rem" }}><span className="text-secondary">Email:</span> {user.email}</div>
-              </div>
-
-              {/* Banking */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                <div style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", color: "var(--color-text-muted)", letterSpacing: "0.05em" }}>Banking</div>
-                <div style={{ fontSize: "0.875rem" }}><span className="text-secondary">bKash:</span> {user.bkashNumber || "—"}</div>
-                <div style={{ fontSize: "0.875rem" }}><span className="text-secondary">Bank:</span> {user.bankName || "—"}</div>
-                <div style={{ fontSize: "0.875rem" }}><span className="text-secondary">A/C:</span> {user.bankAccountNumber || "—"}</div>
-              </div>
-            </div>
-
-            <hr className="divider" style={{ margin: "1.25rem 0" }} />
-            
-            {/* Emergency Contact */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              <div style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", color: "var(--color-text-muted)", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Emergency Contact</div>
-              <div style={{ fontSize: "0.875rem" }}>
-                <span className="text-secondary">Name:</span> {user.emergencyContactName || "—"}
-                {user.emergencyContactRelation && <span className="text-muted"> ({user.emergencyContactRelation})</span>}
-              </div>
-              <div style={{ fontSize: "0.875rem" }}><span className="text-secondary">Phone:</span> {user.emergencyContactPhone || "—"}</div>
-            </div>
           </div>
         </div>
 
@@ -383,6 +352,39 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
           </div>
         </div>
 
+      </div>
+
+      {/* 5. Meal Pattern */}
+      <div className="slide-up-delay-3">
+      </div>
+
+      {/* 6. Contact & Banking — bottom */}
+      <div className="card slide-up-delay-3">
+        <h3 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1.25rem" }}>Contact & Banking</h3>
+        
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1.25rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", color: "var(--color-text-muted)", letterSpacing: "0.05em" }}>Personal Contact</div>
+            <div style={{ fontSize: "0.875rem" }}><span className="text-secondary">Phone:</span> {user.phoneNumber || "—"}</div>
+            <div style={{ fontSize: "0.875rem" }}><span className="text-secondary">Alt Phone:</span> {user.phoneNumber2 || "—"}</div>
+            <div style={{ fontSize: "0.875rem" }}><span className="text-secondary">Email:</span> {user.email}</div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", color: "var(--color-text-muted)", letterSpacing: "0.05em" }}>Banking</div>
+            <div style={{ fontSize: "0.875rem" }}><span className="text-secondary">bKash:</span> {user.bkashNumber || "—"}</div>
+            <div style={{ fontSize: "0.875rem" }}><span className="text-secondary">Bank:</span> {user.bankName || "—"}</div>
+            <div style={{ fontSize: "0.875rem" }}><span className="text-secondary">A/C:</span> {user.bankAccountNumber || "—"}</div>
+          </div>
+        </div>
+        <hr className="divider" style={{ margin: "1.25rem 0" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <div style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", color: "var(--color-text-muted)", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Emergency Contact</div>
+          <div style={{ fontSize: "0.875rem" }}>
+            <span className="text-secondary">Name:</span> {user.emergencyContactName || "—"}
+            {user.emergencyContactRelation && <span className="text-muted"> ({user.emergencyContactRelation})</span>}
+          </div>
+          <div style={{ fontSize: "0.875rem" }}><span className="text-secondary">Phone:</span> {user.emergencyContactPhone || "—"}</div>
+        </div>
       </div>
 
       {/* 6. Owner Banner */}
