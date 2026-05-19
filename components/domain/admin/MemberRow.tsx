@@ -20,8 +20,10 @@ interface Props {
 
 export default function MemberRow({ member, currentUserId, onDeactivated }: Props) {
   const [loading, setLoading] = useState(false);
+  const [roleLoading, setRoleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deactivated, setDeactivated] = useState(member.status === "deactivated");
+  const [role, setRole] = useState(member.role);
 
   async function handleDeactivate() {
     if (!confirm(`Deactivate ${member.name}? This will zero out all their future meal records.`)) return;
@@ -63,6 +65,29 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
     }
   }
 
+  async function handleRoleChange(newRole: string) {
+    if (!confirm(`Change ${member.name}'s role to ${newRole}?`)) return;
+    setRoleLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/members/${member.id}/role`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: newRole }),
+      });
+      const json = await res.json() as { error?: string };
+      if (!res.ok) {
+        setError(json.error ?? "Something went wrong.");
+      } else {
+        setRole(newRole);
+      }
+    } catch {
+      setError("Network error.");
+    } finally {
+      setRoleLoading(false);
+    }
+  }
+
   const joinDate = new Date(member.joinedAt).toLocaleDateString("en-US", {
     month: "short",
     year: "numeric",
@@ -87,9 +112,22 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
         </div>
       </td>
       <td>
-        <span className={member.role === "admin" ? "badge badge-primary" : "badge badge-muted"}>
-          {member.role}
-        </span>
+        {member.id !== currentUserId && !deactivated ? (
+          <select
+            value={role}
+            onChange={(e) => handleRoleChange(e.target.value)}
+            disabled={roleLoading || loading}
+            className="input input-sm"
+            style={{ width: "auto", minWidth: "90px", padding: "0.25rem 0.5rem", height: "auto" }}
+          >
+            <option value="admin">admin</option>
+            <option value="member">member</option>
+          </select>
+        ) : (
+          <span className={role === "admin" ? "badge badge-primary" : "badge badge-muted"}>
+            {role}
+          </span>
+        )}
       </td>
       <td>
         <span className={deactivated ? "badge badge-danger" : "badge badge-success"}>
