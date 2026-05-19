@@ -29,6 +29,8 @@ interface Expense {
   note: string | null;
   date: string;
   submittedAt: string;
+  tripWeight: number;
+  isInstant: boolean;
 }
 
 interface LeaderEntry {
@@ -58,7 +60,7 @@ function LeaderboardCard({ top3, rest, medals }: {
               <div className="avatar-fallback" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>{entry.name.charAt(0)}</div>
             )}
             <span style={{ flex: 1, fontWeight: 500, fontSize: "0.875rem" }}>{entry.name}</span>
-            <span className="badge badge-primary">{entry.visits} trips</span>
+            <span className="badge badge-primary">{Number.isInteger(entry.visits) ? entry.visits : entry.visits.toFixed(1)} trips</span>
           </div>
         ))}
         {rest.length > 0 && (
@@ -73,7 +75,7 @@ function LeaderboardCard({ top3, rest, medals }: {
                   <div className="avatar-fallback" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>{entry.name.charAt(0)}</div>
                 )}
                 <span style={{ flex: 1, fontWeight: 500, fontSize: "0.875rem" }}>{entry.name}</span>
-                <span className="badge badge-primary">{entry.visits} trips</span>
+                <span className="badge badge-primary">{Number.isInteger(entry.visits) ? entry.visits : entry.visits.toFixed(1)} trips</span>
               </div>
             ))}
             <button
@@ -187,7 +189,21 @@ function ExpenseRow({
           : <div className="avatar-fallback" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>{e.userName.charAt(0)}</div>
         }
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 500, fontSize: "0.875rem" }}>{e.userName}</div>
+          <div style={{ fontWeight: 500, fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "0.375rem" }}>
+            {e.userName}
+            {e.isInstant && (
+              <span style={{
+                fontSize: "0.6875rem",
+                fontWeight: 600,
+                color: "var(--color-warning)",
+                background: "rgba(245,158,11,0.12)",
+                border: "1px solid rgba(245,158,11,0.3)",
+                borderRadius: "0.25rem",
+                padding: "0 0.3rem",
+                lineHeight: 1.6,
+              }}>⚡ instant</span>
+            )}
+          </div>
           <div className="text-muted" style={{ fontSize: "0.75rem" }}>{formatNumericDate(e.date)}</div>
         </div>
 

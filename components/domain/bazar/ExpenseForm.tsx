@@ -13,6 +13,7 @@ export default function ExpenseForm({ onSubmitted, tripNotes, todayStr }: Props)
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [date, setDate] = useState(todayStr);
+  const [isInstant, setIsInstant] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -39,6 +40,7 @@ export default function ExpenseForm({ onSubmitted, tripNotes, todayStr }: Props)
           amount: parseFloat(amount) || 0,
           note: note.trim() || undefined,
           date,
+          isInstant,
         }),
       });
       const json = await res.json() as { error?: string; data?: { date: string } };
@@ -49,6 +51,7 @@ export default function ExpenseForm({ onSubmitted, tripNotes, todayStr }: Props)
         setAmount("");
         setNote("");
         setDate(todayStr);
+        setIsInstant(false);
         setConfirming(false);
         onSubmitted();
       }
@@ -64,6 +67,61 @@ export default function ExpenseForm({ onSubmitted, tripNotes, todayStr }: Props)
       <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "1rem" }}>
         Submit Bazar Expense
       </div>
+
+      {/* Trip type toggle */}
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+        <button
+          type="button"
+          onClick={() => setIsInstant(false)}
+          style={{
+            flex: 1,
+            padding: "0.5rem 0.75rem",
+            borderRadius: "var(--radius-md)",
+            border: isInstant ? "1px solid var(--color-border-subtle)" : "1px solid var(--color-primary)",
+            background: isInstant ? "transparent" : "rgba(99,102,241,0.12)",
+            color: isInstant ? "var(--color-text-muted)" : "var(--color-primary)",
+            fontWeight: isInstant ? 400 : 600,
+            fontSize: "0.875rem",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          🛒 Regular
+        </button>
+        <button
+          type="button"
+          onClick={() => setIsInstant(true)}
+          style={{
+            flex: 1,
+            padding: "0.5rem 0.75rem",
+            borderRadius: "var(--radius-md)",
+            border: isInstant ? "1px solid rgba(245,158,11,0.6)" : "1px solid var(--color-border-subtle)",
+            background: isInstant ? "rgba(245,158,11,0.12)" : "transparent",
+            color: isInstant ? "var(--color-warning)" : "var(--color-text-muted)",
+            fontWeight: isInstant ? 600 : 400,
+            fontSize: "0.875rem",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          ⚡ Instant
+        </button>
+      </div>
+
+      {/* Instant info pill */}
+      {isInstant && (
+        <div style={{
+          background: "rgba(245,158,11,0.08)",
+          border: "1px solid rgba(245,158,11,0.25)",
+          borderRadius: "var(--radius-md)",
+          padding: "0.5rem 0.75rem",
+          fontSize: "0.8125rem",
+          color: "var(--color-warning)",
+          marginBottom: "1rem",
+        }}>
+          ⚡ Quick run — counts as <strong>0.1 trip</strong> on the leaderboard
+        </div>
+      )}
       
       <div style={{
         background: "rgba(245,158,11,0.08)",
@@ -85,6 +143,16 @@ export default function ExpenseForm({ onSubmitted, tripNotes, todayStr }: Props)
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           <div style={{ padding: "1rem", background: "var(--color-bg-elevated)", borderRadius: "var(--radius-md)" }}>
             <h3 style={{ fontSize: "1rem", marginBottom: "0.75rem", color: "var(--color-warning)" }}>Is it OK to submit?</h3>
+            <div style={{ marginBottom: "0.5rem" }}>
+              <span className="text-secondary" style={{ fontSize: "0.8125rem" }}>Trip Type: </span>
+              <span style={{
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                color: isInstant ? "var(--color-warning)" : "var(--color-primary)",
+              }}>
+                {isInstant ? "⚡ Instant (0.1 trip)" : "🛒 Regular (1 trip)"}
+              </span>
+            </div>
             <div style={{ marginBottom: "0.5rem" }}>
               <span className="text-secondary" style={{ fontSize: "0.8125rem" }}>Expense Amount: </span>
               <strong style={{ fontSize: "1.125rem", color: "var(--color-success)" }}>৳{parseFloat(amount).toLocaleString()}</strong>

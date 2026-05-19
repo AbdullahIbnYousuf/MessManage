@@ -14,6 +14,7 @@ export async function POST(request: Request) {
       amount: number | string;
       note?: string;
       date?: string;
+      isInstant?: boolean;
     };
 
     // Validate amount
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
           userId: user.id,
           tripId: trip.id,
           amount,
+          tripWeight: body.isInstant ? 0.1 : 1.0,
           note: body.note ?? null,
           date: new Date(expenseDate),
           submittedAt: getNow(),

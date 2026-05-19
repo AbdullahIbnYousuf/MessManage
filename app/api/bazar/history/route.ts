@@ -2,33 +2,40 @@
 
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
+import Decimal from "decimal.js";
 
 export async function GET() {
   try {
     await requireAuth();
 
-    // All-time visit counts via DB-level groupBy — no row limit, accurate for all history
-    const visitCounts = await db.bazarExpense.groupBy({
-      by: ["userId"],
-      _count: { id: true },
+    // All expenses for leaderboard aggregation (tripWeight sum per user)
+    const allExpenses = await db.bazarExpense.findMany({
+      select: { userId: true, tripWeight: true },
     });
 
+    // Sum tripWeight per user
+    const weightMap = new Map<string, Decimal>();
+    for (const e of allExpenses) {
+      const prev = weightMap.get(e.userId) ?? new Decimal(0);
+      weightMap.set(e.userId, prev.plus(new Decimal(e.tripWeight.toString())));
+    }
+
     // Fetch user details for everyone who has at least one expense
-    const userIds = visitCounts.map((r) => r.userId);
+    const userIds = [...weightMap.keys()];
     const users = await db.user.findMany({
       where: { id: { in: userIds } },
       select: { id: true, name: true, nickname: true, avatarUrl: true },
     });
     const userMap = new Map(users.map((u) => [u.id, u]));
 
-    const leaderboard = visitCounts
-      .map((r) => {
-        const u = userMap.get(r.userId);
+    const leaderboard = userIds
+      .map((userId) => {
+        const u = userMap.get(userId);
         return {
-          userId: r.userId,
+          userId,
           name: u ? (u.nickname || u.name) : "Unknown",
           avatarUrl: u?.avatarUrl ?? null,
-          visits: r._count.id,
+          visits: parseFloat((weightMap.get(userId) ?? new Decimal(0)).toFixed(1)),
         };
       })
       .sort((a, b) => b.visits - a.visits);
@@ -53,6 +60,8 @@ export async function GET() {
           note: e.note,
           date: e.date.toISOString().slice(0, 10),
           submittedAt: e.submittedAt.toISOString(),
+          tripWeight: parseFloat(e.tripWeight.toString()),
+          isInstant: parseFloat(e.tripWeight.toString()) < 1,
         })),
         leaderboard,
       },
