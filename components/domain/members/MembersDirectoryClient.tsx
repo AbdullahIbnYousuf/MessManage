@@ -46,7 +46,6 @@ export default function MembersDirectoryClient() {
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
       {members.map((m, i) => {
         const displayName = m.nickname ?? m.name;
-        const joinDate = new Date(m.joinedAt).toLocaleDateString("en-US", { month: "short", year: "numeric" });
         
         return (
           <Link key={m.id} href={`/members/${m.id}`} style={{ textDecoration: "none", color: "inherit" }}>

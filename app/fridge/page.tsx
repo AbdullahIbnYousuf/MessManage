@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import FridgeClient from "@/components/domain/fridge/FridgeClient";
-import { previousMonthStart, previousMonthKey, today } from "@/lib/utils/dates";
+import { previousMonthStart, previousMonthKey, today, formatMonthLabel } from "@/lib/utils/dates";
 
 export const metadata = {
   title: "Fridge Bill — MealSync",
@@ -14,7 +14,7 @@ export default async function FridgePage() {
   if (!user) redirect("/auth/login");
 
   const prevStart = previousMonthStart();
-  const previousMonthLabel = prevStart.toLocaleString("en-US", { month: "long", year: "numeric" });
+  const previousMonthLabel = formatMonthLabel(prevStart);
   const prevMonthKey = previousMonthKey().slice(0, 7);
 
   // Get the most recent bill's currentReading (becomes previousReading for the next bill)

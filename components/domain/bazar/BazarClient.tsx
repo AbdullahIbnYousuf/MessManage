@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import ActiveTripCard from "@/components/domain/bazar/ActiveTripCard";
 import ExpenseForm from "@/components/domain/bazar/ExpenseForm";
-import { formatNumericDate } from "@/lib/utils/dates";
+import { formatNumericDate, formatMonthLabel } from "@/lib/utils/dates";
 
 interface Assignee {
   id: string;
@@ -422,7 +422,7 @@ export default function BazarClient({ todayStr, currentUserId, isAdmin }: { toda
           {/* Expenses split by month */}
           {(() => {
             const currentMonth = todayStr.slice(0, 7);
-            const monthLabel = new Date(todayStr + "T00:00:00").toLocaleString("en-US", { month: "long", year: "numeric" });
+            const monthLabel = formatMonthLabel(todayStr);
             const thisMonth = expenses.filter((e) => e.date.startsWith(currentMonth));
             const past = expenses.filter((e) => !e.date.startsWith(currentMonth));
             return (

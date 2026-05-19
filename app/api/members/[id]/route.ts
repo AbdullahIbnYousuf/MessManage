@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
 import { computeNetBalance } from "@/lib/domain/settlement";
 import { computeMealRate } from "@/lib/domain/meal";
-import { today, currentMonthStart, currentMonthEnd, currentMonthKey, isDeadlinePassed } from "@/lib/utils/dates";
+import { today, currentMonthStart, currentMonthEnd, currentMonthKey, isDeadlinePassed, formatMonthLabel } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 import { sum } from "@/lib/utils/decimal";
 
@@ -169,7 +169,7 @@ export async function GET(
         totalSpending: totalSpending.toFixed(2),
         totalMeals: userMealCount,
         bazarVisits: bazarVisitCount,
-        monthLabel: new Date(currentMonthKey()).toLocaleString("en-US", { month: "long", year: "numeric" }),
+        monthLabel: formatMonthLabel(currentMonthKey()),
         breakdown: {
           bazarContributed: userBazarSpend.toFixed(2),
           maidPayments: userMaidPayments.toFixed(2),

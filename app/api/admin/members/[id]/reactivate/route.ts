@@ -10,7 +10,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await requireAdmin();
+    await requireAdmin();
     const { id } = await params;
 
     const user = await db.user.findUnique({ where: { id } });

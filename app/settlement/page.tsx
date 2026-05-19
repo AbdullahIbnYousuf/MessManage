@@ -13,7 +13,7 @@ export default async function SettlementPage() {
   if (!user) redirect("/auth/login");
 
   const now = getNow();
-  const monthName = now.toLocaleString("en-US", { month: "long", year: "numeric" });
+  const monthName = now.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "Asia/Dhaka" });
 
   return <SettlementClient isAdmin={user.role === "admin"} monthName={monthName} />;
 }

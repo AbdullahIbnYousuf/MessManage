@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
+import { formatMonthLabel } from "@/lib/utils/dates";
 import { useRouter } from "next/navigation";
 
 interface ProfileData {
@@ -133,8 +134,7 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
 
   const { user, aggregates, mealPattern, activity } = data;
   const isOwner = user.id === currentUserId;
-  const displayName = user.nickname ?? user.name;
-  const joinDate = new Date(user.joinedAt).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const joinDate = new Date(user.joinedAt).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "Asia/Dhaka" });
   const balanceNum = parseFloat(aggregates.balance);
   const isPositive = balanceNum >= 0;
 
@@ -311,7 +311,7 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
                 {activity.recentBazar.map(b => (
                   <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.875rem", padding: "0.375rem 0", borderBottom: "1px solid var(--color-border)" }}>
                     <div>
-                      <div>{new Date(b.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+                      <div>{new Date(b.date).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}</div>
                       {b.note && <div className="text-muted" style={{ fontSize: "0.75rem" }}>{b.note}</div>}
                     </div>
                     <div style={{ fontWeight: 600 }}>৳{parseFloat(b.amount).toLocaleString()}</div>
@@ -329,7 +329,7 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
                   <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.875rem", padding: "0.375rem 0", borderBottom: "1px solid var(--color-border)" }}>
                     <div>
                       <div>{b.itemName}</div>
-                      <div className="text-muted" style={{ fontSize: "0.75rem" }}>{new Date(b.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+                      <div className="text-muted" style={{ fontSize: "0.75rem" }}>{new Date(b.date).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}</div>
                     </div>
                     <div style={{ fontWeight: 600 }}>৳{parseFloat(b.cost).toLocaleString()}</div>
                   </div>
@@ -344,7 +344,7 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                 {activity.recentMaid.map(m => (
                   <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.875rem", padding: "0.375rem 0", borderBottom: "1px solid var(--color-border)" }}>
-                    <div>{new Date(m.month).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div>
+                    <div>{formatMonthLabel(m.month)}</div>
                     <div style={{ fontWeight: 600 }}>৳{parseFloat(m.amount).toLocaleString()}</div>
                   </div>
                 ))}

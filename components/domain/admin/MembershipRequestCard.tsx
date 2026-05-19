@@ -49,6 +49,7 @@ export default function MembershipRequestCard({ request, onReviewed }: Props) {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: "Asia/Dhaka",
   });
 
   return (

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import MealCalendar from "@/components/domain/meal/MealCalendar";
 import PatternEditor from "@/components/domain/meal/PatternEditor";
-import { isDeadlinePassed } from "@/lib/utils/dates";
+import { isDeadlinePassed, formatMonthLabel } from "@/lib/utils/dates";
 import type { MealPattern } from "@/types";
 
 interface MealRecord {
@@ -107,7 +107,7 @@ export default function MealsClient({ deadline, year, month, todayStr, isAdmin }
     if (r.isLocked) return true;
     return false;
   }).reduce((s, r) => s + r.mealCount, 0);
-  const monthName = new Date(year, month - 1, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+  const monthName = formatMonthLabel(`${year}-${String(month).padStart(2, "0")}-01`);
 
   return (
     <div className="page-container">

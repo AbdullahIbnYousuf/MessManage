@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { formatMonthLabel } from "@/lib/utils/dates";
 
 interface ChargeEntry {
   id: string;
@@ -47,7 +48,7 @@ function MaidPaymentRow({
   const [error, setError] = useState<string | null>(null);
 
   const hasNote = !!p.note;
-  const monthLabel = new Date(p.month + "-01T00:00:00").toLocaleString("en-US", { month: "long", year: "numeric" });
+  const monthLabel = formatMonthLabel(p.month);
 
   async function handleSave() {
     setSaving(true);
@@ -261,7 +262,7 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
     }
   }
 
-  const monthLabel = new Date(currentMonthKey + "T00:00:00").toLocaleString("en-US", { month: "long", year: "numeric" });
+  const monthLabel = formatMonthLabel(currentMonthKey);
   const chargesApplied = charges.length > 0;
 
   return (
@@ -369,7 +370,7 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
           {/* Payment history */}
           {payments.length > 0 && (() => {
             const currentMonth = currentMonthKey.slice(0, 7);
-            const monthLabel = new Date(currentMonthKey + "T00:00:00").toLocaleString("en-US", { month: "long", year: "numeric" });
+            const monthLabel = formatMonthLabel(currentMonthKey);
             const thisMonth = payments.filter((p) => p.month.startsWith(currentMonth));
             const past = payments.filter((p) => !p.month.startsWith(currentMonth));
             return (

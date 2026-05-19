@@ -91,6 +91,7 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
   const joinDate = new Date(member.joinedAt).toLocaleDateString("en-US", {
     month: "short",
     year: "numeric",
+    timeZone: "Asia/Dhaka",
   });
 
   return (

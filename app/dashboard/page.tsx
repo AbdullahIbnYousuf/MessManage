@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import DashboardClient from "@/components/domain/dashboard/DashboardClient";
-import { previousMonthKey, previousMonthStart, getNow, getDhakaParts, firstDayOfMonth } from "@/lib/utils/dates";
+import { previousMonthKey, previousMonthStart, getNow, getDhakaParts, firstDayOfMonth, formatMonthLabel } from "@/lib/utils/dates";
 
 export const metadata = {
   title: "Dashboard — MealSync",
@@ -23,11 +23,11 @@ export default async function DashboardPage() {
   const isAlertPeriod = day >= 1 && day <= 4;
   const daysUntilSettle = 5 - day; // 4 on day 1, 1 on day 4, 0 on day 5
   const isMaidChargeAlertPeriod = day >= 25 && day <= 28;
-  const monthName = now.toLocaleString("en-US", { month: "long", year: "numeric" });
-  const dayName = now.toLocaleString("en-US", { weekday: "long" });
+  const monthName = now.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "Asia/Dhaka" });
+  const dayName = now.toLocaleString("en-US", { weekday: "long", timeZone: "Asia/Dhaka" });
 
   let isPreviousMonthSettled = false;
-  const prevMonthLabel = previousMonthStart().toLocaleString("en-US", { month: "long", year: "numeric" });
+  const prevMonthLabel = formatMonthLabel(previousMonthStart());
 
   if (isAlertPeriod) {
     const prevKey = previousMonthKey();

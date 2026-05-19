@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { formatTimestamp } from "@/lib/utils/dates";
 
 interface EditRequest {
   id: string;
@@ -93,7 +94,7 @@ export default function MealEditRequestsClient() {
                 Date: <strong>{r.mealRecord.date}</strong> · Current count: <strong>{r.mealRecord.mealCount}</strong>
               </div>
               <div className="text-muted" style={{ fontSize: "0.75rem" }}>
-                Requested {new Date(r.requestedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                Requested {formatTimestamp(r.requestedAt)}
               </div>
             </div>
 

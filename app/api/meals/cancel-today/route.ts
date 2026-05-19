@@ -5,7 +5,7 @@
 
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
-import { today, getNow, parseDateString } from "@/lib/utils/dates";
+import { today, parseDateString } from "@/lib/utils/dates";
 
 export async function POST() {
   try {

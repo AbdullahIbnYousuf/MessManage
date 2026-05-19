@@ -272,3 +272,40 @@ export function allDaysInMonth(year: number, month: number): string[] {
   }
   return result;
 }
+
+/**
+ * Formats a Date object representing UTC midnight (from DB) into a month label (e.g., "November 2024").
+ * Safe for both Server and Client Components (avoids hydration mismatch).
+ */
+export function formatMonthLabel(dateInput: Date | string): string {
+  let d = dateInput;
+  if (typeof d === "string") {
+    if (/^\d{4}-\d{2}$/.test(d)) d += "-01";
+    const match = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      d = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+    } else {
+      d = new Date(d);
+    }
+  }
+  return new Intl.DateTimeFormat("en-US", { 
+    month: "long", 
+    year: "numeric", 
+    timeZone: "UTC" 
+  }).format(d);
+}
+
+/**
+ * Formats a timestamp (e.g. submittedAt) into a human-readable string in Dhaka time.
+ * Safe for both Server and Client Components.
+ */
+export function formatTimestamp(dateInput: Date | string): string {
+  const d = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+  return new Intl.DateTimeFormat("en-US", { 
+    month: "short", 
+    day: "numeric", 
+    hour: "2-digit", 
+    minute: "2-digit",
+    timeZone: "Asia/Dhaka" 
+  }).format(d);
+}

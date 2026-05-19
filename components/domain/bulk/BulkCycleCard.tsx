@@ -329,8 +329,8 @@ export default function BulkCycleCard({ item, isAdmin, currentUserId, onCycleSta
           {pastExpanded && (
             <div style={{ marginTop: "0.625rem", display: "flex", flexDirection: "column", gap: "0.5rem", maxHeight: "240px", overflowY: "auto", paddingRight: "0.25rem" }} className="fade-in">
               {item.finishedCycles.map((c) => {
-                const start = new Date(c.startedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-                const end = new Date(c.finishedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+                const start = new Date(c.startedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Dhaka" });
+                const end = new Date(c.finishedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Dhaka" });
                 const days = Math.round((new Date(c.finishedAt).getTime() - new Date(c.startedAt).getTime()) / 86400000);
                 return (
                   <div key={c.id} style={{ background: "var(--color-bg-elevated)", borderRadius: "var(--radius-md)", padding: "0.625rem 0.75rem", fontSize: "0.8125rem" }}>

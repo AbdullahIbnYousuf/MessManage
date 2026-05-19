@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { formatTaka } from "@/lib/utils/decimal";
-import { formatNumericDate } from "@/lib/utils/dates";
+import { formatNumericDate, formatMonthLabel } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 
 interface BalanceEntry {
@@ -181,7 +181,7 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
                       style={{ fontWeight: 600, textDecoration: "none", color: "var(--color-primary-light)" }}
                       className="hover-underline"
                     >
-                      {new Date(h.month + "-01").toLocaleString("en-US", { month: "long", year: "numeric" })}
+                      {formatMonthLabel(h.month)}
                       <span style={{ fontSize: "0.75rem", marginLeft: "0.5rem" }}>→ View Details</span>
                     </Link>
                     <span className="badge badge-muted" style={{ fontWeight: 400 }}>

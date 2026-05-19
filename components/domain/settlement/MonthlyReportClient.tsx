@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, use } from "react";
 import Link from "next/link";
+import { formatMonthLabel } from "@/lib/utils/dates";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -149,7 +150,7 @@ export default function MonthlyReportClient({ params }: Props) {
     </div>
   );
 
-  const monthLabel = new Date(data.month + "-02").toLocaleString("en-US", { month: "long", year: "numeric" });
+  const monthLabel = formatMonthLabel(data.month);
 
   return (
     <div className="page-container" style={{ maxWidth: 820 }}>
@@ -165,7 +166,7 @@ export default function MonthlyReportClient({ params }: Props) {
               {monthLabel}
             </h1>
             <p className="text-muted" style={{ fontSize: "0.875rem" }}>
-              Finalized · {new Date(data.settledAt).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}
+              Finalized · {new Date(data.settledAt).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Dhaka" })}
             </p>
           </div>
           <span className="badge badge-success" style={{ fontSize: "0.8rem", padding: "0.3rem 0.8rem" }}>

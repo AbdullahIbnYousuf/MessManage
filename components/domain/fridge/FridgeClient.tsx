@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { formatMonthLabel } from "@/lib/utils/dates";
 
 interface FridgePayment {
   id: string;
@@ -254,7 +255,7 @@ function PastBillsCard({ bills, isAdmin, onSaveBillEdit, currentUserId, todayStr
           {bills.map((bill) => (
             <div key={bill.id}>
               <div style={{ fontWeight: 600, fontSize: "0.875rem", marginBottom: "0.5rem", color: "var(--color-text-secondary)" }}>
-                {new Date(bill.month + "-01T00:00:00").toLocaleString("en-US", { month: "long", year: "numeric" })}
+                {formatMonthLabel(bill.month)}
               </div>
               <BillRow bill={bill} isAdmin={isAdmin} onSaveEdit={onSaveBillEdit} />
               
@@ -596,7 +597,7 @@ export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCur
             const currentBill = bills.find((b) => b.month === prevMonthKey) ?? null;
             const pastBills = bills.filter((b) => b.month !== prevMonthKey);
             const currentMonthLabel = currentBill
-              ? new Date(currentBill.month + "-01T00:00:00").toLocaleString("en-US", { month: "long", year: "numeric" })
+              ? formatMonthLabel(currentBill.month)
               : null;
             return (
               <>
