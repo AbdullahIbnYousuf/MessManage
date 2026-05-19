@@ -56,11 +56,12 @@ export default function BulkCycleCard({ item, isAdmin, currentUserId, onCycleSta
   const [nowMs] = useState(() => new Date(todayStr + "T00:00:00").getTime());
 
   // Can the current user edit this active cycle?
+  const purchaseDateStr = item.activeCycle?.purchaseDate.slice(0, 10);
   const canEdit = item.activeCycle && (
     isAdmin ||
     (
       item.activeCycle.purchasedBy.id === currentUserId &&
-      new Date(item.activeCycle.startedAt).toISOString().slice(0, 10) === todayStr
+      purchaseDateStr === todayStr
     )
   );
 
@@ -141,8 +142,11 @@ export default function BulkCycleCard({ item, isAdmin, currentUserId, onCycleSta
     }
   }
 
+  const purchaseMidnight = purchaseDateStr
+    ? new Date(purchaseDateStr + "T00:00:00").getTime()
+    : 0;
   const daysActive = item.activeCycle
-    ? Math.floor((nowMs - new Date(item.activeCycle.startedAt).getTime()) / 86400000)
+    ? Math.max(0, Math.round((nowMs - purchaseMidnight) / 86400000))
     : null;
 
   return (
