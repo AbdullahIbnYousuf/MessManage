@@ -22,14 +22,90 @@ interface Payment {
 
 interface Props {
   isAdmin: boolean;
+  currentUserId: string;
   currentMonthKey: string;
   defaultCharge: string;
+  todayStr: string;
 }
 
-function MaidPaymentRow({ payment: p, isLast }: { payment: Payment; isLast: boolean }) {
+function MaidPaymentRow({
+  payment: p,
+  isLast,
+  canEdit,
+  onSaveEdit,
+}: {
+  payment: Payment;
+  isLast: boolean;
+  canEdit: boolean;
+  onSaveEdit: (id: string, amount: string, note: string) => Promise<void>;
+}) {
   const [expanded, setExpanded] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editAmt, setEditAmt] = useState(p.amount);
+  const [editNote, setEditNote] = useState(p.note || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const hasNote = !!p.note;
   const monthLabel = new Date(p.month + "-01T00:00:00").toLocaleString("en-US", { month: "long", year: "numeric" });
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSaveEdit(p.id, editAmt, editNote);
+      setIsEditing(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update payment.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (isEditing) {
+    return (
+      <div
+        className="fade-in"
+        style={{
+          background: "var(--color-bg-elevated)",
+          borderRadius: "var(--radius-md)",
+          padding: "0.875rem",
+          marginBottom: isLast ? 0 : "0.5rem",
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.625rem",
+          border: "1px solid var(--color-border-subtle)",
+        }}
+      >
+        <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
+          Edit Payment ({p.paidBy.name})
+        </div>
+        <input
+          className="input"
+          type="number"
+          min="0.01"
+          step="0.01"
+          placeholder="Amount (৳)"
+          value={editAmt}
+          onChange={(e) => setEditAmt(e.target.value)}
+        />
+        <input
+          className="input"
+          type="text"
+          placeholder="Note (optional)"
+          value={editNote}
+          onChange={(e) => setEditNote(e.target.value)}
+        />
+        {error && <div style={{ color: "var(--color-danger)", fontSize: "0.8125rem" }}>{error}</div>}
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <button className="btn btn-sm btn-primary" onClick={() => void handleSave()} disabled={saving || !editAmt}>
+            {saving ? <span className="spinner" /> : "Save"}
+          </button>
+          <button className="btn btn-sm btn-ghost" onClick={() => setIsEditing(false)}>Cancel</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -53,6 +129,17 @@ function MaidPaymentRow({ payment: p, isLast }: { payment: Payment; isLast: bool
           <div style={{ fontWeight: 500, fontSize: "0.875rem" }}>{p.paidBy.name}</div>
           <div className="text-muted" style={{ fontSize: "0.75rem" }}>{monthLabel}</div>
         </div>
+        
+        {canEdit && (
+          <button 
+            className="btn btn-ghost" 
+            style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem", color: "var(--color-text-muted)" }}
+            onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
+          >
+            ✏️ Edit
+          </button>
+        )}
+
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
           <span style={{ fontWeight: 700, color: "var(--color-success)", fontSize: "0.9375rem" }}>
             +৳{parseFloat(p.amount).toLocaleString()}
@@ -81,7 +168,7 @@ function MaidPaymentRow({ payment: p, isLast }: { payment: Payment; isLast: bool
   );
 }
 
-export default function MaidClient({ isAdmin, currentMonthKey, defaultCharge }: Props) {
+export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, defaultCharge, todayStr }: Props) {
   const [charges, setCharges] = useState<ChargeEntry[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,6 +226,19 @@ export default function MaidClient({ isAdmin, currentMonthKey, defaultCharge }: 
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleSaveEdit(id: string, amount: string, note: string) {
+    const res = await fetch(`/api/maid/payment/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: parseFloat(amount), note }),
+    });
+    const json = await res.json() as { error?: string };
+    if (!res.ok) {
+      throw new Error(json.error ?? "Failed to update payment.");
+    }
+    void load();
   }
 
   async function applyCharges() {
@@ -232,6 +332,23 @@ export default function MaidClient({ isAdmin, currentMonthKey, defaultCharge }: 
             <p className="text-secondary" style={{ fontSize: "0.8125rem", marginBottom: "1rem" }}>
               If you paid the maid on behalf of the whole group, record it here. You will receive the full amount as a credit.
             </p>
+            
+            <div style={{
+              background: "rgba(245,158,11,0.08)",
+              border: "1px solid rgba(245,158,11,0.3)",
+              borderRadius: "var(--radius-md)",
+              padding: "0.625rem 0.75rem",
+              fontSize: "0.8125rem",
+              color: "var(--color-warning)",
+              marginBottom: "1rem",
+              display: "flex",
+              gap: "0.5rem",
+              alignItems: "flex-start",
+            }}>
+              <span style={{ flexShrink: 0 }}>⚠️</span>
+              <span><strong>Make sure the amount is correct.</strong> You can only edit this payment <strong>today</strong> after submitting. After midnight it cannot be changed.</span>
+            </div>
+
             <form onSubmit={(e) => void submitPayment(e)} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               <div>
                 <label style={{ fontSize: "0.8125rem", fontWeight: 500, color: "var(--color-text-secondary)", display: "block", marginBottom: "0.375rem" }}>Amount paid (৳)</label>
@@ -263,9 +380,12 @@ export default function MaidClient({ isAdmin, currentMonthKey, defaultCharge }: 
                       {monthLabel} Payments
                     </div>
                     <div style={{ display: "flex", flexDirection: "column" }}>
-                      {thisMonth.map((p, i) => (
-                        <MaidPaymentRow key={p.id} payment={p} isLast={i === thisMonth.length - 1} />
-                      ))}
+                      {thisMonth.map((p, i) => {
+                        const canEdit = isAdmin || (p.paidBy.id === currentUserId && p.paidAt.startsWith(todayStr));
+                        return (
+                          <MaidPaymentRow key={p.id} payment={p} isLast={i === thisMonth.length - 1} canEdit={canEdit} onSaveEdit={handleSaveEdit} />
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -283,9 +403,12 @@ export default function MaidClient({ isAdmin, currentMonthKey, defaultCharge }: 
                     </button>
                     {pastPaymentsExpanded && (
                       <div style={{ marginTop: "0.875rem", display: "flex", flexDirection: "column" }} className="fade-in">
-                        {past.map((p, i) => (
-                          <MaidPaymentRow key={p.id} payment={p} isLast={i === past.length - 1} />
-                        ))}
+                        {past.map((p, i) => {
+                          const canEdit = isAdmin || (p.paidBy.id === currentUserId && p.paidAt.startsWith(todayStr));
+                          return (
+                            <MaidPaymentRow key={p.id} payment={p} isLast={i === past.length - 1} canEdit={canEdit} onSaveEdit={handleSaveEdit} />
+                          );
+                        })}
                       </div>
                     )}
                   </div>

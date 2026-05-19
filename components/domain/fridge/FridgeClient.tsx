@@ -28,10 +28,87 @@ interface Props {
   prevMonthKey: string; // "YYYY-MM"
   lastCurrentReading: string | null; // null = first ever bill
   defaultUnitPrice: string;
+  currentUserId: string;
+  isAdmin: boolean;
+  todayStr: string;
 }
 
-function BillRow({ bill }: { bill: FridgeBill }) {
+function BillRow({
+  bill,
+  isAdmin,
+  onSaveEdit,
+}: {
+  bill: FridgeBill;
+  isAdmin: boolean;
+  onSaveEdit: (month: string, prevRd: string, currRd: string, unitPr: string) => Promise<void>;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editPrev, setEditPrev] = useState(bill.previousReading);
+  const [editCurr, setEditCurr] = useState(bill.currentReading);
+  const [editPrice, setEditPrice] = useState(bill.unitPrice);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const units = (parseFloat(bill.currentReading) - parseFloat(bill.previousReading)).toLocaleString();
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSaveEdit(bill.month, editPrev, editCurr, editPrice);
+      setIsEditing(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to correct bill.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (isEditing) {
+    return (
+      <div
+        className="fade-in"
+        style={{
+          background: "var(--color-bg-elevated)",
+          borderRadius: "var(--radius-md)",
+          padding: "0.875rem",
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.625rem",
+          border: "1px solid var(--color-border-subtle)",
+          marginBottom: "0.5rem"
+        }}
+      >
+        <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
+          Correct Bill
+        </div>
+        
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+          <div>
+            <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>Prev Reading</label>
+            <input className="input" type="number" step="0.01" value={editPrev} onChange={(e) => setEditPrev(e.target.value)} />
+          </div>
+          <div>
+            <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>Curr Reading</label>
+            <input className="input" type="number" step="0.01" value={editCurr} onChange={(e) => setEditCurr(e.target.value)} />
+          </div>
+          <div>
+            <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>Unit Price</label>
+            <input className="input" type="number" step="0.0001" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} />
+          </div>
+        </div>
+
+        {error && <div style={{ color: "var(--color-danger)", fontSize: "0.8125rem" }}>{error}</div>}
+        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
+          <button className="btn btn-sm btn-primary" onClick={() => void handleSave()} disabled={saving || !editCurr}>
+            {saving ? <span className="spinner" /> : "Save & Recalculate"}
+          </button>
+          <button className="btn btn-sm btn-ghost" onClick={() => setIsEditing(false)}>Cancel</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.375rem" }}>
@@ -40,36 +117,125 @@ function BillRow({ bill }: { bill: FridgeBill }) {
             ৳{parseFloat(bill.totalAmount).toLocaleString()}
           </span>
           {bill.isSettled && <span className="badge badge-muted">Settled</span>}
+          {isAdmin && !bill.isSettled && (
+            <button 
+              className="btn btn-ghost" 
+              style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem", color: "var(--color-text-muted)", marginLeft: "0.25rem" }}
+              onClick={() => setIsEditing(true)}
+            >
+              ✏️ Correct
+            </button>
+          )}
         </div>
-        <span className="text-muted" style={{ fontSize: "0.8125rem" }}>
+        <span className="text-muted" style={{ fontSize: "0.8125rem", textAlign: "right" }}>
           {bill.memberCount} members · ৳{parseFloat(bill.perMemberAmount).toLocaleString()} each
         </span>
       </div>
       <div className="text-muted" style={{ fontSize: "0.8125rem", marginBottom: "0.5rem" }}>
         {parseFloat(bill.previousReading).toLocaleString()} → {parseFloat(bill.currentReading).toLocaleString()} units ({units} used · ৳{parseFloat(bill.unitPrice)} /unit)
       </div>
-      {bill.payments.length > 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-          {bill.payments.map((p) => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.375rem 0", borderBottom: "1px solid var(--color-border-subtle)" }}>
-              {p.paidBy.avatarUrl
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={p.paidBy.avatarUrl} alt={p.paidBy.name} className="avatar avatar-sm" />
-                : <div className="avatar-fallback" style={{ width: 26, height: 26, fontSize: "0.6875rem" }}>{p.paidBy.name.charAt(0)}</div>
-              }
-              <span style={{ flex: 1, fontSize: "0.875rem", fontWeight: 500 }}>{p.paidBy.name}</span>
-              <span style={{ fontWeight: 700, color: "var(--color-success)" }}>+৳{parseFloat(p.amount).toLocaleString()}</span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-muted" style={{ fontSize: "0.8125rem" }}>No payments recorded yet.</p>
-      )}
     </div>
   );
 }
 
-function PastBillsCard({ bills }: { bills: FridgeBill[] }) {
+function FridgePaymentRow({
+  payment: p,
+  isLast,
+  canEdit,
+  onSaveEdit,
+}: {
+  payment: FridgePayment;
+  isLast: boolean;
+  canEdit: boolean;
+  onSaveEdit: (id: string, amount: string) => Promise<void>;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editAmt, setEditAmt] = useState(p.amount);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSaveEdit(p.id, editAmt);
+      setIsEditing(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update payment.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (isEditing) {
+    return (
+      <div
+        className="fade-in"
+        style={{
+          background: "var(--color-bg-elevated)",
+          borderRadius: "var(--radius-md)",
+          padding: "0.75rem",
+          marginBottom: isLast ? 0 : "0.5rem",
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.5rem",
+          border: "1px solid var(--color-border-subtle)",
+        }}
+      >
+        <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
+          Edit Payment
+        </div>
+        <input
+          className="input"
+          type="number"
+          min="0.01"
+          step="0.01"
+          value={editAmt}
+          onChange={(e) => setEditAmt(e.target.value)}
+        />
+        {error && <div style={{ color: "var(--color-danger)", fontSize: "0.8125rem" }}>{error}</div>}
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <button className="btn btn-sm btn-primary" onClick={() => void handleSave()} disabled={saving || !editAmt}>
+            {saving ? <span className="spinner" /> : "Save"}
+          </button>
+          <button className="btn btn-sm btn-ghost" onClick={() => setIsEditing(false)}>Cancel</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.375rem 0", borderBottom: isLast ? "none" : "1px solid var(--color-border-subtle)" }}>
+      {p.paidBy.avatarUrl
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img src={p.paidBy.avatarUrl} alt={p.paidBy.name} className="avatar avatar-sm" />
+        : <div className="avatar-fallback" style={{ width: 26, height: 26, fontSize: "0.6875rem" }}>{p.paidBy.name.charAt(0)}</div>
+      }
+      <span style={{ flex: 1, fontSize: "0.875rem", fontWeight: 500 }}>{p.paidBy.name}</span>
+      
+      {canEdit && (
+        <button 
+          className="btn btn-ghost" 
+          style={{ padding: "0.125rem 0.375rem", fontSize: "0.75rem", color: "var(--color-text-muted)" }}
+          onClick={() => setIsEditing(true)}
+        >
+          ✏️ Edit
+        </button>
+      )}
+
+      <span style={{ fontWeight: 700, color: "var(--color-success)" }}>+৳{parseFloat(p.amount).toLocaleString()}</span>
+    </div>
+  );
+}
+
+function PastBillsCard({ bills, isAdmin, onSaveBillEdit, currentUserId, todayStr, onSavePaymentEdit }: { 
+  bills: FridgeBill[]; 
+  isAdmin: boolean;
+  onSaveBillEdit: (month: string, prevRd: string, currRd: string, unitPr: string) => Promise<void>;
+  currentUserId: string;
+  todayStr: string;
+  onSavePaymentEdit: (id: string, amount: string) => Promise<void>;
+}) {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="card">
@@ -89,9 +255,27 @@ function PastBillsCard({ bills }: { bills: FridgeBill[] }) {
             <div key={bill.id}>
               <div style={{ fontWeight: 600, fontSize: "0.875rem", marginBottom: "0.5rem", color: "var(--color-text-secondary)" }}>
                 {new Date(bill.month + "-01T00:00:00").toLocaleString("en-US", { month: "long", year: "numeric" })}
-                {bill.isSettled && <span className="badge badge-muted" style={{ marginLeft: "0.5rem" }}>Settled</span>}
               </div>
-              <BillRow bill={bill} />
+              <BillRow bill={bill} isAdmin={isAdmin} onSaveEdit={onSaveBillEdit} />
+              
+              {bill.payments.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", marginTop: "0.5rem" }}>
+                  {bill.payments.map((p, i) => {
+                    const canEdit = isAdmin || (p.paidBy.id === currentUserId && p.paidAt.startsWith(todayStr));
+                    return (
+                      <FridgePaymentRow 
+                        key={p.id} 
+                        payment={p} 
+                        isLast={i === bill.payments.length - 1} 
+                        canEdit={canEdit}
+                        onSaveEdit={onSavePaymentEdit}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-muted" style={{ fontSize: "0.8125rem", marginTop: "0.5rem" }}>No payments recorded yet.</p>
+              )}
             </div>
           ))}
         </div>
@@ -100,7 +284,7 @@ function PastBillsCard({ bills }: { bills: FridgeBill[] }) {
   );
 }
 
-export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCurrentReading, defaultUnitPrice }: Props) {
+export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCurrentReading, defaultUnitPrice, currentUserId, isAdmin, todayStr }: Props) {
   const [bills, setBills] = useState<FridgeBill[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -186,6 +370,32 @@ export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCur
     }
   }
 
+  async function handleSaveBillEdit(month: string, prevRd: string, currRd: string, unitPr: string) {
+    const res = await fetch(`/api/fridge/bill/${month}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ previousReading: parseFloat(prevRd), currentReading: parseFloat(currRd), unitPrice: parseFloat(unitPr) }),
+    });
+    const json = await res.json() as { error?: string };
+    if (!res.ok) {
+      throw new Error(json.error ?? "Failed to correct bill.");
+    }
+    void load();
+  }
+
+  async function handleSavePaymentEdit(id: string, amount: string) {
+    const res = await fetch(`/api/fridge/payment/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: parseFloat(amount) }),
+    });
+    const json = await res.json() as { error?: string };
+    if (!res.ok) {
+      throw new Error(json.error ?? "Failed to update payment.");
+    }
+    void load();
+  }
+
   const hasCurrentMonthBill = bills.some((b) => b.month === prevMonthKey);
   const currentMonthBill = bills.find((b) => b.month === prevMonthKey) ?? null;
   const isCurrentMonthSettled = currentMonthBill?.isSettled ?? false;
@@ -224,9 +434,26 @@ export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCur
               <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "0.25rem" }}>
                 Post {previousMonthLabel} Bill
               </div>
+              
+              <div style={{
+                background: "rgba(245,158,11,0.08)",
+                border: "1px solid rgba(245,158,11,0.3)",
+                borderRadius: "var(--radius-md)",
+                padding: "0.625rem 0.75rem",
+                fontSize: "0.8125rem",
+                color: "var(--color-warning)",
+                marginTop: "1rem",
+                marginBottom: "1.25rem",
+                display: "flex",
+                gap: "0.5rem",
+                alignItems: "flex-start",
+              }}>
+                <span style={{ flexShrink: 0 }}>⚠️</span>
+                <span><strong>This bill will be split across all members. There is no edit after posting.</strong> Double-check your meter readings and unit price before submitting.</span>
+              </div>
 
               {/* Quiet context row */}
-              <div style={{ display: "flex", gap: "1.5rem", marginBottom: "1.25rem", marginTop: "0.5rem" }}>
+              <div style={{ display: "flex", gap: "1.5rem", marginBottom: "1.25rem" }}>
                 <div>
                   <div className="stat-label">Previous Reading</div>
                   <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
@@ -322,6 +549,23 @@ export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCur
               <p className="text-secondary" style={{ fontSize: "0.8125rem", marginBottom: "1rem" }}>
                 If you paid the fridge electricity bill on behalf of the group, record it here. You will receive the full amount as a credit.
               </p>
+              
+              <div style={{
+                background: "rgba(245,158,11,0.08)",
+                border: "1px solid rgba(245,158,11,0.3)",
+                borderRadius: "var(--radius-md)",
+                padding: "0.625rem 0.75rem",
+                fontSize: "0.8125rem",
+                color: "var(--color-warning)",
+                marginBottom: "1rem",
+                display: "flex",
+                gap: "0.5rem",
+                alignItems: "flex-start",
+              }}>
+                <span style={{ flexShrink: 0 }}>⚠️</span>
+                <span><strong>Verify the amount before you submit.</strong> You can only edit this payment <strong>today</strong>. After midnight it is permanent.</span>
+              </div>
+
               <form onSubmit={(e) => void submitPayment(e)} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                 <div>
                   <label style={{ fontSize: "0.8125rem", fontWeight: 500, color: "var(--color-text-secondary)", display: "block", marginBottom: "0.375rem" }}>
@@ -361,11 +605,37 @@ export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCur
                     <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "0.875rem" }}>
                       {currentMonthLabel} Bill
                     </div>
-                    <BillRow bill={currentBill} />
+                    <BillRow bill={currentBill} isAdmin={isAdmin} onSaveEdit={handleSaveBillEdit} />
+                    
+                    {currentBill.payments.length > 0 ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", marginTop: "0.5rem" }}>
+                        {currentBill.payments.map((p, i) => {
+                          const canEdit = isAdmin || (p.paidBy.id === currentUserId && p.paidAt.startsWith(todayStr));
+                          return (
+                            <FridgePaymentRow 
+                              key={p.id} 
+                              payment={p} 
+                              isLast={i === currentBill.payments.length - 1} 
+                              canEdit={canEdit}
+                              onSaveEdit={handleSavePaymentEdit}
+                            />
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-muted" style={{ fontSize: "0.8125rem", marginTop: "0.5rem" }}>No payments recorded yet.</p>
+                    )}
                   </div>
                 )}
                 {pastBills.length > 0 && (
-                  <PastBillsCard bills={pastBills} />
+                  <PastBillsCard 
+                    bills={pastBills} 
+                    isAdmin={isAdmin} 
+                    onSaveBillEdit={handleSaveBillEdit}
+                    currentUserId={currentUserId}
+                    todayStr={todayStr}
+                    onSavePaymentEdit={handleSavePaymentEdit}
+                  />
                 )}
               </>
             );

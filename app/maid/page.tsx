@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import { db } from "@/lib/db";
-import { currentMonthKey } from "@/lib/utils/dates";
+import { currentMonthKey, today } from "@/lib/utils/dates";
 import MaidClient from "@/components/domain/maid/MaidClient";
 
 export const metadata = {
@@ -20,8 +20,10 @@ export default async function MaidPage() {
   return (
     <MaidClient
       isAdmin={user.role === "admin"}
+      currentUserId={user.id}
       currentMonthKey={monthKey}
       defaultCharge={defaultCharge}
+      todayStr={today()}
     />
   );
 }

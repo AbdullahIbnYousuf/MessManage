@@ -12,5 +12,5 @@ export default async function BazarPage() {
   const user = await getSessionUser();
   if (!user) redirect("/auth/login");
 
-  return <BazarClient todayStr={today()} />;
+  return <BazarClient todayStr={today()} currentUserId={user.id} isAdmin={user.role === "admin"} />;
 }

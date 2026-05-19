@@ -89,34 +89,84 @@ function LeaderboardCard({ top3, rest, medals }: {
   );
 }
 
-function PastExpensesCard({ expenses }: { expenses: Expense[] }) {
+function ExpenseRow({
+  expense: e,
+  isLast,
+  canEdit,
+  todayStr,
+  onSaveEdit,
+}: {
+  expense: Expense;
+  isLast: boolean;
+  canEdit: boolean;
+  todayStr: string;
+  onSaveEdit: (id: string, amount: string, note: string, date: string) => Promise<void>;
+}) {
   const [expanded, setExpanded] = useState(false);
-  return (
-    <div className="card">
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between" }}
-      >
-        <span style={{ fontWeight: 600, fontSize: "0.9375rem" }}>Past Expenses</span>
-        <span style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: "0.375rem" }}>
-          {expenses.length} entries
-          <span style={{ transition: "transform 0.2s", display: "inline-block", transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
-        </span>
-      </button>
-      {expanded && (
-        <div style={{ marginTop: "0.875rem", display: "flex", flexDirection: "column" }} className="fade-in">
-          {expenses.map((e, i) => (
-            <ExpenseRow key={e.id} expense={e} isLast={i === expenses.length - 1} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+  const [isEditing, setIsEditing] = useState(false);
+  const [editAmt, setEditAmt] = useState(e.amount);
+  const [editNote, setEditNote] = useState(e.note || "");
+  const [editDate, setEditDate] = useState(e.date.slice(0, 10));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-function ExpenseRow({ expense: e, isLast }: { expense: Expense; isLast: boolean }) {
-  const [expanded, setExpanded] = useState(false);
   const hasNote = !!e.note;
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSaveEdit(e.id, editAmt, editNote, editDate);
+      setIsEditing(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update expense.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (isEditing) {
+    return (
+      <div
+        className="fade-in"
+        style={{
+          background: "var(--color-bg-elevated)",
+          borderRadius: "var(--radius-md)",
+          padding: "0.875rem",
+          marginBottom: isLast ? 0 : "0.5rem",
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.625rem",
+          border: "1px solid var(--color-border-subtle)",
+        }}
+      >
+        <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
+          Edit Expense ({e.userName})
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+          <div>
+            <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>Amount</label>
+            <input className="input" type="number" step="0.01" min="0" value={editAmt} onChange={(ev) => setEditAmt(ev.target.value)} />
+          </div>
+          <div>
+            <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>Date</label>
+            <input className="input" type="date" max={todayStr} value={editDate} onChange={(ev) => setEditDate(ev.target.value)} />
+          </div>
+        </div>
+        <div>
+          <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>Note</label>
+          <input className="input" type="text" value={editNote} onChange={(ev) => setEditNote(ev.target.value)} />
+        </div>
+        {error && <div style={{ color: "var(--color-danger)", fontSize: "0.8125rem" }}>{error}</div>}
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <button className="btn btn-sm btn-primary" onClick={() => void handleSave()} disabled={saving || !editAmt || !editDate}>
+            {saving ? <span className="spinner" /> : "Save"}
+          </button>
+          <button className="btn btn-sm btn-ghost" onClick={() => setIsEditing(false)}>Cancel</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -140,6 +190,17 @@ function ExpenseRow({ expense: e, isLast }: { expense: Expense; isLast: boolean 
           <div style={{ fontWeight: 500, fontSize: "0.875rem" }}>{e.userName}</div>
           <div className="text-muted" style={{ fontSize: "0.75rem" }}>{formatNumericDate(e.date)}</div>
         </div>
+
+        {canEdit && (
+          <button 
+            className="btn btn-ghost" 
+            style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem", color: "var(--color-text-muted)" }}
+            onClick={(ev) => { ev.stopPropagation(); setIsEditing(true); }}
+          >
+            ✏️ Edit
+          </button>
+        )}
+
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
           <span style={{ fontWeight: 700, color: "var(--color-success)", fontSize: "0.9375rem" }}>
             +৳{parseFloat(e.amount).toLocaleString()}
@@ -173,7 +234,48 @@ function ExpenseRow({ expense: e, isLast }: { expense: Expense; isLast: boolean 
   );
 }
 
-export default function BazarClient({ todayStr }: { todayStr: string }) {
+function PastExpensesCard({ expenses, currentUserId, isAdmin, todayStr, onSaveEdit }: { 
+  expenses: Expense[]; 
+  currentUserId: string; 
+  isAdmin: boolean; 
+  todayStr: string;
+  onSaveEdit: (id: string, amount: string, note: string, date: string) => Promise<void>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="card">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between" }}
+      >
+        <span style={{ fontWeight: 600, fontSize: "0.9375rem" }}>Past Expenses</span>
+        <span style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: "0.375rem" }}>
+          {expenses.length} entries
+          <span style={{ transition: "transform 0.2s", display: "inline-block", transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+        </span>
+      </button>
+      {expanded && (
+        <div style={{ marginTop: "0.875rem", display: "flex", flexDirection: "column" }} className="fade-in">
+          {expenses.map((e, i) => {
+            const canEdit = isAdmin || (e.userId === currentUserId && e.submittedAt.startsWith(todayStr));
+            return (
+              <ExpenseRow 
+                key={e.id} 
+                expense={e} 
+                isLast={i === expenses.length - 1} 
+                canEdit={canEdit}
+                todayStr={todayStr}
+                onSaveEdit={onSaveEdit}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function BazarClient({ todayStr, currentUserId, isAdmin }: { todayStr: string, currentUserId: string, isAdmin: boolean }) {
   const [trip, setTrip] = useState<Trip | null | undefined>(undefined); // undefined = loading
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderEntry[]>([]);
@@ -218,6 +320,19 @@ export default function BazarClient({ todayStr }: { todayStr: string }) {
 
   function handleExpenseSubmitted() {
     void loadTrip();
+    void loadHistory();
+  }
+
+  async function handleSaveEdit(id: string, amount: string, note: string, date: string) {
+    const res = await fetch(`/api/bazar/expense/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: parseFloat(amount), note, date }),
+    });
+    const json = await res.json() as { error?: string };
+    if (!res.ok) {
+      throw new Error(json.error ?? "Failed to update expense.");
+    }
     void loadHistory();
   }
 
@@ -288,8 +403,6 @@ export default function BazarClient({ todayStr }: { todayStr: string }) {
             </div>
           )}
 
-
-
           {/* Expenses split by month */}
           {(() => {
             const currentMonth = todayStr.slice(0, 7);
@@ -304,14 +417,30 @@ export default function BazarClient({ todayStr }: { todayStr: string }) {
                       {monthLabel} Expenses
                     </div>
                     <div style={{ display: "flex", flexDirection: "column" }}>
-                      {thisMonth.map((e, i) => (
-                        <ExpenseRow key={e.id} expense={e} isLast={i === thisMonth.length - 1} />
-                      ))}
+                      {thisMonth.map((e, i) => {
+                        const canEdit = isAdmin || (e.userId === currentUserId && e.submittedAt.startsWith(todayStr));
+                        return (
+                          <ExpenseRow 
+                            key={e.id} 
+                            expense={e} 
+                            isLast={i === thisMonth.length - 1} 
+                            canEdit={canEdit}
+                            todayStr={todayStr}
+                            onSaveEdit={handleSaveEdit}
+                          />
+                        );
+                      })}
                     </div>
                   </div>
                 )}
                 {past.length > 0 && (
-                  <PastExpensesCard expenses={past} />
+                  <PastExpensesCard 
+                    expenses={past} 
+                    currentUserId={currentUserId}
+                    isAdmin={isAdmin}
+                    todayStr={todayStr}
+                    onSaveEdit={handleSaveEdit}
+                  />
                 )}
               </>
             );

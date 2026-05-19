@@ -31,12 +31,13 @@ interface BulkItem {
 interface Props {
   item: BulkItem;
   isAdmin: boolean;
+  currentUserId: string;
   onCycleStarted: () => void;
   onCycleFinished: () => void;
   todayStr: string;
 }
 
-export default function BulkCycleCard({ item, isAdmin, onCycleStarted, onCycleFinished, todayStr }: Props) {
+export default function BulkCycleCard({ item, isAdmin, currentUserId, onCycleStarted, onCycleFinished, todayStr }: Props) {
   const [showNewCycleForm, setShowNewCycleForm] = useState(false);
   const [cost, setCost] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(todayStr);
@@ -44,9 +45,24 @@ export default function BulkCycleCard({ item, isAdmin, onCycleStarted, onCycleFi
   const [finishing, setFinishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pastExpanded, setPastExpanded] = useState(false);
-  // Compute daysActive once on mount (stable — doesn't need to re-render every second)
-  // Use todayStr (derived server-side via getNow()) so MOCK_CURRENT_TIME is respected.
+
+  // Edit active cycle state
+  const [editingCycle, setEditingCycle] = useState(false);
+  const [editCost, setEditCost] = useState("");
+  const [editPurchaseDate, setEditPurchaseDate] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
   const [nowMs] = useState(() => new Date(todayStr + "T00:00:00").getTime());
+
+  // Can the current user edit this active cycle?
+  const canEdit = item.activeCycle && (
+    isAdmin ||
+    (
+      item.activeCycle.purchasedBy.id === currentUserId &&
+      new Date(item.activeCycle.startedAt).toISOString().slice(0, 10) === todayStr
+    )
+  );
 
   async function startCycle() {
     setLoading(true);
@@ -91,6 +107,40 @@ export default function BulkCycleCard({ item, isAdmin, onCycleStarted, onCycleFi
     }
   }
 
+  function openEditCycle() {
+    if (!item.activeCycle) return;
+    setEditCost(item.activeCycle.cost);
+    setEditPurchaseDate(item.activeCycle.purchaseDate);
+    setEditError(null);
+    setEditingCycle(true);
+  }
+
+  async function saveEditCycle() {
+    setEditLoading(true);
+    setEditError(null);
+    try {
+      const res = await fetch(`/api/bulk-items/${item.id}/cycle`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cost: parseFloat(editCost),
+          purchaseDate: editPurchaseDate,
+        }),
+      });
+      const json = await res.json() as { error?: string };
+      if (!res.ok) {
+        setEditError(json.error ?? "Failed to update.");
+      } else {
+        setEditingCycle(false);
+        onCycleStarted(); // reload
+      }
+    } catch {
+      setEditError("Network error.");
+    } finally {
+      setEditLoading(false);
+    }
+  }
+
   const daysActive = item.activeCycle
     ? Math.floor((nowMs - new Date(item.activeCycle.startedAt).getTime()) / 86400000)
     : null;
@@ -111,7 +161,7 @@ export default function BulkCycleCard({ item, isAdmin, onCycleStarted, onCycleFi
       </div>
 
       {/* Active cycle info */}
-      {item.activeCycle && (
+      {item.activeCycle && !editingCycle && (
         <div
           style={{
             background: "var(--color-bg-elevated)",
@@ -140,6 +190,47 @@ export default function BulkCycleCard({ item, isAdmin, onCycleStarted, onCycleFi
         </div>
       )}
 
+      {/* Inline edit form for active cycle */}
+      {item.activeCycle && editingCycle && (
+        <div
+          className="fade-in"
+          style={{
+            background: "var(--color-bg-elevated)",
+            borderRadius: "var(--radius-md)",
+            padding: "0.875rem",
+            marginBottom: "0.875rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.625rem",
+            border: "1px solid var(--color-border-subtle)",
+          }}
+        >
+          <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>Edit Cost</div>
+          <input
+            className="input"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="Total cost (৳)"
+            value={editCost}
+            onChange={(e) => setEditCost(e.target.value)}
+          />
+          <input
+            className="input"
+            type="date"
+            value={editPurchaseDate}
+            onChange={(e) => setEditPurchaseDate(e.target.value)}
+          />
+          {editError && <div style={{ color: "var(--color-danger)", fontSize: "0.8125rem" }}>{editError}</div>}
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button className="btn btn-sm btn-primary" onClick={() => void saveEditCycle()} disabled={editLoading || !editCost}>
+              {editLoading ? <span className="spinner" /> : "Save"}
+            </button>
+            <button className="btn btn-sm btn-ghost" onClick={() => setEditingCycle(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
       {/* Error */}
       {error && (
         <div style={{ color: "var(--color-danger)", fontSize: "0.8125rem", marginBottom: "0.75rem" }}>
@@ -149,18 +240,44 @@ export default function BulkCycleCard({ item, isAdmin, onCycleStarted, onCycleFi
 
       {/* Actions */}
       {item.activeCycle ? (
-        isAdmin && (
-          <button
-            className="btn btn-sm btn-secondary"
-            onClick={() => void finishCycle()}
-            disabled={finishing}
-            style={{ borderColor: "rgba(239,68,68,0.4)", color: "var(--color-danger)" }}
-          >
-            {finishing ? <span className="spinner" /> : "Mark as Finished"}
-          </button>
-        )
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          {canEdit && !editingCycle && (
+            <button
+              className="btn btn-sm btn-ghost"
+              onClick={openEditCycle}
+              style={{ fontSize: "0.8125rem" }}
+            >
+              ✏️ Edit Cost
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              className="btn btn-sm btn-secondary"
+              onClick={() => void finishCycle()}
+              disabled={finishing}
+              style={{ borderColor: "rgba(239,68,68,0.4)", color: "var(--color-danger)" }}
+            >
+              {finishing ? <span className="spinner" /> : "Mark as Finished"}
+            </button>
+          )}
+        </div>
       ) : showNewCycleForm ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+          {/* Warning */}
+          <div style={{
+            background: "rgba(245,158,11,0.08)",
+            border: "1px solid rgba(245,158,11,0.3)",
+            borderRadius: "var(--radius-md)",
+            padding: "0.625rem 0.75rem",
+            fontSize: "0.8125rem",
+            color: "var(--color-warning)",
+            display: "flex",
+            gap: "0.5rem",
+            alignItems: "flex-start",
+          }}>
+            <span style={{ flexShrink: 0 }}>⚠️</span>
+            <span>Check the cost carefully. You can only edit the cost <strong>today</strong>. Once this cycle is marked as finished, the cost is locked and splits are calculated permanently.</span>
+          </div>
           <input
             className="input"
             type="number"
@@ -176,6 +293,7 @@ export default function BulkCycleCard({ item, isAdmin, onCycleStarted, onCycleFi
             value={purchaseDate}
             onChange={(e) => setPurchaseDate(e.target.value)}
           />
+          {error && <div style={{ color: "var(--color-danger)", fontSize: "0.8125rem" }}>{error}</div>}
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <button className="btn btn-sm btn-primary" onClick={() => void startCycle()} disabled={loading || !cost}>
               {loading ? <span className="spinner" /> : "Record Purchase"}
@@ -190,6 +308,7 @@ export default function BulkCycleCard({ item, isAdmin, onCycleStarted, onCycleFi
           + Record Purchase
         </button>
       )}
+
       {/* Past cycles */}
       {item.finishedCycles.length > 0 && (
         <div style={{ marginTop: "0.875rem", borderTop: "1px solid var(--color-border-subtle)", paddingTop: "0.75rem" }}>

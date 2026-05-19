@@ -49,6 +49,7 @@ export default function ExpenseForm({ onSubmitted, tripNotes, todayStr }: Props)
         setAmount("");
         setNote("");
         setDate(todayStr);
+        setConfirming(false);
         onSubmitted();
       }
     } catch {
@@ -63,11 +64,21 @@ export default function ExpenseForm({ onSubmitted, tripNotes, todayStr }: Props)
       <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "1rem" }}>
         Submit Bazar Expense
       </div>
-      <div
-        className="badge badge-warning"
-        style={{ marginBottom: "1rem", display: "inline-flex" }}
-      >
-        ⚠ Submitting will close the active trip
+      
+      <div style={{
+        background: "rgba(245,158,11,0.08)",
+        border: "1px solid rgba(245,158,11,0.3)",
+        borderRadius: "var(--radius-md)",
+        padding: "0.625rem 0.75rem",
+        fontSize: "0.8125rem",
+        color: "var(--color-warning)",
+        marginBottom: "1rem",
+        display: "flex",
+        gap: "0.5rem",
+        alignItems: "flex-start",
+      }}>
+        <span style={{ flexShrink: 0 }}>⚠️</span>
+        <span><strong>Double-check your amount before submitting.</strong> Once submitted, you can only edit this <strong>today</strong>. After midnight it is locked permanently. Submitting will close the active trip.</span>
       </div>
 
       {confirming ? (

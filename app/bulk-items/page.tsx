@@ -11,5 +11,5 @@ export const metadata = {
 export default async function BulkItemsPage() {
   const user = await getSessionUser();
   if (!user) redirect("/auth/login");
-  return <BulkItemsClient isAdmin={user.role === "admin"} todayStr={today()} />;
+  return <BulkItemsClient isAdmin={user.role === "admin"} currentUserId={user.id} todayStr={today()} />;
 }

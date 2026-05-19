@@ -31,10 +31,11 @@ interface BulkItem {
 
 interface Props {
   isAdmin: boolean;
+  currentUserId: string;
   todayStr: string;
 }
 
-export default function BulkItemsClient({ isAdmin, todayStr }: Props) {
+export default function BulkItemsClient({ isAdmin, currentUserId, todayStr }: Props) {
   const [items, setItems] = useState<BulkItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -131,6 +132,7 @@ export default function BulkItemsClient({ isAdmin, todayStr }: Props) {
               key={item.id}
               item={item}
               isAdmin={isAdmin}
+              currentUserId={currentUserId}
               onCycleStarted={load}
               onCycleFinished={load}
               todayStr={todayStr}

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import FridgeClient from "@/components/domain/fridge/FridgeClient";
-import { previousMonthStart, previousMonthKey } from "@/lib/utils/dates";
+import { previousMonthStart, previousMonthKey, today } from "@/lib/utils/dates";
 
 export const metadata = {
   title: "Fridge Bill — MealSync",
@@ -31,6 +31,9 @@ export default async function FridgePage() {
       prevMonthKey={prevMonthKey}
       lastCurrentReading={lastCurrentReading}
       defaultUnitPrice={defaultUnitPrice}
+      currentUserId={user.id}
+      isAdmin={user.role === "admin"}
+      todayStr={today()}
     />
   );
 }
