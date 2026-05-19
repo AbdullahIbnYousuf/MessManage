@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import { db } from "@/lib/db";
-import { getNow } from "@/lib/utils/dates";
+import { getNow, getDhakaParts, today } from "@/lib/utils/dates";
 import MealsClient from "@/components/domain/meal/MealsClient";
 
 export const metadata = {
@@ -18,10 +18,8 @@ export default async function MealsPage() {
   const deadline = config?.mealDeadline ?? "22:00";
 
   // Use getNow() so MOCK_CURRENT_TIME is respected in development
-  const now = getNow();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-  const todayStr = `${year}-${String(month).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const { y: year, m: month } = getDhakaParts(getNow());
+  const todayStr = today();
 
   return <MealsClient deadline={deadline} year={year} month={month} todayStr={todayStr} isAdmin={user.role === "admin"} />;
 }

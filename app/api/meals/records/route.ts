@@ -4,7 +4,7 @@
 
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
-import { allDaysInMonth, getDayKey, getNow } from "@/lib/utils/dates";
+import { allDaysInMonth, getDayKey, getNow, getDhakaParts, firstDayOfMonth, lastDayOfMonth, today, parseDateString } from "@/lib/utils/dates";
 
 export async function GET(request: Request) {
   try {
@@ -12,16 +12,17 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
 
     const now = getNow();
-    const year = parseInt(searchParams.get("year") ?? String(now.getFullYear()), 10);
-    const month = parseInt(searchParams.get("month") ?? String(now.getMonth() + 1), 10);
+    const { y: defaultY, m: defaultM } = getDhakaParts(now);
+    const year = parseInt(searchParams.get("year") ?? String(defaultY), 10);
+    const month = parseInt(searchParams.get("month") ?? String(defaultM), 10);
 
     if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
       return Response.json({ error: "Invalid year or month." }, { status: 400 });
     }
 
     // Get existing records for this month
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+    const startDate = firstDayOfMonth(year, month);
+    const endDate = lastDayOfMonth(year, month);
 
     const existing = await db.mealRecord.findMany({
       where: { userId: user.id, date: { gte: startDate, lte: endDate } },
@@ -36,16 +37,15 @@ export async function GET(request: Request) {
     );
 
     const allDays = allDaysInMonth(year, month);
-    const today = getNow();
-    today.setHours(0, 0, 0, 0);
+    const todayStr = today();
 
     // Create missing records for all days
     const toCreate: Array<{ userId: string; date: Date; mealCount: number; isLocked: boolean }> = [];
 
     for (const dateStr of allDays) {
       if (!existingByDate.has(dateStr)) {
-        const date = new Date(dateStr);
-        const isPast = date < today;
+        const date = parseDateString(dateStr);
+        const isPast = dateStr < todayStr;
         const dayKey = getDayKey(dateStr);
         const mealCount = isPast ? 0 : (pattern?.[dayKey] ?? 0);
         const isLocked = isPast;

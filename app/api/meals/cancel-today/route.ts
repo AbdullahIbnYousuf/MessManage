@@ -5,7 +5,7 @@
 
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
-import { today, getNow } from "@/lib/utils/dates";
+import { today, getNow, parseDateString } from "@/lib/utils/dates";
 
 export async function POST() {
   try {
@@ -16,16 +16,11 @@ export async function POST() {
     }
 
     const todayStr = today();
-    const todayDate = new Date(todayStr);
+    const todayDate = parseDateString(todayStr);
 
-    // Safety check: if somehow called after midnight and records are already locked,
-    // there will be nothing to update (isLocked = false filter handles this).
-    // We still block explicitly if it's past midnight to be safe.
-    const now = getNow();
-    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
-    if (now >= midnight) {
-      return Response.json({ error: "Today's records have been locked at midnight. Meals cannot be cancelled." }, { status: 400 });
-    }
+    // Safety check: The midnight cron job locks the previous day's records.
+    // If the day has rolled over, todayDate is the new day, which is unlocked anyway.
+    // We rely on the isLocked filter to prevent modifying locked records.
 
     const result = await db.mealRecord.updateMany({
       where: {

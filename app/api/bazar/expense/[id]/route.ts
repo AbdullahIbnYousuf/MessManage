@@ -7,7 +7,7 @@
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
 import { effectiveBazarDate, validateBazarAmount } from "@/lib/domain/bazar";
-import { getNow, toDateString } from "@/lib/utils/dates";
+import { getNow, toDateString, getDhakaParts, firstDayOfMonth } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 
 export async function PATCH(
@@ -44,11 +44,8 @@ export async function PATCH(
 
     // Admin rule: month must not be settled
     if (isAdmin) {
-      const expenseMonth = new Date(
-        expense.date.getFullYear(),
-        expense.date.getMonth(),
-        1
-      );
+      const { y, m } = getDhakaParts(expense.date);
+      const expenseMonth = firstDayOfMonth(y, m);
       const settled = await db.monthlySettlement.findFirst({
         where: { month: expenseMonth },
         select: { id: true },

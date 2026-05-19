@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import { db } from "@/lib/db";
 import DashboardClient from "@/components/domain/dashboard/DashboardClient";
-import { previousMonthKey, previousMonthStart, getNow } from "@/lib/utils/dates";
+import { previousMonthKey, previousMonthStart, getNow, getDhakaParts, firstDayOfMonth } from "@/lib/utils/dates";
 
 export const metadata = {
   title: "Dashboard — MealSync",
@@ -19,7 +19,7 @@ export default async function DashboardPage() {
   });
 
   const now = getNow();
-  const day = now.getDate();
+  const { y: year, m: month, d: day } = getDhakaParts(now);
   const isAlertPeriod = day >= 1 && day <= 4;
   const daysUntilSettle = 5 - day; // 4 on day 1, 1 on day 4, 0 on day 5
   const isMaidChargeAlertPeriod = day >= 25 && day <= 28;
@@ -41,7 +41,7 @@ export default async function DashboardPage() {
   // Check if maid charges already applied this month (so we don't show the notice unnecessarily)
   let isMaidChargeApplied = false;
   if (isMaidChargeAlertPeriod) {
-    const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    const currentMonthDate = firstDayOfMonth(year, month);
     const chargeExists = await db.maidCharge.findFirst({
       where: { month: currentMonthDate },
       select: { id: true },

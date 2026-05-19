@@ -27,52 +27,79 @@ export function getNow(): Date {
 }
 
 /**
- * Returns today's date as a YYYY-MM-DD string (local time).
+ * Helper to extract Dhaka local time parts from any Date object.
+ * This makes calculations immune to the server's time zone (e.g. Vercel UTC).
+ */
+export function getDhakaParts(date: Date) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Dhaka",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(date);
+  const get = (type: string) => Number(parts.find(p => p.type === type)?.value);
+  let h = get("hour");
+  if (h === 24) h = 0;
+  return {
+    y: get("year"),
+    m: get("month"), // 1-12
+    d: get("day"),
+    h,
+    min: get("minute"),
+    s: get("second"),
+  };
+}
+
+/**
+ * Returns today's date as a YYYY-MM-DD string (Dhaka time).
  */
 export function today(): string {
   return toDateString(getNow());
 }
 
 /**
- * Converts a Date object to a YYYY-MM-DD string using local time.
+ * Converts a Date object to a YYYY-MM-DD string using Dhaka time.
  */
 export function toDateString(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  const { y, m, d } = getDhakaParts(date);
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
 /**
- * Returns the first day of a given month as a Date (local midnight).
+ * Returns the first day of a given month as a UTC midnight Date.
  * @param year Full year e.g. 2024
  * @param month 1-indexed month e.g. 11 for November
  */
 export function firstDayOfMonth(year: number, month: number): Date {
-  return new Date(year, month - 1, 1, 0, 0, 0, 0);
+  return new Date(Date.UTC(year, month - 1, 1));
 }
 
 /**
- * Returns the last day of a given month as a Date (local midnight).
+ * Returns the last day of a given month as a UTC midnight Date.
  */
 export function lastDayOfMonth(year: number, month: number): Date {
-  return new Date(year, month, 0, 0, 0, 0, 0);
+  return new Date(Date.UTC(year, month, 0));
 }
 
 /**
- * Returns the first day of the current month as a Date (local midnight).
+ * Returns the first day of the current month as a UTC midnight Date.
  */
 export function currentMonthStart(): Date {
-  const now = getNow();
-  return firstDayOfMonth(now.getFullYear(), now.getMonth() + 1);
+  const { y, m } = getDhakaParts(getNow());
+  return firstDayOfMonth(y, m);
 }
 
 /**
- * Returns the last day of the current month as a Date (local midnight).
+ * Returns the last day of the current month as a UTC midnight Date.
  */
 export function currentMonthEnd(): Date {
-  const now = getNow();
-  return lastDayOfMonth(now.getFullYear(), now.getMonth() + 1);
+  const { y, m } = getDhakaParts(getNow());
+  return lastDayOfMonth(y, m);
 }
 
 /**
@@ -84,19 +111,31 @@ export function currentMonthKey(): string {
 }
 
 /**
- * Returns the first day of the previous calendar month as a Date (local midnight).
+ * Returns the first day of the previous calendar month as a UTC midnight Date.
  */
 export function previousMonthStart(): Date {
-  const now = getNow();
-  return firstDayOfMonth(now.getFullYear(), now.getMonth()); // getMonth() is 0-indexed = previous month
+  const { y, m } = getDhakaParts(getNow());
+  let prevYear = y;
+  let prevMonth = m - 1;
+  if (prevMonth === 0) {
+    prevMonth = 12;
+    prevYear--;
+  }
+  return firstDayOfMonth(prevYear, prevMonth);
 }
 
 /**
- * Returns the last day of the previous calendar month as a Date (local midnight).
+ * Returns the last day of the previous calendar month as a UTC midnight Date.
  */
 export function previousMonthEnd(): Date {
-  const now = getNow();
-  return lastDayOfMonth(now.getFullYear(), now.getMonth()); // getMonth() is 0-indexed = previous month
+  const { y, m } = getDhakaParts(getNow());
+  let prevYear = y;
+  let prevMonth = m - 1;
+  if (prevMonth === 0) {
+    prevMonth = 12;
+    prevYear--;
+  }
+  return lastDayOfMonth(prevYear, prevMonth);
 }
 
 /**
@@ -108,11 +147,11 @@ export function previousMonthKey(): string {
 }
 
 /**
- * Given a YYYY-MM-DD string, returns a Date object at local midnight.
+ * Given a YYYY-MM-DD string, returns a Date object at UTC midnight.
  */
 export function parseDateString(dateStr: string): Date {
   const [y, m, d] = dateStr.split("-").map(Number) as [number, number, number];
-  return new Date(y, m - 1, d, 0, 0, 0, 0);
+  return new Date(Date.UTC(y, m - 1, d));
 }
 
 /**
@@ -133,31 +172,26 @@ export function isSameDay(a: string, b: string): boolean {
 }
 
 /**
- * Returns true if the deadline time (e.g. "22:00") has passed today (local time).
+ * Returns true if the deadline time (e.g. "22:00") has passed today in Dhaka time.
  */
 export function isDeadlinePassed(deadlineTime: string): boolean {
   const now = getNow();
+  const dhaka = getDhakaParts(now);
   const [hours, minutes] = deadlineTime.split(":").map(Number) as [number, number];
-  const deadline = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    hours,
-    minutes,
-    0,
-    0
-  );
-  return now >= deadline;
+  
+  if (dhaka.h > hours) return true;
+  if (dhaka.h === hours && dhaka.min >= minutes) return true;
+  return false;
 }
 
 /**
- * Returns "yesterday" as a YYYY-MM-DD string (local time).
+ * Returns "yesterday" as a YYYY-MM-DD string (Dhaka time).
  * Used by the midnight cron job to lock the previous day's records.
  */
 export function yesterday(): string {
-  const d = getNow();
-  d.setDate(d.getDate() - 1);
-  return toDateString(d);
+  const { y, m, d } = getDhakaParts(getNow());
+  const yest = new Date(Date.UTC(y, m - 1, d - 1));
+  return `${yest.getUTCFullYear()}-${String(yest.getUTCMonth() + 1).padStart(2, "0")}-${String(yest.getUTCDate()).padStart(2, "0")}`;
 }
 
 /**
@@ -166,7 +200,12 @@ export function yesterday(): string {
 export function formatDateLabel(dateStr: string): string {
   if (dateStr === today()) return "Today";
   const date = parseDateString(dateStr);
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  // We format the UTC date as if it were local to avoid timezone shift on display
+  return new Intl.DateTimeFormat("en-US", { 
+    month: "short", 
+    day: "numeric", 
+    timeZone: "UTC" 
+  }).format(date);
 }
 
 /**
@@ -180,10 +219,8 @@ export function formatNumericDate(dateInput: Date | string): string {
     }
     dateInput = new Date(dateInput);
   }
-  const y = dateInput.getFullYear();
-  const m = String(dateInput.getMonth() + 1).padStart(2, "0");
-  const d = String(dateInput.getDate()).padStart(2, "0");
-  return `${d}-${m}-${y}`;
+  const { y, m, d } = getDhakaParts(dateInput);
+  return `${String(d).padStart(2, "0")}-${String(m).padStart(2, "0")}-${y}`;
 }
 
 /**
@@ -203,7 +240,7 @@ export function getDayKey(
     "saturday",
   ] as const;
   const date = parseDateString(dateStr);
-  return days[date.getDay()]!;
+  return days[date.getUTCDay()]!;
 }
 
 /**
@@ -216,7 +253,7 @@ export function remainingDaysInMonth(): string[] {
   const cur = new Date(start);
   while (cur <= end) {
     result.push(toDateString(cur));
-    cur.setDate(cur.getDate() + 1);
+    cur.setUTCDate(cur.getUTCDate() + 1);
   }
   return result;
 }
@@ -231,7 +268,7 @@ export function allDaysInMonth(year: number, month: number): string[] {
   const cur = new Date(start);
   while (cur <= end) {
     result.push(toDateString(cur));
-    cur.setDate(cur.getDate() + 1);
+    cur.setUTCDate(cur.getUTCDate() + 1);
   }
   return result;
 }
