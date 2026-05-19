@@ -76,9 +76,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
 
     async jwt({ token, user }) {
-      if (user?.email) {
+      const email = user?.email ?? token?.email;
+      if (email) {
         const dbUser = await db.user.findUnique({
-          where: { email: user.email },
+          where: { email },
           select: {
             id: true,
             email: true,
