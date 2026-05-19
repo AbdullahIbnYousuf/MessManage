@@ -2,11 +2,9 @@
 
 import { requireAdmin } from "@/lib/session";
 import { db } from "@/lib/db";
-import { computeSettlement, computeNetBalance, type BalanceEntry } from "@/lib/domain/settlement";
-import { computeMealRate } from "@/lib/domain/meal";
-import { today, currentMonthStart, currentMonthEnd, currentMonthKey, isDeadlinePassed, getNow } from "@/lib/utils/dates";
-import Decimal from "decimal.js";
-import { sum } from "@/lib/utils/decimal";
+import { computeSettlement } from "@/lib/domain/settlement";
+import { currentMonthStart, currentMonthEnd, currentMonthKey, getNow } from "@/lib/utils/dates";
+import { fetchMonthBalances } from "@/lib/queries/balance";
 
 export async function POST() {
   try {
@@ -14,9 +12,6 @@ export async function POST() {
 
     const monthKey = currentMonthKey();
     const monthDate = new Date(monthKey);
-    const todayDate = new Date(today());
-    const monthStart = currentMonthStart();
-    const monthEnd = currentMonthEnd();
 
     // Block duplicate settlement
     const existing = await db.monthlySettlement.findFirst({
@@ -26,99 +21,27 @@ export async function POST() {
       return Response.json({ error: "This month has already been settled." }, { status: 400 });
     }
 
-    const members = await db.user.findMany({
-      select: { id: true, name: true, nickname: true, avatarUrl: true },
+    const result = await fetchMonthBalances({
+      monthStart: currentMonthStart(),
+      monthEnd: currentMonthEnd(),
+      monthDate,
+      isCurrentMonth: true,
     });
 
-    // Bazar spend
-    const bazarSpendRows = await db.bazarExpense.groupBy({
-      by: ["userId"],
-      where: { date: { gte: monthStart, lte: monthEnd } },
-      _sum: { amount: true },
-    });
-
-    const config = await db.systemConfig.findFirst({
-      select: { mealDeadline: true },
-    });
-    const deadlineStr = config?.mealDeadline ?? "11:00";
-    const passed = isDeadlinePassed(deadlineStr);
-
-    const mealCondition = {
-      date: { gte: monthStart, lte: monthEnd },
-      OR: [
-        { date: passed ? { lte: todayDate } : { lt: todayDate } },
-        { isLocked: true },
-      ],
-    };
-
-    const mealRows = await db.mealRecord.groupBy({
-      by: ["userId"],
-      where: mealCondition,
-      _sum: { mealCount: true },
-    });
-
-    const totalMonthBazar = sum(bazarSpendRows.map((r) => r._sum.amount?.toString() ?? "0"));
-    const totalMonthMeals = mealRows.reduce((s, r) => s + (r._sum.mealCount ?? 0), 0);
-    const mealRate = computeMealRate(totalMonthBazar, totalMonthMeals);
-
-    const bazarMap = new Map(bazarSpendRows.map((r) => [r.userId, new Decimal(r._sum.amount?.toString() ?? "0")]));
-    const mealMap = new Map(mealRows.map((r) => [r.userId, r._sum.mealCount ?? 0]));
-
-    const maidChargeRows = await db.maidCharge.groupBy({ by: ["userId"], where: { month: monthDate }, _sum: { amount: true } });
-    const maidPaymentRows = await db.maidPayment.groupBy({ by: ["paidById"], where: { month: monthDate }, _sum: { amount: true } });
-    const bulkAllocRows = await db.bulkAllocation.groupBy({ by: ["userId"], where: { allocatedAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } });
-    const bulkPurchaseRows = await db.bulkCycle.groupBy({ by: ["purchasedById"], where: { finishedAt: { gte: monthStart, lte: monthEnd } }, _sum: { cost: true } });
-
-    const maidChargeMap = new Map(maidChargeRows.map((r) => [r.userId, new Decimal(r._sum.amount?.toString() ?? "0")]));
-    const maidPaymentMap = new Map(maidPaymentRows.map((r) => [r.paidById, new Decimal(r._sum.amount?.toString() ?? "0")]));
-    const bulkAllocMap = new Map(bulkAllocRows.map((r) => [r.userId, new Decimal(r._sum.amount?.toString() ?? "0")]));
-    const bulkPurchaseMap = new Map(bulkPurchaseRows.map((r) => [r.purchasedById, new Decimal(r._sum.cost?.toString() ?? "0")]));
-
-    // Fridge payments (credited)
-    const fridgePaymentRows = await db.fridgePayment.groupBy({ by: ["paidById"], where: { paidAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } });
-    const fridgePaymentMap = new Map(fridgePaymentRows.map((r) => [r.paidById, new Decimal(r._sum.amount?.toString() ?? "0")]));
-
-    // Fridge bill share (debited equally to all members)
-    const fridgeBills = await db.fridgeBill.findMany({ where: { postedAt: { gte: monthStart, lte: monthEnd } }, select: { perMemberAmount: true } });
-    const totalFridgeBillShare = fridgeBills.reduce(
-      (s, b) => s.add(new Decimal(b.perMemberAmount.toString())),
-      new Decimal(0)
-    );
-
-    const ZERO = new Decimal(0);
-
-    const balances: BalanceEntry[] = members.map((m) => {
-      const userMeals = mealMap.get(m.id) ?? 0;
-      const mealCost = mealRate ? mealRate.mul(userMeals) : ZERO;
-      return {
-        userId: m.id,
-        name: m.nickname || m.name,
-        avatarUrl: m.avatarUrl,
-        balance: computeNetBalance({
-          totalBazarSpend: bazarMap.get(m.id) ?? ZERO,
-          totalMaidPayments: maidPaymentMap.get(m.id) ?? ZERO,
-          totalFridgePayments: fridgePaymentMap.get(m.id) ?? ZERO,
-          totalBulkPurchases: bulkPurchaseMap.get(m.id) ?? ZERO,
-          totalMealCost: mealCost,
-          totalMaidCharges: maidChargeMap.get(m.id) ?? ZERO,
-          totalFridgeBillShare,
-          totalBulkAllocations: bulkAllocMap.get(m.id) ?? ZERO,
-        }),
-      };
-    });
-
-    const transfers = computeSettlement(balances);
+    const transfers = computeSettlement(result.members);
     const now = getNow();
 
     // Write all settlement rows atomically
-    await db.monthlySettlement.createMany({
-      data: transfers.map((t) => ({
-        month: monthDate,
-        fromUserId: t.fromUserId,
-        toUserId: t.toUserId,
-        amount: t.amount,
-        settledAt: now,
-      })),
+    await db.$transaction(async (tx) => {
+      await tx.monthlySettlement.createMany({
+        data: transfers.map((t) => ({
+          month: monthDate,
+          fromUserId: t.fromUserId,
+          toUserId: t.toUserId,
+          amount: t.amount,
+          settledAt: now,
+        })),
+      });
     });
 
     return Response.json({

@@ -15,6 +15,41 @@ This app is used **primarily on mobile phones**. Every UI decision must start fr
 
 This is the **first constraint** to apply before writing any component or layout code.
 
+### Mobile UI Best Practices
+
+**Calendar and Grid Layouts:**
+
+- Use CSS Grid with `repeat(7, 1fr)` for calendar layouts — never use fixed widths
+- Remove `overflowX: auto` wrappers that cause horizontal scrolling
+- Ensure all content fits within viewport width without scrolling
+
+**Buttons and Interactive Elements:**
+
+- Stack buttons vertically instead of horizontally when space is tight
+- Use full-width or near-full-width buttons in mobile layouts
+- Minimum button height: 44px (Apple's recommended touch target size)
+- Add `touchAction: manipulation` and `WebkitTapHighlightColor: transparent` for better mobile UX
+- Increase font size in buttons to at least 0.875rem (14px) for readability
+
+**Text and Instructions:**
+
+- Use "Tap" instead of "Click" in mobile-first interfaces
+- Keep instructions concise and visible without scrolling
+- Use responsive font sizes (0.875rem for body, 1.75rem for h1)
+
+**Spacing and Layout:**
+
+- Use flexible gaps (0.75rem, 1rem) that adapt to screen size
+- Add `flexWrap: wrap` to prevent content from overflowing
+- Use `minHeight` instead of fixed heights for dynamic content
+- Reduce gaps between grid items on mobile (3px instead of 4px+)
+
+**Information Display:**
+
+- Replace redundant visual indicators with useful contextual information
+- Show dynamic status (e.g., "Locks today at 10:00 PM" instead of "■ Today")
+- Use day names and times for better user context
+
 ---
 
 ## Source of Truth — Read These First
@@ -34,7 +69,7 @@ members. It replaces a manual spreadsheet. It handles real money. Accuracy is no
 
 The system is built in two phases:
 
-- **System 1** (current) — meal tracking, bazar expenses, maid charges, bulk items, settlement
+- **System 1** (current) — meal tracking, bazar expenses, maid charges, bulk items, fridge bills, settlement
 - **System 2** (future) — debt management and money transfers between members
 
 AI features (shopping assistant, anomaly detection, data analyst) come after System 2.
@@ -42,24 +77,91 @@ AI features (shopping assistant, anomaly detection, data analyst) come after Sys
 Do not build System 2 or AI features now. Do design every decision so they can be added
 without restructuring what exists.
 
+### System 1 Features (Implemented)
+
+**Core Features:**
+
+- ✅ User authentication (Google OAuth via Auth.js)
+- ✅ Membership request system (pending/approved/rejected workflow)
+- ✅ Member profiles with contact and banking information
+- ✅ Admin panel for system settings and member management
+
+**Meal Management:**
+
+- ✅ Daily meal records with configurable deadline
+- ✅ Meal patterns (weekly schedule)
+- ✅ Meal edit requests (after deadline, requires admin approval)
+- ✅ Automatic meal locking at midnight
+- ✅ Admin ability to cancel today's meals for all members
+- ✅ Meal rate calculation (total bazar ÷ total meals)
+
+**Bazar (Market Shopping):**
+
+- ✅ Bazar trip system (open/completed workflow)
+- ✅ Shopping notes (shared list for active trip)
+- ✅ Bazar expense recording with backdating support
+- ✅ Visit count tracking per member
+- ✅ Expense history and aggregates
+
+**Bulk Items:**
+
+- ✅ Bulk item management (rice, oil, etc.)
+- ✅ Bulk cycle tracking (active/finished)
+- ✅ Automatic allocation when cycle closes
+- ✅ Cost split based on meal count during cycle period
+
+**Maid Charges:**
+
+- ✅ Monthly maid charge system (flat fee per member)
+- ✅ Maid payment recording (who paid on behalf of group)
+- ✅ Automatic charge application on 1st of month (cron job)
+- ✅ Admin ability to reset current month charges
+
+**Fridge Bills:**
+
+- ✅ Monthly electricity bill tracking with meter readings
+- ✅ Automatic per-member calculation
+- ✅ Fridge payment recording (who paid the bill)
+- ✅ Unit price configuration in system settings
+
+**Settlement:**
+
+- ✅ Monthly settlement algorithm (greedy matching)
+- ✅ Automatic settlement on 1st of month (cron job)
+- ✅ Settlement history and monthly reports
+- ✅ Balance calculation with detailed breakdown
+- ✅ Member-specific transaction history
+
+**Dashboard:**
+
+- ✅ Today's meal count overview
+- ✅ Current balance display
+- ✅ Quick access to all features
+
+**Background Jobs:**
+
+- ✅ Midnight lock (locks yesterday's meals, expires edit requests)
+- ✅ Auto maid charges (applies charges on 1st of month)
+- ✅ Auto settle (runs settlement on 1st of month)
+
 ---
 
 ## Tech Stack — Exact Versions
 
-| Layer       | Choice                   | Notes                                      |
-| ----------- | ------------------------ | ------------------------------------------ |
-| Framework   | Next.js 15 (App Router)  | Frontend AND backend in one app            |
-| Language    | TypeScript — strict mode | Every file. No exceptions.                 |
-| Styling     | Tailwind CSS             | Utility classes only                       |
-| Components  | shadcn/ui                | Use these before writing custom components |
-| Database    | PostgreSQL               | Hosted on Neon — free tier                 |
-| ORM         | Prisma                   | Only way to touch the database             |
-| Auth        | Auth.js v5 (NextAuth)    | Google OAuth only                          |
-| Real-time   | Server-Sent Events (SSE) | Built into Next.js API routes              |
-| Cron jobs   | Vercel Cron Jobs         | Configured in vercel.json                  |
-| AI (future) | Anthropic TypeScript SDK | Not built yet — design for it              |
-| Testing     | Vitest                   | Business logic and formulas only           |
-| Hosting     | Vercel                   | Free tier                                  |
+| Layer       | Choice                   | Notes                                        |
+| ----------- | ------------------------ | -------------------------------------------- |
+| Framework   | Next.js 15 (App Router)  | Frontend AND backend in one app              |
+| Language    | TypeScript — strict mode | Every file. No exceptions.                   |
+| Styling     | Tailwind CSS             | Utility classes only                         |
+| Components  | shadcn/ui                | Use these before writing custom components   |
+| Database    | PostgreSQL               | Hosted on Neon — free tier                   |
+| ORM         | Prisma                   | Only way to touch the database               |
+| Auth        | Auth.js v5 (NextAuth)    | Google OAuth only                            |
+| Real-time   | Server-Sent Events (SSE) | Infrastructure exists, not fully implemented |
+| Cron jobs   | Vercel Cron Jobs         | Configured in vercel.json                    |
+| AI (future) | Anthropic TypeScript SDK | Not built yet — design for it                |
+| Testing     | Vitest                   | Business logic and formulas only             |
+| Hosting     | Vercel                   | Free tier                                    |
 
 <!-- BEGIN:nextjs-agent-rules -->
 
@@ -87,23 +189,26 @@ Follow this structure exactly. Do not invent new top-level folders.
 ├── app/                          ← Next.js App Router
 │   ├── api/                      ← All API route handlers
 │   │   ├── auth/                 ← Auth.js routes (do not modify)
-│   │   ├── meals/
-│   │   ├── bazar/
-│   │   ├── bulk-items/
-│   │   ├── maid/
-│   │   ├── settlement/
-│   │   ├── admin/
-│   │   ├── members/
-│   │   ├── cron/                 ← Vercel cron job endpoints
-│   │   └── sse/                  ← Server-Sent Events endpoint
-│   ├── (auth)/                   ← Login, pending-approval, rejected pages
+│   │   ├── meals/                ← Meal records, patterns, edit requests, cancel-today
+│   │   ├── bazar/                ← Bazar trips, expenses, shopping notes, history
+│   │   ├── bulk-items/           ← Bulk items and cycles
+│   │   ├── maid/                 ← Maid charges and payments
+│   │   ├── fridge/               ← Fridge bills and payments
+│   │   ├── settlement/           ← Settlement run, balance, history, monthly reports
+│   │   ├── admin/                ← Admin-only endpoints (settings, members, membership, meal-edit-requests)
+│   │   ├── members/              ← Member profiles and aggregates
+│   │   ├── dashboard/            ← Dashboard data endpoint
+│   │   └── cron/                 ← Vercel cron job endpoints (midnight-lock, auto-maid-charges, auto-settle)
+│   ├── (auth)/                   ← Login, pending-approval, rejected, deactivated pages
 │   ├── dashboard/
 │   ├── meals/
 │   ├── bazar/
 │   ├── bulk-items/
 │   ├── maid/
+│   ├── fridge/
 │   ├── settlement/
 │   ├── admin/
+│   ├── members/
 │   ├── profile/
 │   ├── layout.tsx
 │   ├── page.tsx
@@ -119,37 +224,50 @@ Follow this structure exactly. Do not invent new top-level folders.
 │   │   ├── bazar.ts              ← Visit count logic, suggestion logic, backdating rules
 │   │   ├── bulk.ts               ← Bulk cycle allocation formula
 │   │   ├── maid.ts               ← Maid charge and payment logic
+│   │   ├── fridge.ts             ← Fridge bill calculation and payment logic
 │   │   └── settlement.ts         ← Smart settlement algorithm
 │   │
 │   └── utils/
 │       ├── decimal.ts            ← Decimal arithmetic helpers — all money math lives here
-│       ├── dates.ts              ← Date helpers, month boundaries, deadline checks
-│       └── sse.ts                ← SSE stream helpers
+│       └── dates.ts              ← Date helpers, month boundaries, deadline checks
 │
 ├── components/
 │   ├── ui/                       ← shadcn/ui generated components — do not modify manually
+│   ├── Sidebar.tsx               ← Main navigation sidebar
 │   └── domain/                   ← Feature-specific components
-│       ├── meal/
-│       ├── bazar/
-│       ├── bulk/
-│       ├── maid/
-│       ├── settlement/
-│       └── dashboard/
+│       ├── meal/                 ← MealCalendar, MealsClient, PatternEditor
+│       ├── bazar/                ← BazarClient, TripCard, ExpenseForm, ShoppingNotes
+│       ├── bulk/                 ← BulkItemsClient, CycleCard
+│       ├── maid/                 ← MaidClient, ChargeCard, PaymentForm
+│       ├── fridge/               ← FridgeClient, BillRow, PaymentForm
+│       ├── settlement/           ← SettlementClient, MonthlyReportClient
+│       ├── dashboard/            ← DashboardClient, MealCountCard
+│       ├── admin/                ← SystemSettingsClient, MemberManagementClient, MembershipRequestsClient
+│       └── members/              ← MemberProfileClient, MemberCard
 │
 ├── prisma/
 │   ├── schema.prisma             ← Single source of truth for database schema
-│   └── migrations/               ← Never edit migration files manually
-│                                   Exception: SystemConfig seed INSERT (see Database Seeding)
+│   ├── migrations/               ← Never edit migration files manually
+│   │                               Exception: SystemConfig seed INSERT (see Database Seeding)
+│   └── seed.ts                   ← Database seeding script
 │
 ├── types/
-│   └── index.ts                  ← Shared TypeScript types and enums
+│   ├── index.ts                  ← Shared TypeScript types and enums
+│   └── next-auth.d.ts            ← NextAuth type extensions
 │
-├── __tests__/                    ← Vitest test files
+├── __tests__/                    ← Vitest test files (if implemented)
 │   └── domain/                   ← Tests for lib/domain/* only
 │
+├── public/                       ← Static assets
+│   └── logo.png
+│
 ├── vercel.json                   ← Cron job configuration
-├── agents.md                     ← This file
-└── claude.md                     ← Claude entry point
+├── AGENTS.md                     ← This file
+├── System1DataModel.md           ← Complete data model documentation
+├── ProjectRequirements.md        ← Project requirements
+├── README.md                     ← Project readme
+├── vitest.config.ts              ← Vitest configuration
+└── seed_admin.ts                 ← Admin user seeding script
 ```
 
 ---
@@ -247,8 +365,8 @@ raw SQL INSERT appended to the bottom of the initial SystemConfig migration file
 
 ```sql
 -- Added to the bottom of the migration that creates the SystemConfig table
-INSERT INTO "SystemConfig" ("id", "mealDeadline", "maidChargeDefault", "updatedAt")
-VALUES (gen_random_uuid(), '22:00', 700, NOW())
+INSERT INTO "SystemConfig" ("id", "mealDeadline", "maidChargeDefault", "electricityUnitPrice", "updatedAt")
+VALUES (gen_random_uuid(), '22:00', 700, 8, NOW())
 ON CONFLICT DO NOTHING;
 ```
 
@@ -259,6 +377,7 @@ Default values:
 
 - `mealDeadline`: `22:00` (10 PM)
 - `maidChargeDefault`: `700` (taka per member per month)
+- `electricityUnitPrice`: `8` (taka per kWh for fridge electricity bills)
 - `activeTripId`: null (no active trip on first deploy)
 
 ### Partial Unique Index — BazarTrip
@@ -301,8 +420,9 @@ Operations that MUST use transactions:
 - Running month-end settlement (creates all MonthlySettlement rows atomically)
 - Approving a MembershipRequest (creates User row + updates MembershipRequest.userId)
 - Midnight meal lock job (locks MealRecord rows + expires pending MealEditRequests)
-- Deactivating a member (updates User.status + User.deactivatedAt + sets meal_count = 0
-  on all future MealRecord rows from tomorrow onwards)
+- Deactivating a member (updates User.status + User.deactivatedAt + sets meal_count = 0 on all future MealRecord rows from tomorrow onwards)
+- Posting a FridgeBill (creates FridgeBill row + may trigger related operations)
+- Auto-applying maid charges (creates multiple MaidCharge rows for all active members)
 
 ---
 
@@ -449,7 +569,9 @@ These are the rules most likely to be broken by a code agent.
 ### Fridge Bill Rules
 
 - FridgeBill.month refers to the previous month being settled — not the current month
-- per_member_amount is calculated at posting time: total_amount ÷ count of all members
+- Meter readings (previousReading, currentReading) are stored for record-keeping
+- totalAmount is calculated at posting time: (currentReading - previousReading) × unitPrice
+- per_member_amount is calculated at posting time: totalAmount ÷ count of all members
   who were active at any point during the bill month
 - Deactivated members are included if they were active during the bill month — identical
   behaviour to BulkAllocation
@@ -457,6 +579,7 @@ These are the rules most likely to be broken by a code agent.
 - Only one FridgeBill per month. Block duplicates at the application layer.
 - FridgePayment mirrors MaidPayment exactly — payer gets credit, all members carry their debit
 - FridgeBill never enters the meal rate formula
+- SystemConfig.electricityUnitPrice is the default unit price, but can be overridden per bill
 
 ### Settlement Rules
 
@@ -539,18 +662,26 @@ export async function POST(request: Request) {
 
 ---
 
-## Real-Time (Server-Sent Events)
+## Real-Time Updates
 
-SSE is used for one-directional server-to-browser updates. Do not use WebSockets.
+### Current Implementation
 
-### What gets pushed via SSE
+Real-time updates are currently handled via client-side polling and manual page refreshes.
+The infrastructure for Server-Sent Events (SSE) exists in `lib/utils/sse.ts` but is not
+yet fully implemented.
+
+### Planned SSE Implementation
+
+SSE will be used for one-directional server-to-browser updates. Do not use WebSockets.
+
+#### What should get pushed via SSE (when implemented)
 
 - Meal count changes on the dashboard (so the maid's view updates live)
 - Bazar trip status changes (trip opened, trip completed)
 - Shopping notes changes (any member editing the notes)
 - Balance changes after any transaction
 
-### SSE Pattern
+#### SSE Pattern (for future implementation)
 
 ```typescript
 // app/api/sse/route.ts
@@ -588,13 +719,24 @@ export async function GET(request: Request) {
     {
       "path": "/api/cron/midnight-lock",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/auto-maid-charges",
+      "schedule": "0 0 28 * *"
+    },
+    {
+      "path": "/api/cron/auto-settle",
+      "schedule": "0 0 5 * *"
     }
   ]
 }
 ```
 
-One cron job handles both tasks — locking meals and expiring edit requests — in a single
-atomic transaction. No need for two separate jobs.
+Three cron jobs are configured:
+
+1. **Midnight Lock** (daily at 00:00 UTC) — locks yesterday's meals and expires pending edit requests
+2. **Auto Maid Charges** (monthly at 00:00 UTC on the 28th) — applies maid charges for the current month (gives members notice before month-end)
+3. **Auto Settle** (monthly at 00:00 UTC on the 5th) — runs settlement for the previous month (allows buffer for late entries)
 
 ### Cron Endpoint Authentication
 
@@ -632,6 +774,37 @@ This job runs at midnight every day. It is a hard, irreversible operation.
 This job must be idempotent — running it twice must produce the same result as running
 it once. Locking an already-locked record or expiring an already-expired request must
 not cause an error.
+
+### Auto Maid Charges Job
+
+This job runs at 01:00 on the 1st of every month. It automatically applies maid charges
+for the new month to all active members.
+
+```
+1. Get the current month (first day of the month)
+2. Get SystemConfig.maidChargeDefault
+3. Find all active users (status = 'active')
+4. For each active user, create a MaidCharge row with:
+   - userId = user.id
+   - amount = maidChargeDefault
+   - month = current month (first day)
+   - appliedAt = now
+5. Use a transaction to create all charges atomically
+6. Skip users who already have a charge for this month (idempotent)
+```
+
+### Auto Settle Job
+
+This job runs at 02:00 on the 1st of every month. It automatically runs settlement
+for the previous month.
+
+```
+1. Get the previous month (first day of last month)
+2. Check if settlement already exists for this month
+3. If not, run the settlement algorithm (see Settlement Rules)
+4. Create MonthlySettlement rows for all transfers
+5. All in a single transaction
+```
 
 ---
 
@@ -744,9 +917,13 @@ NEVER write database calls inside a domain function
 NEVER use the Pages Router — this project uses the App Router only
 NEVER use getServerSideProps or getStaticProps — they do not exist in App Router
 NEVER recalculate FridgeBill.per_member_amount after it has been posted
+NEVER recalculate FridgeBill.totalAmount after it has been posted
 NEVER post a FridgeBill for the current or a future month
 NEVER allow more than one FridgeBill per month
 NEVER blend FridgeBill cost into the meal rate formula
+NEVER create horizontal scrolling on mobile — all layouts must fit within 390px width
+NEVER use touch targets smaller than 44px height for buttons and interactive elements
+NEVER ignore mobile-first design principles — mobile is the primary platform
 ```
 
 ---
@@ -878,36 +1055,165 @@ npx eslint .
 
 ## Design System
 
-Font: Inter (Google Fonts)
-Base unit: 4px
+### Color Palette — Warm Charcoal + Muted Terracotta
 
-Colors:
-background: #121212
-surface: #1E1E1E
-border: #333333
-text-primary: #F5F5F5
-text-secondary: #A0A0A0
-text-muted: #666666
-brand: #FACC15
-brand-hover: #EAB308
-brand-light: rgba(250, 204, 21, 0.15)
-secondary: #10B981
-positive: #22C55E
-positive-bg: rgba(34, 197, 94, 0.15)
-negative: #EF4444
-negative-bg: rgba(239, 68, 68, 0.15)
-warning: #F59E0B
-warning-bg: rgba(245, 158, 11, 0.15)
-locked: #52525B
+**Backgrounds:**
 
-Rules:
+- `--color-bg-base`: #1C1714 (warm charcoal, not cold black)
+- `--color-bg-surface`: #231E1A
+- `--color-bg-elevated`: #2C2520
+- `--color-bg-hover`: rgba(210, 120, 60, 0.08)
 
-- Never use red for anything except negative balance and errors
-- Never use green for anything except positive balance and success
-- Money amounts always use font-variant-numeric: tabular-nums
-- Max content width: 768px centred
-- All cards: surface bg, 8px radius, 1px border #333333, 16px padding
-- Mobile first — design for 390px width first
+**Borders:**
+
+- `--color-border`: #3A302A
+- `--color-border-subtle`: #302820
+
+**Brand (Muted Terracotta):**
+
+- `--color-primary`: #D4724A
+- `--color-primary-dark`: #C0623C
+- `--color-primary-light`: #E08860
+- `--color-primary-glow`: rgba(212, 114, 74, 0.15)
+
+**Accent (Muted Sage Green):**
+
+- `--color-accent`: #5A9E82
+
+**Semantic Colors (Desaturated):**
+
+- Success: #4E9E6A
+- Warning: #C49A3C
+- Danger: #C05050
+- Locked: #4A4540
+
+**Text (Warm Whites and Tans):**
+
+- `--color-text-primary`: #EDE0D4
+- `--color-text-secondary`: #A89080
+- `--color-text-muted`: #6A5A50
+
+### Typography
+
+**Font Family:**
+
+- Sans: "Inter", system-ui, sans-serif
+- Mono: "JetBrains Mono", monospace
+
+**Font Sizes:**
+
+- Body: 0.875rem (14px)
+- Small: 0.75rem (12px)
+- Large: 1rem (16px)
+- H1: 1.75rem (28px)
+- Stat value: 1.625rem (26px)
+
+**Font Weights:**
+
+- Regular: 400
+- Semibold: 600
+- Bold: 700
+- Extra bold: 800
+
+### Spacing
+
+**Base Unit:** 4px (0.25rem)
+
+**Common Gaps:**
+
+- Small: 0.5rem (8px)
+- Medium: 0.75rem (12px)
+- Large: 1rem (16px)
+- Extra large: 1.25rem (20px)
+
+**Padding:**
+
+- Card: 1.125rem (18px)
+- Card elevated: 1.25rem (20px)
+- Button: 0.5rem 1.125rem
+- Input: 0.5625rem 0.875rem
+
+### Border Radius
+
+- Small: 6px
+- Medium: 10px
+- Large: 14px
+- Extra large: 18px
+- Full (pills): 9999px
+
+### Components
+
+**Cards:**
+
+- `.card` — standard surface card with border and shadow
+- `.card-elevated` — elevated card with stronger shadow
+- `.card-hero` — hero card with extra padding
+- `.glass` — glassmorphism effect with backdrop blur
+
+**Buttons:**
+
+- `.btn` — base button (pill-shaped, no glow)
+- `.btn-primary` — terracotta brand color
+- `.btn-secondary` — elevated background with border
+- `.btn-danger` — danger red
+- `.btn-ghost` — transparent background
+- Sizes: `.btn-sm`, `.btn-lg`
+
+**Inputs:**
+
+- `.input` — standard input with focus ring (no glow)
+
+**Badges:**
+
+- `.badge-success`, `.badge-warning`, `.badge-danger`, `.badge-primary`, `.badge-muted`
+
+**Layout:**
+
+- `.page-container` — max-width 768px, centered, responsive padding
+- `.section-header` — flex header with responsive stacking
+- `.layout-wrapper` — main layout container
+- `.layout-sidebar` — fixed sidebar (desktop only)
+- `.layout-main` — main content area
+- `.layout-mobile-nav` — bottom navigation (mobile only)
+
+**Utilities:**
+
+- `.text-primary`, `.text-secondary`, `.text-muted`
+- `.text-positive`, `.text-negative`
+- `.gradient-text` — warm terracotta to amber gradient
+- `.spinner` — loading spinner
+- `.skeleton` — warm shimmer loading state
+- `.fade-in`, `.slide-up`, `.scale-in` — entrance animations
+- `.divider` — horizontal rule
+
+**Tables:**
+
+- `.table-container` — scrollable wrapper
+- `.table` — data table with hover states
+
+**Avatars:**
+
+- `.avatar` — circular image
+- Sizes: `.avatar-sm` (28px), `.avatar-md` (36px), `.avatar-lg` (48px), `.avatar-xl` (64px)
+- `.avatar-fallback` — gradient background for initials
+
+**Stats:**
+
+- `.stat-card` — card for displaying statistics
+- `.stat-label` — uppercase label
+- `.stat-value` — large tabular number
+- `.stat-sub` — subtitle text
+
+### Design Rules
+
+1. **No Pure White or Black** — use warm charcoal (#1C1714) and warm white (#EDE0D4)
+2. **No Neon Colors** — all colors are desaturated and muted
+3. **No Glows** — use subtle shadows instead of glowing effects
+4. **Pill-Shaped Buttons** — use `border-radius: 9999px` for all buttons
+5. **Tabular Numbers** — use `font-variant-numeric: tabular-nums` for all monetary values
+6. **Max Content Width** — 768px centered for optimal readability
+7. **Mobile-First** — design for 390px width first, desktop is secondary
+8. **Warm Palette** — terracotta, sage green, warm tans — no cold blues or grays
 
 ```
 
