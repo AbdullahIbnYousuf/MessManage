@@ -47,10 +47,20 @@ export async function PUT(
     }
 
     if (!canEditDirectly(date, deadlinePassed)) {
-      return Response.json(
-        { error: "The meal deadline has passed. Submit an edit request instead." },
-        { status: 400 }
-      );
+      const hasApprovedRequest = await db.mealEditRequest.findFirst({
+        where: {
+          userId: user.id,
+          mealRecordId: record.id,
+          status: "approved",
+        },
+      });
+
+      if (!hasApprovedRequest) {
+        return Response.json(
+          { error: "The meal deadline has passed. Submit an edit request instead." },
+          { status: 400 }
+        );
+      }
     }
 
     const updated = await db.mealRecord.update({
