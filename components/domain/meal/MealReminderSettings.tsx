@@ -166,7 +166,7 @@ export default function MealReminderSettings() {
           Meal Reminders
         </div>
         <div className="text-secondary" style={{ fontSize: "0.875rem", marginTop: "0.35rem", lineHeight: 1.45 }}>
-          Get a reminder at night for tomorrow and 30 minutes before the morning deadline.
+          Get a reminder about 1 hour before the daily meal deadline.
         </div>
       </div>
 

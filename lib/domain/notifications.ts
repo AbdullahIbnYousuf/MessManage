@@ -1,14 +1,24 @@
-import { addDays, getDhakaParts, toDateString } from "@/lib/utils/dates";
+import { getDhakaParts, toDateString } from "@/lib/utils/dates";
 
-export type MealReminderType = "previous_night" | "deadline_morning";
+export type MealReminderType = "deadline_morning";
 
 export type DueMealReminder = {
   type: MealReminderType;
   mealDate: string;
 };
 
-const PREVIOUS_NIGHT_REMINDER_MINUTE = 21 * 60;
-const DEADLINE_REMINDER_OFFSET_MINUTES = 30;
+/**
+ * How many minutes before the deadline to send the reminder.
+ * Scheduled at 90 min before on Vercel; Hobby plan can be up to 59 min late,
+ * so the earliest the cron fires is ~30 min before deadline.
+ */
+const DEADLINE_REMINDER_OFFSET_MINUTES = 90;
+
+/**
+ * Window to accept the reminder as "due".
+ * Must be wide enough to cover Vercel Hobby's ±59 min scheduling imprecision.
+ */
+const WINDOW_MINUTES = 90;
 
 function parseTimeToMinutes(time: string): number | null {
   const match = time.match(/^(\d{2}):(\d{2})$/);
@@ -31,10 +41,15 @@ function isWithinWindow(
   return elapsed >= 0 && elapsed < windowMinutes;
 }
 
+/**
+ * Returns a DueMealReminder if the cron is running within the expected window
+ * before the meal deadline. The NotificationDelivery unique constraint ensures
+ * only one notification is ever sent per user per day even if the cron fires
+ * multiple times (it won't on Hobby, but is safe regardless).
+ */
 export function getDueMealReminders(
   now: Date,
-  mealDeadline: string,
-  windowMinutes = 15
+  mealDeadline: string
 ): DueMealReminder[] {
   const deadlineMinute = parseTimeToMinutes(mealDeadline);
   if (deadlineMinute === null) return [];
@@ -42,43 +57,24 @@ export function getDueMealReminders(
   const dhaka = getDhakaParts(now);
   const currentMinute = dhaka.h * 60 + dhaka.min;
   const today = toDateString(now);
-  const reminders: DueMealReminder[] = [];
-
-  if (
-    isWithinWindow(
-      currentMinute,
-      PREVIOUS_NIGHT_REMINDER_MINUTE,
-      windowMinutes
-    )
-  ) {
-    reminders.push({ type: "previous_night", mealDate: addDays(today, 1) });
-  }
 
   if (
     isWithinWindow(
       currentMinute,
       deadlineMinute - DEADLINE_REMINDER_OFFSET_MINUTES,
-      windowMinutes
+      WINDOW_MINUTES
     )
   ) {
-    reminders.push({ type: "deadline_morning", mealDate: today });
+    return [{ type: "deadline_morning", mealDate: today }];
   }
 
-  return reminders;
+  return [];
 }
 
-export function formatMealReminderTitle(type: MealReminderType): string {
-  if (type === "previous_night") return "Set tomorrow's meals";
-  return "Meal deadline soon";
+export function formatMealReminderTitle(): string {
+  return "Meal deadline approaching";
 }
 
-export function formatMealReminderBody(
-  type: MealReminderType,
-  deadline: string
-): string {
-  if (type === "previous_night") {
-    return `Tap to set tomorrow's meals before the ${deadline} deadline.`;
-  }
-
-  return `Tap to confirm today's meals. Deadline is in 30 minutes at ${deadline}.`;
+export function formatMealReminderBody(deadline: string): string {
+  return `Tap to confirm today's meals before the ${deadline} deadline.`;
 }

@@ -83,10 +83,10 @@ export async function GET(request: Request) {
         for (const subscription of user.pushSubscriptions) {
           try {
             const result = await sendPushNotification(subscription, {
-              title: formatMealReminderTitle(reminder.type),
-              body: formatMealReminderBody(reminder.type, deadline),
+              title: formatMealReminderTitle(),
+              body: formatMealReminderBody(deadline),
               url: "/meals",
-              tag: `meal-${reminder.type}-${reminder.mealDate}`,
+              tag: `meal-reminder-${reminder.mealDate}`,
             });
 
             if (result.invalidSubscription) {
