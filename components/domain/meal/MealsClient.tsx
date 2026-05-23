@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import MealCalendar from "@/components/domain/meal/MealCalendar";
+import MealReminderSettings from "@/components/domain/meal/MealReminderSettings";
 import PatternEditor from "@/components/domain/meal/PatternEditor";
 import { isDeadlinePassed, formatMonthLabel } from "@/lib/utils/dates";
 import type { MealPattern } from "@/types";
@@ -169,6 +170,8 @@ export default function MealsClient({ deadline, year, month, todayStr, isAdmin }
           )}
 
           {/* Calendar */}
+          <MealReminderSettings />
+
           <MealCalendar
             records={records}
             deadlinePassed={deadlinePassed}

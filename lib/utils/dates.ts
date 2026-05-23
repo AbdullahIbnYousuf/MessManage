@@ -195,6 +195,15 @@ export function yesterday(): string {
 }
 
 /**
+ * Adds days to a YYYY-MM-DD string without applying the server time zone.
+ */
+export function addDays(dateStr: string, days: number): string {
+  const date = parseDateString(dateStr);
+  date.setUTCDate(date.getUTCDate() + days);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
+/**
  * Returns a human-readable date label, e.g. "May 9" or "Today".
  */
 export function formatDateLabel(dateStr: string): string {

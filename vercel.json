@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/auto-settle",
       "schedule": "0 0 5 * *"
+    },
+    {
+      "path": "/api/cron/meal-reminders",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

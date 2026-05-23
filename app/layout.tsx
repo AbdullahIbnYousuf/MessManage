@@ -13,6 +13,7 @@ export const metadata: Metadata = {
   icons: {
     icon: "/logo.png",
   },
+  manifest: "/manifest.webmanifest",
 };
 
 export default async function RootLayout({

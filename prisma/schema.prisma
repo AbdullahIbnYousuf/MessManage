@@ -45,6 +45,8 @@ model User {
   settlementsFrom          MonthlySettlement[] @relation("SettlementFrom")
   settlementsTo            MonthlySettlement[] @relation("SettlementTo")
   systemConfigUpdates      SystemConfig[]
+  pushSubscriptions        PushSubscription[]
+  notificationDeliveries   NotificationDelivery[]
 
   @@map("User")
 }
@@ -263,6 +265,39 @@ model SystemConfig {
   @@map("SystemConfig")
 }
 
+model PushSubscription {
+  id           String                 @id @default(uuid())
+  userId       String                 @map("user_id")
+  endpoint     String                 @unique
+  p256dh       String
+  auth         String
+  userAgent    String?                @map("user_agent")
+  isActive     Boolean                @default(true) @map("is_active")
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+  lastFailedAt DateTime?              @map("last_failed_at")
+  user         User                   @relation(fields: [userId], references: [id])
+  deliveries   NotificationDelivery[]
+
+  @@index([userId, isActive])
+  @@map("PushSubscription")
+}
+
+model NotificationDelivery {
+  id             String            @id @default(uuid())
+  userId         String            @map("user_id")
+  subscriptionId String?           @map("subscription_id")
+  reminderDate   DateTime          @map("reminder_date") @db.Date
+  type           MealReminderType
+  sentAt         DateTime          @map("sent_at")
+  user           User              @relation(fields: [userId], references: [id])
+  subscription   PushSubscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@unique([userId, reminderDate, type])
+  @@index([reminderDate, type])
+  @@map("NotificationDelivery")
+}
+
 enum UserRole {
   member
   admin
@@ -294,4 +329,9 @@ enum MealEditRequestStatus {
   approved
   rejected
   expired
+}
+
+enum MealReminderType {
+  previous_night
+  deadline_morning
 }
