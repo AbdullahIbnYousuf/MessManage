@@ -108,7 +108,8 @@ export default function MealReminderSettings() {
 
       setState("enabled");
       setMessage("Meal reminders are on for this device.");
-    } catch {
+    } catch (error) {
+      console.error("MealReminderSettings: enableReminders error:", error);
       setMessage("Could not enable reminders on this device.");
       setState("disabled");
     }
