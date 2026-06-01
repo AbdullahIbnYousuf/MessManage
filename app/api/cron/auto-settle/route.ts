@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { computeSettlement } from "@/lib/domain/settlement";
 import { previousMonthKey, previousMonthStart, previousMonthEnd, getNow } from "@/lib/utils/dates";
 import { fetchMonthBalances } from "@/lib/queries/balance";
+import Decimal from "decimal.js";
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -34,6 +35,49 @@ export async function GET(request: Request) {
     // Block if no data to settle (e.g., app just deployed, or system inactive)
     if (!result.hasData) {
       return Response.json({ message: "No data to settle for the previous month." });
+    }
+
+    const monthStart = previousMonthStart();
+    const monthEnd = previousMonthEnd();
+
+    // Validate matching aggregates before running settlement
+    const [
+      actualMaidCharges,
+      actualMaidPayments,
+      actualFridgeBills,
+      actualFridgePayments,
+      actualBulkCycles,
+      actualBulkAllocations,
+    ] = await Promise.all([
+      db.maidCharge.aggregate({ where: { month: monthDate }, _sum: { amount: true } }),
+      db.maidPayment.aggregate({ where: { month: monthDate }, _sum: { amount: true } }),
+      db.fridgeBill.aggregate({ where: { postedAt: { gte: monthStart, lte: monthEnd } }, _sum: { totalAmount: true } }),
+      db.fridgePayment.aggregate({ where: { paidAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } }),
+      db.bulkCycle.aggregate({ where: { finishedAt: { gte: monthStart, lte: monthEnd } }, _sum: { cost: true } }),
+      db.bulkAllocation.aggregate({ where: { allocatedAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } }),
+    ]);
+
+    const maidChargesSum = new Decimal(actualMaidCharges._sum.amount?.toString() ?? "0");
+    const maidPaymentsSum = new Decimal(actualMaidPayments._sum.amount?.toString() ?? "0");
+    const fridgeBillsSum = new Decimal(actualFridgeBills._sum.totalAmount?.toString() ?? "0");
+    const fridgePaymentsSum = new Decimal(actualFridgePayments._sum.amount?.toString() ?? "0");
+    const bulkCyclesSum = new Decimal(actualBulkCycles._sum.cost?.toString() ?? "0");
+    const bulkAllocationsSum = new Decimal(actualBulkAllocations._sum.amount?.toString() ?? "0");
+
+    const validationErrors = [];
+    if (!maidChargesSum.equals(maidPaymentsSum)) {
+      validationErrors.push(`Maid charges (৳${maidChargesSum.toFixed(2)}) do not match maid payments (৳${maidPaymentsSum.toFixed(2)}).`);
+    }
+    if (!fridgeBillsSum.equals(fridgePaymentsSum)) {
+      validationErrors.push(`Fridge bills (৳${fridgeBillsSum.toFixed(2)}) do not match fridge payments (৳${fridgePaymentsSum.toFixed(2)}).`);
+    }
+    if (!bulkCyclesSum.equals(bulkAllocationsSum)) {
+      validationErrors.push(`Bulk purchases (৳${bulkCyclesSum.toFixed(2)}) do not match bulk allocations (৳${bulkAllocationsSum.toFixed(2)}).`);
+    }
+
+    if (validationErrors.length > 0) {
+      console.warn("Auto-settlement skipped due to unbalanced aggregates:", validationErrors.join(" "));
+      return Response.json({ message: "Auto-settlement skipped: " + validationErrors.join(" ") });
     }
 
     const transfers = computeSettlement(result.members);

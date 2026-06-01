@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { computeSettlement } from "@/lib/domain/settlement";
 import { currentMonthStart, currentMonthEnd, currentMonthKey, getNow, firstDayOfMonth, lastDayOfMonth } from "@/lib/utils/dates";
 import { fetchMonthBalances } from "@/lib/queries/balance";
+import Decimal from "decimal.js";
 
 export async function POST(request: Request) {
   try {
@@ -37,6 +38,47 @@ export async function POST(request: Request) {
     const monthStart = firstDayOfMonth(year, month);
     const monthEnd = lastDayOfMonth(year, month);
     const isCurrent = monthKey === currentMonthKey();
+
+    // Validate matching aggregates before running settlement
+    const [
+      actualMaidCharges,
+      actualMaidPayments,
+      actualFridgeBills,
+      actualFridgePayments,
+      actualBulkCycles,
+      actualBulkAllocations,
+    ] = await Promise.all([
+      db.maidCharge.aggregate({ where: { month: monthDate }, _sum: { amount: true } }),
+      db.maidPayment.aggregate({ where: { month: monthDate }, _sum: { amount: true } }),
+      db.fridgeBill.aggregate({ where: { postedAt: { gte: monthStart, lte: monthEnd } }, _sum: { totalAmount: true } }),
+      db.fridgePayment.aggregate({ where: { paidAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } }),
+      db.bulkCycle.aggregate({ where: { finishedAt: { gte: monthStart, lte: monthEnd } }, _sum: { cost: true } }),
+      db.bulkAllocation.aggregate({ where: { allocatedAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } }),
+    ]);
+
+    const maidChargesSum = new Decimal(actualMaidCharges._sum.amount?.toString() ?? "0");
+    const maidPaymentsSum = new Decimal(actualMaidPayments._sum.amount?.toString() ?? "0");
+    const fridgeBillsSum = new Decimal(actualFridgeBills._sum.totalAmount?.toString() ?? "0");
+    const fridgePaymentsSum = new Decimal(actualFridgePayments._sum.amount?.toString() ?? "0");
+    const bulkCyclesSum = new Decimal(actualBulkCycles._sum.cost?.toString() ?? "0");
+    const bulkAllocationsSum = new Decimal(actualBulkAllocations._sum.amount?.toString() ?? "0");
+
+    const validationErrors = [];
+    if (!maidChargesSum.equals(maidPaymentsSum)) {
+      validationErrors.push(`Maid charges (৳${maidChargesSum.toFixed(2)}) do not match maid payments (৳${maidPaymentsSum.toFixed(2)}).`);
+    }
+    if (!fridgeBillsSum.equals(fridgePaymentsSum)) {
+      validationErrors.push(`Fridge bills (৳${fridgeBillsSum.toFixed(2)}) do not match fridge payments (৳${fridgePaymentsSum.toFixed(2)}).`);
+    }
+    if (!bulkCyclesSum.equals(bulkAllocationsSum)) {
+      validationErrors.push(`Bulk purchases (৳${bulkCyclesSum.toFixed(2)}) do not match bulk allocations (৳${bulkAllocationsSum.toFixed(2)}).`);
+    }
+
+    if (validationErrors.length > 0) {
+      return Response.json({
+        error: "Settlement blocked: " + validationErrors.join(" "),
+      }, { status: 400 });
+    }
 
     const result = await fetchMonthBalances({
       monthStart,

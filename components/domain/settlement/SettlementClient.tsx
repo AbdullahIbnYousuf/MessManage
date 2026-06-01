@@ -49,6 +49,7 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
   const [runError, setRunError] = useState<string | null>(null);
   const [runResult, setRunResult] = useState<HistoryMonth | null>(null);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Array<{ type: string; message: string }>>([]);
 
   // Viewed month & current month states (format: YYYY-MM)
   const [selectedMonth, setSelectedMonth] = useState<string>("");
@@ -70,6 +71,7 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
         month: string;
         currentMonth: string;
         isSettled: boolean;
+        validationErrors?: Array<{ type: string; message: string }>;
       } 
     };
     const histJson = await histRes.json() as { data?: HistoryMonth[] };
@@ -77,6 +79,7 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
     setBalances(balJson.data?.balances ?? []);
     setMealRate(balJson.data?.mealRate ?? null);
     setIsSettled(balJson.data?.isSettled ?? false);
+    setValidationErrors(balJson.data?.validationErrors ?? []);
     setHistory(histJson.data ?? []);
     
     if (balJson.data) {
@@ -143,7 +146,7 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
           </p>
         </div>
         {isAdmin && !isSettled && (
-          <button className="btn btn-primary" onClick={() => void runSettlement()} disabled={running} style={{ height: "44px", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}>
+          <button className="btn btn-primary" onClick={() => void runSettlement()} disabled={running || validationErrors.length > 0} style={{ height: "44px", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}>
             {running ? <><span className="spinner" /> Running...</> : "Run Settlement"}
           </button>
         )}
@@ -160,6 +163,36 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          {validationErrors.length > 0 && !isSettled && (
+            <div style={{
+              background: "rgba(239,68,68,0.08)",
+              border: "1px solid rgba(239,68,68,0.3)",
+              borderRadius: "var(--radius-lg)",
+              padding: "1rem",
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.5rem"
+            }} className="slide-up">
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span style={{ fontSize: "1.25rem" }}>⚠️</span>
+                <span style={{ fontWeight: 600, color: "var(--color-danger)", fontSize: "0.9375rem" }}>Discrepancies Detected</span>
+              </div>
+              <p style={{ fontSize: "0.875rem", margin: 0, color: "var(--color-text-primary)", lineHeight: 1.4 }}>
+                Settlement cannot be run because the following transaction aggregates are unbalanced:
+              </p>
+              <ul style={{ margin: "0.25rem 0 0", paddingLeft: "1.25rem", fontSize: "0.8125rem", color: "var(--color-text-secondary)" }}>
+                {validationErrors.map((err, i) => (
+                  <li key={i}>{err.message}</li>
+                ))}
+              </ul>
+              {validationErrors.some(e => e.type === "maid") && (
+                <p style={{ fontSize: "0.8125rem", margin: "0.25rem 0 0", color: "var(--color-text-secondary)" }}>
+                  💡 Tip: You can switch to the <strong>Maid tab</strong>, toggle to the <strong>Previous Month</strong>, and record the missing payment.
+                </p>
+              )}
+            </div>
+          )}
+
           {showUnsettledBanner && (
             <div style={{
               background: "var(--color-warning-bg)",

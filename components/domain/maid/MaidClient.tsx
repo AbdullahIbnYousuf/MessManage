@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { formatMonthLabel } from "@/lib/utils/dates";
+import { formatMonthLabel, previousMonthKey } from "@/lib/utils/dates";
 
 interface ChargeEntry {
   id: string;
@@ -187,10 +187,13 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
   const [applySuccess, setApplySuccess] = useState(false);
   const [pastPaymentsExpanded, setPastPaymentsExpanded] = useState(false);
 
-  const load = useCallback(async () => {
+  const [selectedMonth, setSelectedMonth] = useState<"current" | "prev">("current");
+
+  const load = useCallback(async (month: "current" | "prev" = "current") => {
     setLoading(true);
+    const query = month === "prev" ? "?month=prev" : "";
     const [chargesRes, paymentsRes] = await Promise.all([
-      fetch("/api/maid/charges"),
+      fetch(`/api/maid/charges${query}`),
       fetch("/api/maid/payment"),
     ]);
     const chargesJson = await chargesRes.json() as { data?: { charges: ChargeEntry[]; defaultCharge: string } };
@@ -200,7 +203,7 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
     setLoading(false);
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(selectedMonth); }, [load, selectedMonth]);
 
   async function submitPayment(e: React.FormEvent) {
     e.preventDefault();
@@ -208,10 +211,15 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
     setPayError(null);
     setPaySuccess(false);
     try {
+      const monthKey = selectedMonth === "prev" ? previousMonthKey() : currentMonthKey;
       const res = await fetch("/api/maid/payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: parseFloat(payAmount), note: payNote }),
+        body: JSON.stringify({ 
+          amount: parseFloat(payAmount), 
+          note: payNote,
+          month: monthKey,
+        }),
       });
       const json = await res.json() as { error?: string };
       if (!res.ok) {
@@ -220,7 +228,7 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
         setPayAmount("");
         setPayNote("");
         setPaySuccess(true);
-        void load();
+        void load(selectedMonth);
       }
     } catch {
       setPayError("Network error.");
@@ -262,19 +270,70 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
     }
   }
 
-  const monthLabel = formatMonthLabel(currentMonthKey);
+  const activeMonthKey = selectedMonth === "prev" ? previousMonthKey() : currentMonthKey;
+  const monthLabel = formatMonthLabel(activeMonthKey);
   const chargesApplied = charges.length > 0;
 
   return (
     <div className="page-container">
-      <div className="section-header" style={{ marginBottom: "1.5rem" }}>
+      <div className="section-header" style={{ marginBottom: "1.5rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
         <div>
           <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>Maid</h1>
           <p className="text-secondary" style={{ fontSize: "0.875rem" }}>
             Monthly maid charges and payments — {monthLabel}
           </p>
         </div>
-        {isAdmin && !chargesApplied && (
+
+        {/* Month Selector Toggle */}
+        <div style={{
+          display: "flex",
+          background: "var(--color-bg-elevated)",
+          border: "1px solid var(--color-border)",
+          borderRadius: "var(--radius-lg)",
+          padding: "3px",
+          gap: "2px",
+        }}>
+          <button
+            onClick={() => setSelectedMonth("current")}
+            style={{
+              background: selectedMonth === "current" ? "var(--color-primary)" : "transparent",
+              color: selectedMonth === "current" ? "#fff" : "var(--color-text-secondary)",
+              border: "none",
+              borderRadius: "calc(var(--radius-lg) - 2px)",
+              padding: "0.375rem 0.875rem",
+              fontSize: "0.8125rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "all 0.18s ease",
+              touchAction: "manipulation",
+              WebkitTapHighlightColor: "transparent",
+              minHeight: "32px",
+            }}
+          >
+            Current Month
+          </button>
+          <button
+            onClick={() => setSelectedMonth("prev")}
+            style={{
+              background: selectedMonth === "prev" ? "var(--color-primary)" : "transparent",
+              color: selectedMonth === "prev" ? "#fff" : "var(--color-text-secondary)",
+              border: "none",
+              borderRadius: "calc(var(--radius-lg) - 2px)",
+              padding: "0.375rem 0.875rem",
+              fontSize: "0.8125rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "all 0.18s ease",
+              touchAction: "manipulation",
+              WebkitTapHighlightColor: "transparent",
+              minHeight: "32px",
+            }}
+          >
+            Previous Month
+          </button>
+        </div>
+
+        {isAdmin && !chargesApplied && selectedMonth === "current" && (
           <button className="btn btn-primary" onClick={() => void applyCharges()} disabled={applying}>
             {applying ? <span className="spinner" /> : `Apply ৳${defaultCharge} Charge to All`}
           </button>
@@ -294,7 +353,7 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
           {/* Current month charges */}
           <div className="card">
             <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "0.875rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span>Charges This Month</span>
+              <span>{selectedMonth === "current" ? "Charges This Month" : "Charges Previous Month"}</span>
               {chargesApplied
                 ? <span className="badge badge-success">Applied</span>
                 : <span className="badge badge-warning">Not Applied Yet</span>}

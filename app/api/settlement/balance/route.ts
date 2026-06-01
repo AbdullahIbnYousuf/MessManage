@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/session";
 import { currentMonthStart, currentMonthEnd, currentMonthKey, firstDayOfMonth, lastDayOfMonth } from "@/lib/utils/dates";
 import { fetchMonthBalances } from "@/lib/queries/balance";
 import { db } from "@/lib/db";
+import Decimal from "decimal.js";
 
 export async function GET(request: Request) {
   try {
@@ -35,7 +36,16 @@ export async function GET(request: Request) {
       isCurrent = true;
     }
 
-    const [result, existingSettlement] = await Promise.all([
+    const [
+      result,
+      existingSettlement,
+      actualMaidCharges,
+      actualMaidPayments,
+      actualFridgeBills,
+      actualFridgePayments,
+      actualBulkCycles,
+      actualBulkAllocations,
+    ] = await Promise.all([
       fetchMonthBalances({
         monthStart,
         monthEnd,
@@ -45,7 +55,40 @@ export async function GET(request: Request) {
       db.monthlySettlement.findFirst({
         where: { month: monthDate },
       }),
+      db.maidCharge.aggregate({ where: { month: monthDate }, _sum: { amount: true } }),
+      db.maidPayment.aggregate({ where: { month: monthDate }, _sum: { amount: true } }),
+      db.fridgeBill.aggregate({ where: { postedAt: { gte: monthStart, lte: monthEnd } }, _sum: { totalAmount: true } }),
+      db.fridgePayment.aggregate({ where: { paidAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } }),
+      db.bulkCycle.aggregate({ where: { finishedAt: { gte: monthStart, lte: monthEnd } }, _sum: { cost: true } }),
+      db.bulkAllocation.aggregate({ where: { allocatedAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } }),
     ]);
+
+    const maidChargesSum = new Decimal(actualMaidCharges._sum.amount?.toString() ?? "0");
+    const maidPaymentsSum = new Decimal(actualMaidPayments._sum.amount?.toString() ?? "0");
+    const fridgeBillsSum = new Decimal(actualFridgeBills._sum.totalAmount?.toString() ?? "0");
+    const fridgePaymentsSum = new Decimal(actualFridgePayments._sum.amount?.toString() ?? "0");
+    const bulkCyclesSum = new Decimal(actualBulkCycles._sum.cost?.toString() ?? "0");
+    const bulkAllocationsSum = new Decimal(actualBulkAllocations._sum.amount?.toString() ?? "0");
+
+    const validationErrors = [];
+    if (!maidChargesSum.equals(maidPaymentsSum)) {
+      validationErrors.push({
+        type: "maid",
+        message: `Maid charges (৳${maidChargesSum.toFixed(2)}) do not match maid payments (৳${maidPaymentsSum.toFixed(2)}).`,
+      });
+    }
+    if (!fridgeBillsSum.equals(fridgePaymentsSum)) {
+      validationErrors.push({
+        type: "fridge",
+        message: `Fridge bills (৳${fridgeBillsSum.toFixed(2)}) do not match fridge payments (৳${fridgePaymentsSum.toFixed(2)}).`,
+      });
+    }
+    if (!bulkCyclesSum.equals(bulkAllocationsSum)) {
+      validationErrors.push({
+        type: "bulk",
+        message: `Bulk purchases (৳${bulkCyclesSum.toFixed(2)}) do not match bulk allocations (৳${bulkAllocationsSum.toFixed(2)}).`,
+      });
+    }
 
     return Response.json({
       data: {
@@ -72,6 +115,7 @@ export async function GET(request: Request) {
         mealRate: result.mealRate?.toFixed(4) ?? null,
         totalMonthBazar: result.totalMonthBazar.toFixed(2),
         totalMonthMeals: result.totalMonthMeals,
+        validationErrors,
       },
     });
   } catch (err) {

@@ -3,13 +3,15 @@
 
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
-import { currentMonthKey } from "@/lib/utils/dates";
+import { currentMonthKey, previousMonthKey } from "@/lib/utils/dates";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await requireAuth();
 
-    const monthKey = currentMonthKey();
+    const { searchParams } = new URL(request.url);
+    const monthParam = searchParams.get("month");
+    const monthKey = monthParam === "prev" ? previousMonthKey() : currentMonthKey();
     const monthDate = new Date(monthKey);
 
     const charges = await db.maidCharge.findMany({
