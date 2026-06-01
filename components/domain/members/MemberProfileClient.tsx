@@ -87,11 +87,14 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const [selectedMonth, setSelectedMonth] = useState<"current" | "prev">("current");
+
+  const load = useCallback(async (month: "current" | "prev" = "current") => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/members/${targetUserId}`);
+      const query = month === "prev" ? "?month=prev" : "";
+      const res = await fetch(`/api/members/${targetUserId}${query}`);
       if (!res.ok) {
         if (res.status === 404) setError("User not found.");
         else setError("Failed to load profile.");
@@ -107,7 +110,7 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
     }
   }, [targetUserId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(selectedMonth); }, [load, selectedMonth]);
 
   if (loading) {
     return (
@@ -140,8 +143,8 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
 
   return (
     <div className="page-container" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-      {/* Navigation */}
-      <div className="slide-up">
+      {/* Navigation & Month Selector */}
+      <div className="slide-up" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
         <button 
           onClick={() => router.push("/members")} 
           className="btn btn-ghost btn-sm"
@@ -149,6 +152,55 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
         >
           ← Back to Directory
         </button>
+
+        {/* Month Selector Toggle */}
+        <div style={{
+          display: "flex",
+          background: "var(--color-bg-elevated)",
+          border: "1px solid var(--color-border)",
+          borderRadius: "var(--radius-lg)",
+          padding: "3px",
+          gap: "2px",
+        }}>
+          <button
+            onClick={() => setSelectedMonth("current")}
+            style={{
+              background: selectedMonth === "current" ? "var(--color-primary)" : "transparent",
+              color: selectedMonth === "current" ? "#fff" : "var(--color-text-secondary)",
+              border: "none",
+              borderRadius: "calc(var(--radius-lg) - 2px)",
+              padding: "0.375rem 0.875rem",
+              fontSize: "0.8125rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "all 0.18s ease",
+              touchAction: "manipulation",
+              WebkitTapHighlightColor: "transparent",
+              minHeight: "32px",
+            }}
+          >
+            Current Month
+          </button>
+          <button
+            onClick={() => setSelectedMonth("prev")}
+            style={{
+              background: selectedMonth === "prev" ? "var(--color-primary)" : "transparent",
+              color: selectedMonth === "prev" ? "#fff" : "var(--color-text-secondary)",
+              border: "none",
+              borderRadius: "calc(var(--radius-lg) - 2px)",
+              padding: "0.375rem 0.875rem",
+              fontSize: "0.8125rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "all 0.18s ease",
+              touchAction: "manipulation",
+              WebkitTapHighlightColor: "transparent",
+              minHeight: "32px",
+            }}
+          >
+            Previous Month
+          </button>
+        </div>
       </div>
 
       {/* 1. Hero Card */}
@@ -243,22 +295,22 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
         <div className="stat-card">
           <div className="stat-label">Total Meals</div>
           <div className="stat-value" style={{ color: "var(--color-accent)" }}><AnimatedNumber value={aggregates.totalMeals} /></div>
-          <div className="stat-sub">this month</div>
+          <div className="stat-sub">{selectedMonth === "current" ? "this month" : "previous month"}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Bazar Visits</div>
           <div className="stat-value"><AnimatedNumber value={aggregates.bazarVisits} /></div>
-          <div className="stat-sub">this month</div>
+          <div className="stat-sub">{selectedMonth === "current" ? "this month" : "previous month"}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Routine Spending</div>
           <div className="stat-value">৳<AnimatedNumber value={parseFloat(aggregates.routineSpending)} decimals={2} /></div>
-          <div className="stat-sub">cash out</div>
+          <div className="stat-sub">{selectedMonth === "current" ? "cash out" : "prev. cash out"}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Total Spending</div>
           <div className="stat-value" style={{ color: "var(--color-primary)" }}>৳<AnimatedNumber value={parseFloat(aggregates.totalSpending)} decimals={2} /></div>
-          <div className="stat-sub">incl. bulk</div>
+          <div className="stat-sub">{selectedMonth === "current" ? "incl. bulk" : "prev. incl. bulk"}</div>
         </div>
       </div>
 

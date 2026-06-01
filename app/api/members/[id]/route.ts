@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
 import { computeNetBalance } from "@/lib/domain/settlement";
 import { computeMealRate } from "@/lib/domain/meal";
-import { today, currentMonthStart, currentMonthEnd, currentMonthKey, isDeadlinePassed, formatMonthLabel } from "@/lib/utils/dates";
+import { today, currentMonthStart, currentMonthEnd, currentMonthKey, previousMonthStart, previousMonthEnd, previousMonthKey, isDeadlinePassed, formatMonthLabel } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 import { sum } from "@/lib/utils/decimal";
 
@@ -15,6 +15,10 @@ export async function GET(
   try {
     await requireAuth();
     const { id } = await params;
+
+    const url = new URL(request.url);
+    const monthParam = url.searchParams.get("month");
+    const isPrev = monthParam === "prev";
 
     const user = await db.user.findUnique({
       where: { id },
@@ -28,9 +32,10 @@ export async function GET(
     }
 
     const todayDate = new Date(today());
-    const monthStart = currentMonthStart();
-    const monthEnd = currentMonthEnd();
-    const monthDate = new Date(currentMonthKey());
+    const monthStart = isPrev ? previousMonthStart() : currentMonthStart();
+    const monthEnd = isPrev ? previousMonthEnd() : currentMonthEnd();
+    const monthKey = isPrev ? previousMonthKey() : currentMonthKey();
+    const monthDate = new Date(monthKey);
 
     // --- 1. Recent Activity ---
     const recentBazar = await db.bazarExpense.findMany({
@@ -169,7 +174,7 @@ export async function GET(
         totalSpending: totalSpending.toFixed(2),
         totalMeals: userMealCount,
         bazarVisits: bazarVisitCount,
-        monthLabel: formatMonthLabel(currentMonthKey()),
+        monthLabel: formatMonthLabel(monthKey),
         breakdown: {
           bazarContributed: userBazarSpend.toFixed(2),
           maidPayments: userMaidPayments.toFixed(2),
