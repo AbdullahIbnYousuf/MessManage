@@ -3,14 +3,23 @@
 import { requireAdmin } from "@/lib/session";
 import { db } from "@/lib/db";
 import { computeSettlement } from "@/lib/domain/settlement";
-import { currentMonthStart, currentMonthEnd, currentMonthKey, getNow } from "@/lib/utils/dates";
+import { currentMonthStart, currentMonthEnd, currentMonthKey, getNow, firstDayOfMonth, lastDayOfMonth } from "@/lib/utils/dates";
 import { fetchMonthBalances } from "@/lib/queries/balance";
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
     await requireAdmin();
 
-    const monthKey = currentMonthKey();
+    let monthKey = currentMonthKey(); // default to current month's YYYY-MM-01
+    try {
+      const body = await request.json() as { month?: string };
+      if (body.month && /^\d{4}-\d{2}$/.test(body.month)) {
+        monthKey = `${body.month}-01`;
+      }
+    } catch {
+      // Ignore if body is empty/invalid
+    }
+
     const monthDate = new Date(monthKey);
 
     // Block duplicate settlement
@@ -21,11 +30,19 @@ export async function POST() {
       return Response.json({ error: "This month has already been settled." }, { status: 400 });
     }
 
+    const [yearStr, monthStr] = monthKey.split("-");
+    const year = parseInt(yearStr!);
+    const month = parseInt(monthStr!);
+
+    const monthStart = firstDayOfMonth(year, month);
+    const monthEnd = lastDayOfMonth(year, month);
+    const isCurrent = monthKey === currentMonthKey();
+
     const result = await fetchMonthBalances({
-      monthStart: currentMonthStart(),
-      monthEnd: currentMonthEnd(),
+      monthStart,
+      monthEnd,
       monthDate,
-      isCurrentMonth: true,
+      isCurrentMonth: isCurrent,
     });
 
     const transfers = computeSettlement(result.members);
@@ -46,7 +63,7 @@ export async function POST() {
 
     return Response.json({
       data: {
-        month: monthKey,
+        month: monthKey.slice(0, 7), // "YYYY-MM"
         transfers: transfers.map((t) => ({
           fromUserId: t.fromUserId,
           fromUserName: t.fromUserName,

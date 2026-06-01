@@ -50,34 +50,80 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
   const [runResult, setRunResult] = useState<HistoryMonth | null>(null);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  // Viewed month & current month states (format: YYYY-MM)
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [currentMonth, setCurrentMonth] = useState<string>("");
+  const [isSettled, setIsSettled] = useState<boolean>(false);
+
+  const load = useCallback(async (monthToLoad?: string) => {
     setLoading(true);
+    const query = monthToLoad ? `?month=${monthToLoad}` : "";
     const [balRes, histRes] = await Promise.all([
-      fetch("/api/settlement/balance"),
+      fetch(`/api/settlement/balance${query}`),
       fetch("/api/settlement/history"),
     ]);
-    const balJson = await balRes.json() as { data?: { balances: BalanceEntry[]; mealRate: string | null } };
+    
+    const balJson = await balRes.json() as { 
+      data?: { 
+        balances: BalanceEntry[]; 
+        mealRate: string | null;
+        month: string;
+        currentMonth: string;
+        isSettled: boolean;
+      } 
+    };
     const histJson = await histRes.json() as { data?: HistoryMonth[] };
+    
     setBalances(balJson.data?.balances ?? []);
     setMealRate(balJson.data?.mealRate ?? null);
+    setIsSettled(balJson.data?.isSettled ?? false);
     setHistory(histJson.data ?? []);
+    
+    if (balJson.data) {
+      setSelectedMonth(balJson.data.month);
+      setCurrentMonth(balJson.data.currentMonth);
+    }
+    
     setLoading(false);
   }, []);
 
   useEffect(() => { void load(); }, [load]);
 
+  function getPreviousMonthKey(monthKey: string): string {
+    const [yearStr, monthStr] = monthKey.split("-");
+    let y = parseInt(yearStr!);
+    let m = parseInt(monthStr!) - 1;
+    if (m === 0) {
+      m = 12;
+      y--;
+    }
+    return `${y}-${String(m).padStart(2, "0")}`;
+  }
+
+  const prevMonthKey = currentMonth ? getPreviousMonthKey(currentMonth) : "";
+  const isPrevMonthSettled = history.some((h) => h.month === prevMonthKey);
+  const showUnsettledBanner = prevMonthKey && !isPrevMonthSettled && selectedMonth === currentMonth;
+
+  const handleMonthSwitch = (month: string) => {
+    void load(month);
+  };
+
   async function runSettlement() {
-    if (!confirm("Run month-end settlement? This is permanent and cannot be undone.")) return;
+    if (!confirm(`Run month-end settlement for ${formatMonthLabel(selectedMonth)}? This is permanent and cannot be undone.`)) return;
     setRunning(true);
     setRunError(null);
     try {
-      const res = await fetch("/api/settlement/run", { method: "POST" });
+      const res = await fetch("/api/settlement/run", { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ month: selectedMonth }),
+      });
       const json = await res.json() as { error?: string; data?: { month: string; transfers: HistoryMonth["transfers"] } };
       if (!res.ok) {
         setRunError(json.error ?? "Failed to run settlement.");
       } else {
         setRunResult({ month: json.data!.month, settledAt: new Date().toISOString(), transfers: json.data!.transfers });
-        void load();
+        void load(selectedMonth);
       }
     } catch {
       setRunError("Network error.");
@@ -92,14 +138,19 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
         <div>
           <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>Settlement</h1>
           <p className="text-secondary" style={{ fontSize: "0.875rem" }}>
-            {monthName}
+            {formatMonthLabel(selectedMonth || currentMonth || monthName)}
             {mealRate && <> · Meal rate: <strong>৳{parseFloat(mealRate).toFixed(2)}/meal</strong></>}
           </p>
         </div>
-        {isAdmin && (
-          <button className="btn btn-primary" onClick={() => void runSettlement()} disabled={running}>
+        {isAdmin && !isSettled && (
+          <button className="btn btn-primary" onClick={() => void runSettlement()} disabled={running} style={{ height: "44px", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}>
             {running ? <><span className="spinner" /> Running...</> : "Run Settlement"}
           </button>
+        )}
+        {isSettled && (
+          <span className="badge badge-success" style={{ fontSize: "0.875rem", padding: "0.5rem 1.0rem" }}>
+            ✓ Settled
+          </span>
         )}
       </div>
 
@@ -109,6 +160,46 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          {showUnsettledBanner && (
+            <div style={{
+              background: "var(--color-warning-bg)",
+              border: "1px solid rgba(196, 154, 60, 0.3)",
+              borderRadius: "var(--radius-lg)",
+              padding: "1rem",
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.5rem"
+            }} className="slide-up">
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span style={{ fontSize: "1.25rem" }}>⚠️</span>
+                <span style={{ fontWeight: 600, color: "var(--color-warning)", fontSize: "0.9375rem" }}>Attention Required</span>
+              </div>
+              <p style={{ fontSize: "0.875rem", margin: 0, color: "var(--color-text-primary)", lineHeight: 1.4 }}>
+                The previous month (<strong>{formatMonthLabel(prevMonthKey)}</strong>) has passed but is not settled yet. 
+                You must settle it before settling the current month.
+              </p>
+              <button 
+                onClick={() => handleMonthSwitch(prevMonthKey)} 
+                className="btn btn-secondary btn-sm"
+                style={{ alignSelf: "flex-start", marginTop: "0.25rem", height: "44px", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+              >
+                View & Settle {formatMonthLabel(prevMonthKey)} &rarr;
+              </button>
+            </div>
+          )}
+
+          {selectedMonth !== currentMonth && (
+            <div className="slide-up">
+              <button 
+                onClick={() => handleMonthSwitch(currentMonth)} 
+                className="btn btn-secondary btn-sm"
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", height: "44px", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+              >
+                &larr; Switch to Current Month ({formatMonthLabel(currentMonth)})
+              </button>
+            </div>
+          )}
+
           {runError && <div style={{ background: "var(--color-danger-glow)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "var(--radius-md)", padding: "0.75rem 1rem", color: "var(--color-danger)", fontSize: "0.875rem" }}>{runError}</div>}
 
           {runResult && (
