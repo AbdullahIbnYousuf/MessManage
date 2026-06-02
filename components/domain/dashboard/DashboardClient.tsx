@@ -222,7 +222,7 @@ export default function DashboardClient({
                 <div style={{ fontSize: "0.8125rem", color: "var(--color-text-secondary)" }}>
                   {daysUntilSettle === 1
                     ? `Auto-settlement for ${previousMonthLabel} runs tomorrow.`
-                    : `Auto-settlement for ${previousMonthLabel} runs in ${daysUntilSettle} days on the 5th.`}
+                    : `Auto-settlement for ${previousMonthLabel} runs in ${daysUntilSettle} days on the 20th.`}
                 </div>
               </div>
             </div>

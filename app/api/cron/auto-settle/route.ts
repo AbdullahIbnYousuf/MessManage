@@ -1,5 +1,5 @@
 // GET /api/cron/auto-settle — cron job to automatically run month-end settlement
-// Runs on the 5th of every month. Settles the *previous* calendar month.
+// Runs on the 20th of every month. Settles the *previous* calendar month.
 
 import { db } from "@/lib/db";
 import { computeSettlement } from "@/lib/domain/settlement";
