@@ -20,7 +20,7 @@ export default async function DashboardPage() {
 
   const now = getNow();
   const { y: year, m: month, d: day } = getDhakaParts(now);
-  const isAlertPeriod = day >= 1 && day <= 19;
+  const isAlertPeriod = day >= 16 && day <= 19;
   const daysUntilSettle = 20 - day; // 19 on day 1, 1 on day 19, 0 on day 20
   const isMaidChargeAlertPeriod = day >= 25 && day <= 28;
   const monthName = now.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "Asia/Dhaka" });
