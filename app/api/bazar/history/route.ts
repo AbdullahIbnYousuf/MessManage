@@ -20,21 +20,22 @@ export async function GET() {
       weightMap.set(e.userId, prev.plus(new Decimal(e.tripWeight.toString())));
     }
 
-    // Fetch user details for everyone who has at least one expense
+    // Fetch user details for everyone who has at least one expense and is active
     const userIds = [...weightMap.keys()];
     const users = await db.user.findMany({
-      where: { id: { in: userIds } },
+      where: { id: { in: userIds }, status: "active" },
       select: { id: true, name: true, nickname: true, avatarUrl: true },
     });
     const userMap = new Map(users.map((u) => [u.id, u]));
 
     const leaderboard = userIds
+      .filter((userId) => userMap.has(userId))
       .map((userId) => {
-        const u = userMap.get(userId);
+        const u = userMap.get(userId)!;
         return {
           userId,
-          name: u ? (u.nickname || u.name) : "Unknown",
-          avatarUrl: u?.avatarUrl ?? null,
+          name: u.nickname || u.name,
+          avatarUrl: u.avatarUrl,
           visits: parseFloat((weightMap.get(userId) ?? new Decimal(0)).toFixed(1)),
         };
       })
