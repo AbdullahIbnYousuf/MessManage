@@ -40,28 +40,21 @@ export default function MembersListClient({ currentUserId }: Props) {
   }
 
   return (
-    <div className="table-container">
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Member</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Joined</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {members.map((m) => (
-            <MemberRow
-              key={m.id}
-              member={m}
-              currentUserId={currentUserId}
-              onDeactivated={load}
-            />
-          ))}
-        </tbody>
-      </table>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
+        gap: "1rem",
+      }}
+    >
+      {members.map((member) => (
+        <MemberRow
+          key={member.id}
+          member={member}
+          currentUserId={currentUserId}
+          onDeactivated={load}
+        />
+      ))}
     </div>
   );
 }

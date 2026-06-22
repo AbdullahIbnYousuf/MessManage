@@ -4,7 +4,7 @@
 import Decimal from "decimal.js";
 import { div } from "@/lib/utils/decimal";
 import { getDayKey, remainingDaysInMonth, today } from "@/lib/utils/dates";
-import type { MealPattern } from "@/types";
+import type { AdminMealEditBlockReason, MealPattern } from "@/types";
 
 /**
  * Computes the meal rate for a month.
@@ -78,4 +78,46 @@ export function canRequestEdit(
 export function shouldLockRecord(recordDate: string, isLocked: boolean): boolean {
   if (isLocked) return false;
   return recordDate < today();
+}
+
+/**
+ * Returns the reason an admin cannot edit a member's meal record, or null when
+ * the edit is allowed. Admins may bypass the normal deadline and permanent
+ * meal lock, but may not invalidate settled months or frozen bulk allocations.
+ */
+export function getAdminMealEditBlockReason(params: {
+  recordDate: string;
+  joinedDate: string;
+  deactivatedDate: string | null;
+  isMonthSettled: boolean;
+  isCoveredByFinishedBulkCycle: boolean;
+}): AdminMealEditBlockReason | null {
+  if (params.recordDate < params.joinedDate) return "before_joining";
+  if (
+    params.deactivatedDate !== null &&
+    params.recordDate > params.deactivatedDate
+  ) {
+    return "after_deactivation";
+  }
+  if (params.isMonthSettled) return "settled_month";
+  if (params.isCoveredByFinishedBulkCycle) {
+    return "finished_bulk_cycle";
+  }
+  return null;
+}
+
+/**
+ * Uses the same timestamp comparison as bulk allocation queries. MealRecord
+ * dates are stored at UTC midnight, while cycle boundaries are timestamps.
+ */
+export function isMealDateCoveredByFinishedBulkCycle(
+  mealDate: Date,
+  cycles: Array<{ startedAt: Date; finishedAt: Date | null }>
+): boolean {
+  return cycles.some(
+    (cycle) =>
+      cycle.finishedAt !== null &&
+      mealDate >= cycle.startedAt &&
+      mealDate <= cycle.finishedAt
+  );
 }

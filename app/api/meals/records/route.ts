@@ -3,8 +3,8 @@
 // Creates missing records from the meal pattern on the fly.
 
 import { requireAuth } from "@/lib/session";
-import { db } from "@/lib/db";
-import { allDaysInMonth, getDayKey, getNow, getDhakaParts, firstDayOfMonth, lastDayOfMonth, today, parseDateString } from "@/lib/utils/dates";
+import { getNow, getDhakaParts } from "@/lib/utils/dates";
+import { fetchOrCreateMealRecordsForMonth } from "@/lib/queries/meal-records";
 
 export async function GET(request: Request) {
   try {
@@ -20,48 +20,11 @@ export async function GET(request: Request) {
       return Response.json({ error: "Invalid year or month." }, { status: 400 });
     }
 
-    // Get existing records for this month
-    const startDate = firstDayOfMonth(year, month);
-    const endDate = lastDayOfMonth(year, month);
-
-    const existing = await db.mealRecord.findMany({
-      where: { userId: user.id, date: { gte: startDate, lte: endDate } },
-      orderBy: { date: "asc" },
-    });
-
-    // Get user pattern for filling in missing days
-    const pattern = await db.mealPattern.findUnique({ where: { userId: user.id } });
-
-    const existingByDate = new Map(
-      existing.map((r) => [r.date.toISOString().slice(0, 10), r])
+    const allRecords = await fetchOrCreateMealRecordsForMonth(
+      user.id,
+      year,
+      month
     );
-
-    const allDays = allDaysInMonth(year, month);
-    const todayStr = today();
-
-    // Create missing records for all days
-    const toCreate: Array<{ userId: string; date: Date; mealCount: number; isLocked: boolean }> = [];
-
-    for (const dateStr of allDays) {
-      if (!existingByDate.has(dateStr)) {
-        const date = parseDateString(dateStr);
-        const isPast = dateStr < todayStr;
-        const dayKey = getDayKey(dateStr);
-        const mealCount = isPast ? 0 : (pattern?.[dayKey] ?? 0);
-        const isLocked = isPast;
-        toCreate.push({ userId: user.id, date, mealCount, isLocked });
-      }
-    }
-
-    if (toCreate.length > 0) {
-      await db.mealRecord.createMany({ data: toCreate, skipDuplicates: true });
-    }
-
-    // Re-fetch all records after creating missing ones
-    const allRecords = await db.mealRecord.findMany({
-      where: { userId: user.id, date: { gte: startDate, lte: endDate } },
-      orderBy: { date: "asc" },
-    });
 
     return Response.json({
       data: allRecords.map((r) => ({

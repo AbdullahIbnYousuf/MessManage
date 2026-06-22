@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 interface Member {
   id: string;
@@ -143,134 +144,151 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
       : "This member never recorded a meal — date set to when they joined.";
 
   return (
-    <>
-      <tr>
-        <td>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            {member.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={member.avatarUrl} alt={member.name} className="avatar avatar-sm" />
-            ) : (
-              <div className="avatar-fallback" style={{ width: 28, height: 28, fontSize: "0.75rem" }}>
-                {member.name.charAt(0).toUpperCase()}
-              </div>
-            )}
-            <div>
-              <div style={{ fontWeight: 500, fontSize: "0.875rem" }}>{member.name}</div>
-              <div className="text-muted" style={{ fontSize: "0.75rem" }}>{member.email}</div>
-            </div>
+    <div className="card" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", minWidth: 0 }}>
+        {member.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={member.avatarUrl} alt={member.name} className="avatar avatar-md" />
+        ) : (
+          <div className="avatar-fallback avatar-md" style={{ fontSize: "0.875rem" }}>
+            {member.name.charAt(0).toUpperCase()}
           </div>
-        </td>
-        <td>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+            <span style={{ fontWeight: 700 }}>{member.name}</span>
+            {member.id === currentUserId && <span className="badge badge-muted">You</span>}
+          </div>
+          <div className="text-muted" style={{ fontSize: "0.75rem", overflowWrap: "anywhere" }}>
+            {member.email}
+          </div>
+        </div>
+        <span className={deactivated ? "badge badge-danger" : "badge badge-success"}>
+          {deactivated ? "Deactivated" : "Active"}
+        </span>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+          gap: "0.75rem",
+        }}
+      >
+        <div>
+          <div className="text-muted" style={{ fontSize: "0.6875rem", marginBottom: "0.25rem" }}>
+            Role
+          </div>
           {member.id !== currentUserId && !deactivated ? (
             <select
               value={role}
-              onChange={(e) => handleRoleChange(e.target.value)}
+              onChange={(event) => void handleRoleChange(event.target.value)}
               disabled={roleLoading || loading || previewLoading || confirming}
-              className="input input-sm"
-              style={{ width: "auto", minWidth: "90px", padding: "0.25rem 0.5rem", height: "auto" }}
+              className="input"
+              style={{ minHeight: 44, textTransform: "capitalize" }}
             >
               <option value="admin">admin</option>
               <option value="member">member</option>
             </select>
           ) : (
-            <span className={role === "admin" ? "badge badge-primary" : "badge badge-muted"}>
-              {role}
-            </span>
+            <div style={{ minHeight: 44, display: "flex", alignItems: "center" }}>
+              <span className={role === "admin" ? "badge badge-primary" : "badge badge-muted"}>
+                {role}
+              </span>
+            </div>
           )}
-        </td>
-        <td>
-          <span className={deactivated ? "badge badge-danger" : "badge badge-success"}>
-            {deactivated ? "Deactivated" : "Active"}
-          </span>
-        </td>
-        <td className="text-secondary" style={{ fontSize: "0.8125rem" }}>{joinDate}</td>
-        <td>
-          {error && <span className="text-negative" style={{ fontSize: "0.75rem", marginRight: "0.5rem" }}>{error}</span>}
-          {!deactivated && member.id !== currentUserId && !preview && (
-            <button
-              className="btn btn-sm btn-ghost"
-              onClick={() => void handleDeactivateClick()}
-              disabled={previewLoading || confirming}
-              style={{ color: "var(--color-danger)" }}
-            >
-              {previewLoading ? <span className="spinner" /> : "Deactivate"}
-            </button>
-          )}
-          {deactivated && member.id !== currentUserId && (
-            <button
-              className="btn btn-sm btn-ghost"
-              onClick={() => void handleReactivate()}
-              disabled={loading}
-              style={{ color: "var(--color-success)" }}
-            >
-              {loading ? <span className="spinner" /> : "Reactivate"}
-            </button>
-          )}
-          {member.id === currentUserId && (
-            <span className="text-muted" style={{ fontSize: "0.75rem" }}>You</span>
-          )}
-        </td>
-      </tr>
+        </div>
+        <div>
+          <div className="text-muted" style={{ fontSize: "0.6875rem", marginBottom: "0.25rem" }}>
+            Joined
+          </div>
+          <div className="text-secondary" style={{ minHeight: 44, display: "flex", alignItems: "center", fontSize: "0.875rem" }}>
+            {joinDate}
+          </div>
+        </div>
+      </div>
 
-      {/* ── Inline deactivation confirmation panel ── */}
+      {error && (
+        <div className="text-negative" style={{ fontSize: "0.8125rem" }}>
+          {error}
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+        <Link
+          href={`/admin/members/${member.id}/meals`}
+          className="btn btn-primary"
+          style={{ width: "100%", minHeight: 44 }}
+        >
+          Edit Meals
+        </Link>
+
+        {!deactivated && member.id !== currentUserId && !preview && (
+          <button
+            className="btn btn-ghost"
+            onClick={() => void handleDeactivateClick()}
+            disabled={previewLoading || confirming}
+            style={{ width: "100%", minHeight: 44, color: "var(--color-danger)" }}
+          >
+            {previewLoading ? <span className="spinner" /> : "Deactivate"}
+          </button>
+        )}
+        {deactivated && member.id !== currentUserId && (
+          <button
+            className="btn btn-ghost"
+            onClick={() => void handleReactivate()}
+            disabled={loading}
+            style={{ width: "100%", minHeight: 44, color: "var(--color-success)" }}
+          >
+            {loading ? <span className="spinner" /> : "Reactivate"}
+          </button>
+        )}
+      </div>
+
       {preview && (
-        <tr>
-          <td colSpan={5} style={{ padding: "0 0 0.75rem 0" }}>
-            <div
-              style={{
-                background: "rgba(239,68,68,0.07)",
-                border: "1px solid rgba(239,68,68,0.25)",
-                borderRadius: "var(--radius-lg)",
-                padding: "1rem 1.25rem",
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.625rem",
-              }}
-            >
-              {/* Date + reason */}
-              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.625rem" }}>
-                <span style={{ fontSize: "1.1rem", lineHeight: 1 }}>📅</span>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: "0.875rem", color: "var(--color-danger)" }}>
-                    Will be deactivated from: {previewDateStr}
-                  </div>
-                  <div style={{ fontSize: "0.8125rem", color: "var(--color-text-secondary)", marginTop: "0.2rem" }}>
-                    {previewMessage}
-                  </div>
-                  <div style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", marginTop: "0.15rem" }}>
-                    They will be excluded from fridge bills and maid charges from the following month onwards.
-                  </div>
-                </div>
+        <div
+          style={{
+            background: "rgba(239,68,68,0.07)",
+            border: "1px solid rgba(239,68,68,0.25)",
+            borderRadius: "var(--radius-lg)",
+            padding: "1rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.75rem",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "0.625rem" }}>
+            <span aria-hidden="true">📅</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: "0.875rem", color: "var(--color-danger)" }}>
+                Will be deactivated from: {previewDateStr}
               </div>
-
-              {/* Action buttons */}
-              <div style={{ display: "flex", gap: "0.625rem", flexWrap: "wrap" }}>
-                <button
-                  className="btn btn-sm"
-                  onClick={() => void handleDeactivateConfirm()}
-                  disabled={confirming}
-                  style={{
-                    background: "var(--color-danger)",
-                    color: "#fff",
-                    border: "none",
-                    minWidth: 140,
-                  }}
-                >
-                  {confirming ? <span className="spinner" /> : `Confirm Deactivation`}
-                </button>
-                <button
-                  className="btn btn-sm btn-ghost"
-                  onClick={handleDeactivateCancel}
-                  disabled={confirming}
-                >
-                  Cancel
-                </button>
+              <div className="text-secondary" style={{ fontSize: "0.8125rem", marginTop: "0.2rem" }}>
+                {previewMessage}
+              </div>
+              <div className="text-muted" style={{ fontSize: "0.8125rem", marginTop: "0.15rem" }}>
+                They will be excluded from fridge bills and maid charges from the following month onwards.
               </div>
             </div>
-          </td>
-        </tr>
+          </div>
+          <button
+            className="btn"
+            onClick={() => void handleDeactivateConfirm()}
+            disabled={confirming}
+            style={{ minHeight: 44, background: "var(--color-danger)", color: "#fff" }}
+          >
+            {confirming ? <span className="spinner" /> : "Confirm Deactivation"}
+          </button>
+          <button
+            className="btn btn-ghost"
+            onClick={handleDeactivateCancel}
+            disabled={confirming}
+            style={{ minHeight: 44 }}
+          >
+            Cancel
+          </button>
+        </div>
       )}
-    </>
+    </div>
   );
 }

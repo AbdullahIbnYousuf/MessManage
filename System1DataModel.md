@@ -187,8 +187,9 @@ The daily meal log — one row per user per day. Future dates are pre-filled fro
 #### Business Rules
 
 - Future dates are pre-filled automatically from the user's MealPattern when the month begins or when the pattern changes.
-- A meal record can only be edited on that exact day — before the deadline freely, or after the deadline with admin-granted permission via MealEditRequest.
-- Once the day ends (midnight), is_locked = true permanently. No override exists for past days.
+- A member can only edit a meal record on that exact day — before the deadline freely, or after the deadline with admin-granted permission via MealEditRequest.
+- Once the day ends (midnight), is_locked = true permanently for member access. An admin correction changes only meal_count and never unlocks the row.
+- Admins may correct daily counts in current or historical unsettled months. Corrections are blocked for settled months, dates covered by finished BulkCycles, dates before the member joined, and dates after deactivation.
 - When a user deactivates, all future MealRecord rows (from tomorrow onwards) are set to meal_count = 0.
 - Deactivated users do not appear in the daily meal dashboard.
 - The dashboard shows: each active member's name, their meal_count for today, and the total.
@@ -218,8 +219,8 @@ When a user wants to edit today's meal count after the daily deadline has passed
 
 - A MealEditRequest always references today's MealRecord — never a past day.
 - At midnight, any pending request for that day becomes irrelevant and is auto-closed as expired.
-- Once approved, the user edits MealRecord.meal_count directly. The request is not updated further.
-- The admin grants permission only — they do not perform the edit themselves.
+- Once approved, the user may edit MealRecord.meal_count directly.
+- An admin may instead correct the count directly under the admin correction safeguards. Any pending request for that record is approved in the same transaction.
 
 #### Constraints
 
@@ -562,8 +563,9 @@ Global system settings managed by admins. There is always exactly one row in thi
 
 - Default pattern is day-of-week based (Mon-Sun), each day stores a meal count (0 or more).
 - Changing the default pattern auto-updates all future MealRecord rows for the current month from today onwards. Past records are never touched.
-- A meal record can only be edited on that exact calendar day — before the deadline freely, or after the deadline with admin permission via MealEditRequest.
-- Once the day ends (midnight), is_locked = true. This is a hard, permanent lock. No admin override exists for past days.
+- A member can only edit a meal record on that exact calendar day — before the deadline freely, or after the deadline with admin permission via MealEditRequest.
+- Once the day ends (midnight), is_locked = true. Members can never bypass this lock.
+- Admins can correct counts in unsettled months without unlocking records, except where a finished bulk cycle has frozen allocations.
 - MealEditRequest auto-expires at midnight if still pending.
 - If a user forgets to cancel a meal and it is cooked, the cost stays with them.
 

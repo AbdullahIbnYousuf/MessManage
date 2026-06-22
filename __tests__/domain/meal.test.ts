@@ -13,6 +13,8 @@ import {
   mealCountFromPattern,
   canEditDirectly,
   canRequestEdit,
+  getAdminMealEditBlockReason,
+  isMealDateCoveredByFinishedBulkCycle,
   shouldLockRecord,
 } from "@/lib/domain/meal";
 import type { MealPattern } from "@/types";
@@ -169,5 +171,87 @@ describe("shouldLockRecord", () => {
 
   it("returns false for future records", () => {
     expect(shouldLockRecord("2024-12-20", false)).toBe(false);
+  });
+});
+
+describe("admin meal editing", () => {
+  const editableBase = {
+    recordDate: "2024-12-10",
+    joinedDate: "2024-01-01",
+    deactivatedDate: null,
+    isMonthSettled: false,
+    isCoveredByFinishedBulkCycle: false,
+  };
+
+  it("allows an admin to edit a locked past date in an unsettled month", () => {
+    expect(getAdminMealEditBlockReason(editableBase)).toBeNull();
+  });
+
+  it("allows an admin to edit today after the member deadline", () => {
+    expect(
+      getAdminMealEditBlockReason({
+        ...editableBase,
+        recordDate: "2024-12-15",
+      })
+    ).toBeNull();
+  });
+
+  it("blocks settled months", () => {
+    expect(
+      getAdminMealEditBlockReason({
+        ...editableBase,
+        isMonthSettled: true,
+      })
+    ).toBe("settled_month");
+  });
+
+  it("blocks dates covered by a finished bulk cycle", () => {
+    expect(
+      getAdminMealEditBlockReason({
+        ...editableBase,
+        isCoveredByFinishedBulkCycle: true,
+      })
+    ).toBe("finished_bulk_cycle");
+  });
+
+  it("blocks dates before joining", () => {
+    expect(
+      getAdminMealEditBlockReason({
+        ...editableBase,
+        recordDate: "2023-12-31",
+      })
+    ).toBe("before_joining");
+  });
+
+  it("blocks dates after deactivation", () => {
+    expect(
+      getAdminMealEditBlockReason({
+        ...editableBase,
+        recordDate: "2024-12-11",
+        deactivatedDate: "2024-12-10",
+      })
+    ).toBe("after_deactivation");
+  });
+
+  it("matches finished bulk cycle timestamp boundaries", () => {
+    const cycles = [
+      {
+        startedAt: new Date("2024-12-05T00:00:00.000Z"),
+        finishedAt: new Date("2024-12-10T12:00:00.000Z"),
+      },
+    ];
+
+    expect(
+      isMealDateCoveredByFinishedBulkCycle(
+        new Date("2024-12-10T00:00:00.000Z"),
+        cycles
+      )
+    ).toBe(true);
+    expect(
+      isMealDateCoveredByFinishedBulkCycle(
+        new Date("2024-12-11T00:00:00.000Z"),
+        cycles
+      )
+    ).toBe(false);
   });
 });

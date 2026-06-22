@@ -17,7 +17,7 @@ export default async function MembersPage() {
         <div>
           <h1 style={{ fontSize: "1.5rem", fontWeight: 700 }}>All Members</h1>
           <p className="text-secondary" style={{ fontSize: "0.875rem", marginTop: "0.25rem" }}>
-            Manage member accounts and roles.
+            Manage member accounts, roles, and meal calendars.
           </p>
         </div>
       </div>

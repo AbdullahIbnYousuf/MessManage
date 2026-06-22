@@ -11,43 +11,50 @@ interface MealRecord {
 
 interface Props {
   records: MealRecord[];
-  deadlinePassed: boolean;
-  editRequestStatus: "pending" | "approved" | "rejected" | "expired" | null;
-  onUpdate: (date: string, count: number) => void;
-  onRequestEdit: () => void;
-  deadline: string;
+  deadlinePassed?: boolean;
+  editRequestStatus?: "pending" | "approved" | "rejected" | "expired" | null;
+  onSaveMeal: (date: string, count: number) => Promise<string | null>;
+  canEditRecord: (record: MealRecord) => boolean;
+  onRequestEdit?: () => void;
+  deadline?: string;
   todayStr: string;
+  title?: string;
+  instruction?: string;
+  showMemberEditRequest?: boolean;
+  footerText?: string;
 }
 
 const DAYS_HEADER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default function MealCalendar({
   records,
-  deadlinePassed,
-  editRequestStatus,
-  onUpdate,
+  deadlinePassed = false,
+  editRequestStatus = null,
+  onSaveMeal,
+  canEditRecord,
   onRequestEdit,
-  deadline,
+  deadline = "",
   todayStr,
+  title = "Meal Calendar",
+  instruction = "Tap +/− to update the meal count",
+  showMemberEditRequest = true,
+  footerText,
 }: Props) {
   const [savingDate, setSavingDate] = useState<string | null>(null);
+  const [savedDate, setSavedDate] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const updateMeal = useCallback(
     async (date: string, count: number) => {
       setSavingDate(date);
+      setSavedDate(null);
       setErrors((e) => ({ ...e, [date]: "" }));
       try {
-        const res = await fetch(`/api/meals/records/${date}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mealCount: count }),
-        });
-        const json = await res.json() as { error?: string };
-        if (!res.ok) {
-          setErrors((e) => ({ ...e, [date]: json.error ?? "Failed to update." }));
+        const error = await onSaveMeal(date, count);
+        if (error) {
+          setErrors((e) => ({ ...e, [date]: error }));
         } else {
-          onUpdate(date, count);
+          setSavedDate(date);
         }
       } catch {
         setErrors((e) => ({ ...e, [date]: "Network error." }));
@@ -55,7 +62,7 @@ export default function MealCalendar({
         setSavingDate(null);
       }
     },
-    [onUpdate]
+    [onSaveMeal]
   );
 
   // Group records into weeks for calendar layout
@@ -112,24 +119,24 @@ export default function MealCalendar({
     <div className="card">
       <div style={{ marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
         <div style={{ flex: "1 1 auto", minWidth: "200px" }}>
-          <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>Meal Calendar</div>
+          <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>{title}</div>
           <div className="text-secondary" style={{ fontSize: "0.8125rem", marginTop: "0.2rem" }}>
-            Tap +/− to update your meal count
+            {instruction}
           </div>
         </div>
         {/* Edit request panel for today after deadline */}
-        {deadlinePassed && editRequestStatus === null && (
-          <button className="btn btn-sm btn-secondary" onClick={onRequestEdit} style={{ flexShrink: 0 }}>
+        {showMemberEditRequest && deadlinePassed && editRequestStatus === null && onRequestEdit && (
+          <button className="btn btn-sm btn-secondary" onClick={onRequestEdit} style={{ flexShrink: 0, minHeight: 44 }}>
             Request Edit
           </button>
         )}
-        {editRequestStatus === "pending" && (
+        {showMemberEditRequest && editRequestStatus === "pending" && (
           <span className="badge badge-warning" style={{ flexShrink: 0 }}>Edit request pending</span>
         )}
-        {editRequestStatus === "approved" && (
+        {showMemberEditRequest && editRequestStatus === "approved" && (
           <span className="badge badge-success" style={{ flexShrink: 0 }}>Edit approved — update your count</span>
         )}
-        {editRequestStatus === "rejected" && (
+        {showMemberEditRequest && editRequestStatus === "rejected" && (
           <span className="badge badge-danger" style={{ flexShrink: 0 }}>Edit request rejected</span>
         )}
       </div>
@@ -156,8 +163,9 @@ export default function MealCalendar({
               const isToday = record.date === todayStr;
               const isFuture = record.date > todayStr;
               const isPast = record.date < todayStr;
-              const canEdit = isFuture || (isToday && (!deadlinePassed || editRequestStatus === "approved"));
+              const canEdit = canEditRecord(record);
               const isSaving = savingDate === record.date;
+              const wasSaved = savedDate === record.date;
               const err = errors[record.date];
 
               const dayNum = new Date(record.date + "T00:00:00").getDate();
@@ -181,7 +189,7 @@ export default function MealCalendar({
                     }`,
                     opacity: isPast && record.mealCount === 0 ? 0.5 : 1,
                     position: "relative",
-                    minHeight: canEdit ? "80px" : "60px",
+                    minHeight: canEdit ? "132px" : "72px",
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "space-between",
@@ -210,7 +218,7 @@ export default function MealCalendar({
                         onClick={() => void updateMeal(record.date, record.mealCount + 1)}
                         style={{ 
                           width: "100%", 
-                          height: "24px", 
+                          minHeight: "44px",
                           borderRadius: "4px", 
                           background: "var(--color-primary)", 
                           border: "none", 
@@ -230,7 +238,7 @@ export default function MealCalendar({
                         disabled={record.mealCount === 0}
                         style={{ 
                           width: "100%", 
-                          height: "24px", 
+                          minHeight: "44px",
                           borderRadius: "4px", 
                           background: record.mealCount === 0 ? "var(--color-bg-base)" : "var(--color-bg-elevated)", 
                           border: "1px solid var(--color-border)", 
@@ -250,8 +258,12 @@ export default function MealCalendar({
                   )}
 
                   {/* Lock icon for locked past records */}
-                  {record.isLocked && (
+                  {!canEdit && (record.isLocked || isPast) && (
                     <div style={{ position: "absolute", top: 4, right: 4, fontSize: "0.625rem", color: "var(--color-text-muted)" }}>🔒</div>
+                  )}
+
+                  {wasSaved && !err && (
+                    <div style={{ position: "absolute", bottom: 4, right: 4, fontSize: "0.75rem", color: "var(--color-success)" }}>✓</div>
                   )}
 
                   {err && (
@@ -264,9 +276,29 @@ export default function MealCalendar({
         ))}
       </div>
 
+      {Object.values(errors).some(Boolean) && (
+        <div
+          style={{
+            marginTop: "0.75rem",
+            padding: "0.75rem",
+            borderRadius: "var(--radius-md)",
+            border: "1px solid rgba(192,80,80,0.3)",
+            background: "var(--color-danger-bg)",
+            color: "var(--color-danger)",
+            fontSize: "0.8125rem",
+          }}
+        >
+          {Object.values(errors).find(Boolean)}
+        </div>
+      )}
+
       {/* Legend - with next lock info instead of "Today" */}
       <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "0.75rem", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-        <span>🔒 {getNextLockInfo()}</span>
+        {showMemberEditRequest ? (
+          <span>🔒 {getNextLockInfo()}</span>
+        ) : footerText ? (
+          <span>{footerText}</span>
+        ) : null}
       </div>
     </div>
   );

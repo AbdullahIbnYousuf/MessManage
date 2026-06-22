@@ -58,6 +58,17 @@ export type MealRecord = {
   isLocked: boolean;
 };
 
+export type AdminMealEditBlockReason =
+  | "settled_month"
+  | "finished_bulk_cycle"
+  | "before_joining"
+  | "after_deactivation";
+
+export type AdminMealCalendarRecord = MealRecord & {
+  canEdit: boolean;
+  blockReason: AdminMealEditBlockReason | null;
+};
+
 export type BazarTrip = {
   id: string;
   status: "open" | "completed";

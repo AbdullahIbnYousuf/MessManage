@@ -91,6 +91,7 @@ without restructuring what exists.
 - ✅ Daily meal records with configurable deadline
 - ✅ Meal patterns (weekly schedule)
 - ✅ Meal edit requests (after deadline, requires admin approval)
+- ✅ Admin-managed member meal calendars with protected historical corrections
 - ✅ Automatic meal locking at midnight
 - ✅ Admin ability to cancel today's meals for all members
 - ✅ Meal rate calculation (total bazar ÷ total meals)
@@ -528,7 +529,7 @@ These are the rules most likely to be broken by a code agent.
 - Future individual meal records (tomorrow onwards) can be edited directly without changing the global pattern.
 - Today's meal record can be edited directly before the admin-configurable `mealDeadline`.
 - After the deadline passes, today's meal can only be edited by submitting a `MealEditRequest`, which requires Admin approval.
-- After midnight, `is_locked = true` permanently. There is no override. Not for any admin. Not ever.
+- After midnight, `is_locked = true` permanently for member access. Admin corrections may update only `meal_count` without unlocking the row, and only when the month is unsettled and no finished bulk cycle covers the date.
 - A `MealEditRequest` always references today's record only — never a past or future day.
 - Pending `MealEditRequests` auto-expire at midnight — the cron job sets their status to `expired`.
 - When a `MealPattern` changes, auto-update all future `MealRecord` rows from today onwards for the current month. Past records are never touched.
@@ -900,8 +901,9 @@ NEVER use float or number type for any monetary value
 NEVER store a running balance as a database column
 NEVER blend BulkCycle cost into a BazarExpense record
 NEVER blend MaidPayment into BazarExpense
-NEVER allow editing a MealRecord for any day other than today
+NEVER allow a member to edit a MealRecord for any day other than today
 NEVER allow a past day's MealRecord to be unlocked under any condition
+NEVER allow an admin meal correction in a settled month or for a date covered by a finished BulkCycle
 NEVER allow two BazarTrips with status = open simultaneously
 NEVER allow two BulkCycles with status = active for the same BulkItem simultaneously
 NEVER allow backdating a BazarExpense into a prior calendar month

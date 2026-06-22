@@ -57,11 +57,34 @@ export default function MealsClient({ deadline, year, month, todayStr, isAdmin }
 
   useEffect(() => { void load(); }, [load]);
 
-  function handleUpdate(date: string, count: number) {
-    setRecords((prev) =>
-      prev.map((r) => (r.date === date ? { ...r, mealCount: count } : r))
+  const saveMeal = useCallback(async (date: string, count: number) => {
+    try {
+      const res = await fetch(`/api/meals/records/${date}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mealCount: count }),
+      });
+      const json = await res.json() as { error?: string };
+      if (!res.ok) return json.error ?? "Failed to update.";
+
+      setRecords((prev) =>
+        prev.map((record) =>
+          record.date === date ? { ...record, mealCount: count } : record
+        )
+      );
+      return null;
+    } catch {
+      return "Network error.";
+    }
+  }, []);
+
+  const canEditRecord = useCallback((record: MealRecord) => {
+    const isToday = record.date === todayStr;
+    const isFuture = record.date > todayStr;
+    return isFuture || (
+      isToday && (!deadlinePassed || editRequestStatus === "approved")
     );
-  }
+  }, [deadlinePassed, editRequestStatus, todayStr]);
 
   async function handleRequestEdit() {
     setRequestingEdit(true);
@@ -176,7 +199,8 @@ export default function MealsClient({ deadline, year, month, todayStr, isAdmin }
             records={records}
             deadlinePassed={deadlinePassed}
             editRequestStatus={editRequestStatus}
-            onUpdate={handleUpdate}
+            onSaveMeal={saveMeal}
+            canEditRecord={canEditRecord}
             onRequestEdit={() => void handleRequestEdit()}
             deadline={deadline}
             todayStr={todayStr}
