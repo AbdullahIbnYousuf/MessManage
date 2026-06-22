@@ -98,7 +98,7 @@ export async function GET(
     const userMaidPayments = new Decimal(maidPaymentRows._sum.amount?.toString() ?? "0");
 
     const fridgePaymentRows = await db.fridgePayment.aggregate({
-      where: { paidById: id, paidAt: { gte: monthStart, lte: monthEnd } },
+      where: { paidById: id, bill: { month: monthDate } },
       _sum: { amount: true },
     });
     const userFridgePayments = new Decimal(fridgePaymentRows._sum.amount?.toString() ?? "0");
@@ -115,13 +115,12 @@ export async function GET(
     });
     const userMaidCharges = new Decimal(maidChargeRows._sum.amount?.toString() ?? "0");
 
-    const fridgeBills = await db.fridgeBill.findMany({
-      where: { postedAt: { gte: monthStart, lte: monthEnd } },
-      select: { perMemberAmount: true },
+    const fridgeAllocationRows = await db.fridgeAllocation.aggregate({
+      where: { userId: id, bill: { month: monthDate } },
+      _sum: { amount: true },
     });
-    const totalFridgeBillShare = fridgeBills.reduce(
-      (s, b) => s.add(new Decimal(b.perMemberAmount.toString())),
-      new Decimal(0)
+    const totalFridgeBillShare = new Decimal(
+      fridgeAllocationRows._sum.amount?.toString() ?? "0"
     );
 
     const bulkAllocRows = await db.bulkAllocation.aggregate({

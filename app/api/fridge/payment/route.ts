@@ -1,6 +1,6 @@
 // POST /api/fridge/payment — record that someone paid the fridge bill upfront.
 // The payer gets the full amount credited. All members already carry their
-// per_member_amount debit from the FridgeBill.
+// frozen FridgeAllocation debit from the FridgeBill.
 
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";

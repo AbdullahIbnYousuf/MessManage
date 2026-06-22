@@ -33,6 +33,7 @@ model User {
   bulkAllocations          BulkAllocation[]
   bulkCyclesFinished       BulkCycle[]         @relation("BulkCycleFinishedBy")
   bulkCyclesPurchased      BulkCycle[]         @relation("BulkCyclePurchasedBy")
+  fridgeAllocations        FridgeAllocation[]
   fridgePayments           FridgePayment[]
   maidCharges              MaidCharge[]
   maidPayments             MaidPayment[]
@@ -55,16 +56,29 @@ model FridgeBill {
   id              String          @id @default(uuid())
   month           DateTime        @unique @db.Date
   totalAmount     Decimal         @map("total_amount") @db.Decimal(12, 2)
-  perMemberAmount Decimal         @map("per_member_amount") @db.Decimal(12, 2)
   memberCount     Int             @map("member_count")
   postedAt        DateTime        @map("posted_at")
   postedById      String          @map("posted_by")
   previousReading Decimal         @map("previous_reading") @db.Decimal(10, 2)
   currentReading  Decimal         @map("current_reading") @db.Decimal(10, 2)
   unitPrice       Decimal         @map("unit_price") @db.Decimal(10, 4)
+  allocations     FridgeAllocation[]
   payments        FridgePayment[]
 
   @@map("FridgeBill")
+}
+
+model FridgeAllocation {
+  id          String     @id @default(uuid())
+  billId      String     @map("bill_id")
+  userId      String     @map("user_id")
+  amount      Decimal    @db.Decimal(12, 2)
+  allocatedAt DateTime   @map("allocated_at")
+  bill        FridgeBill @relation(fields: [billId], references: [id])
+  user        User       @relation(fields: [userId], references: [id])
+
+  @@unique([billId, userId])
+  @@map("FridgeAllocation")
 }
 
 model FridgePayment {

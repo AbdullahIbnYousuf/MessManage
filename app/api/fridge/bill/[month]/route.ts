@@ -1,5 +1,5 @@
 // PATCH /api/fridge/bill/[month] — admin-only correction of a fridge bill.
-// Recalculates totalAmount and perMemberAmount when readings or unitPrice change.
+// Recalculates totalAmount and the original recipients' frozen allocation amounts.
 // [month] is YYYY-MM format.
 // Rules:
 //   - Admin only — this changes every member's debit.
@@ -7,7 +7,7 @@
 
 import { requireAdmin } from "@/lib/session";
 import { db } from "@/lib/db";
-import { computePerMemberAmount, computeTotalFromReadings } from "@/lib/domain/fridge";
+import { computeFridgeAllocations, computeTotalFromReadings } from "@/lib/domain/fridge";
 import Decimal from "decimal.js";
 
 export async function PATCH(
@@ -18,13 +18,16 @@ export async function PATCH(
     await requireAdmin();
     const { month } = await params;
 
-    // month param is YYYY-MM — convert to first-of-month Date
-    const monthDate = new Date(month + "-01T00:00:00");
-    if (isNaN(monthDate.getTime())) {
+    // Parse at UTC midnight so local server time cannot shift the month key.
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
       return Response.json({ error: "Invalid month format. Use YYYY-MM." }, { status: 400 });
     }
+    const monthDate = new Date(`${month}-01`);
 
-    const bill = await db.fridgeBill.findUnique({ where: { month: monthDate } });
+    const bill = await db.fridgeBill.findUnique({
+      where: { month: monthDate },
+      include: { allocations: { select: { userId: true } } },
+    });
     if (!bill) {
       return Response.json({ error: "No fridge bill found for this month." }, { status: 404 });
     }
@@ -84,29 +87,46 @@ export async function PATCH(
       );
     }
 
-    const totalAmount = computeTotalFromReadings(previousReading, currentReading, unitPrice);
-    if (!totalAmount || totalAmount.lte(0)) {
+    const computedTotal = computeTotalFromReadings(previousReading, currentReading, unitPrice);
+    if (!computedTotal || computedTotal.lte(0)) {
       return Response.json(
         { error: "Computed bill amount is zero — check your meter readings." },
         { status: 400 }
       );
     }
 
-    const perMemberAmount = computePerMemberAmount(totalAmount, bill.memberCount);
-    if (!perMemberAmount) {
-      return Response.json({ error: "Failed to compute per-member amount." }, { status: 500 });
+    if (bill.allocations.length === 0 || bill.allocations.length !== bill.memberCount) {
+      return Response.json(
+        { error: "This bill's frozen member allocations are incomplete and it cannot be corrected." },
+        { status: 409 }
+      );
     }
 
-    const updated = await db.fridgeBill.update({
-      where: { month: monthDate },
-      data: {
-        previousReading,
-        currentReading,
-        unitPrice,
-        totalAmount,
-        perMemberAmount,
-      },
+    const totalAmount = computedTotal.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+    const allocations = computeFridgeAllocations(
+      totalAmount,
+      bill.allocations.map((allocation) => allocation.userId)
+    );
+
+    const updated = await db.$transaction(async (tx) => {
+      const updatedBill = await tx.fridgeBill.update({
+        where: { month: monthDate },
+        data: { previousReading, currentReading, unitPrice, totalAmount },
+      });
+
+      await Promise.all(allocations.map((allocation) =>
+        tx.fridgeAllocation.update({
+          where: {
+            billId_userId: { billId: bill.id, userId: allocation.userId },
+          },
+          data: { amount: allocation.amount },
+        })
+      ));
+
+      return updatedBill;
     });
+
+    const allocationAmounts = allocations.map((allocation) => allocation.amount);
 
     return Response.json({
       data: {
@@ -116,8 +136,11 @@ export async function PATCH(
         currentReading: updated.currentReading.toFixed(2),
         unitPrice: updated.unitPrice.toFixed(4),
         totalAmount: updated.totalAmount.toFixed(2),
-        perMemberAmount: updated.perMemberAmount.toFixed(2),
         memberCount: updated.memberCount,
+        shareRange: {
+          min: Decimal.min(...allocationAmounts).toFixed(2),
+          max: Decimal.max(...allocationAmounts).toFixed(2),
+        },
       },
     });
   } catch (err) {

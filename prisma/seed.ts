@@ -305,27 +305,39 @@ async function main() {
     where: { month: novMonth },
   });
   if (!existingFridgeBill) {
-    const fridgeBill = await db.fridgeBill.create({
-      data: {
-        month: novMonth,
-        previousReading: new Decimal("1380"),
-        currentReading: new Decimal("1680"),
-        unitPrice: new Decimal("8"),
-        totalAmount: new Decimal("2400"),
-        perMemberAmount: new Decimal("600"),
-        memberCount: 4,
-        postedAt: dt(2024, 12, 2, 10),
-        postedById: rahim.id,
-      },
-    });
-    // Rahim paid the fridge bill
-    await db.fridgePayment.create({
-      data: {
-        billId: fridgeBill.id,
-        paidById: rahim.id,
-        amount: new Decimal("2400"),
-        paidAt: dt(2024, 12, 2, 10),
-      },
+    await db.$transaction(async (tx) => {
+      const allocatedAt = dt(2024, 12, 2, 10);
+      const fridgeBill = await tx.fridgeBill.create({
+        data: {
+          month: novMonth,
+          previousReading: new Decimal("1380"),
+          currentReading: new Decimal("1680"),
+          unitPrice: new Decimal("8"),
+          totalAmount: new Decimal("2400"),
+          memberCount: 4,
+          postedAt: allocatedAt,
+          postedById: rahim.id,
+        },
+      });
+
+      await tx.fridgeAllocation.createMany({
+        data: [rahim.id, karim.id, jamal.id, nadia.id].map((userId) => ({
+          billId: fridgeBill.id,
+          userId,
+          amount: new Decimal("600"),
+          allocatedAt,
+        })),
+      });
+
+      // Rahim paid the fridge bill
+      await tx.fridgePayment.create({
+        data: {
+          billId: fridgeBill.id,
+          paidById: rahim.id,
+          amount: new Decimal("2400"),
+          paidAt: allocatedAt,
+        },
+      });
     });
     console.log("✅ November fridge bill and payment created");
   } else {

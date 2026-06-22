@@ -10,6 +10,11 @@ interface FridgePayment {
   paidAt: string;
 }
 
+interface FridgeAllocation {
+  user: { id: string; name: string; avatarUrl: string | null };
+  amount: string;
+}
+
 interface FridgeBill {
   id: string;
   month: string; // "YYYY-MM"
@@ -17,8 +22,9 @@ interface FridgeBill {
   currentReading: string;
   unitPrice: string;
   totalAmount: string;
-  perMemberAmount: string;
   memberCount: number;
+  shareRange: { min: string; max: string } | null;
+  allocations: FridgeAllocation[];
   postedAt: string;
   isSettled: boolean;
   payments: FridgePayment[];
@@ -49,6 +55,7 @@ function BillRow({
   const [editPrice, setEditPrice] = useState(bill.unitPrice);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAllocations, setShowAllocations] = useState(false);
 
   const units = (parseFloat(bill.currentReading) - parseFloat(bill.previousReading)).toLocaleString();
 
@@ -85,26 +92,26 @@ function BillRow({
         </div>
         
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>Prev Reading</label>
             <input className="input" type="number" step="0.01" value={editPrev} onChange={(e) => setEditPrev(e.target.value)} />
           </div>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>Curr Reading</label>
             <input className="input" type="number" step="0.01" value={editCurr} onChange={(e) => setEditCurr(e.target.value)} />
           </div>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>Unit Price</label>
             <input className="input" type="number" step="0.0001" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} />
           </div>
         </div>
 
         {error && <div style={{ color: "var(--color-danger)", fontSize: "0.8125rem" }}>{error}</div>}
-        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
-          <button className="btn btn-sm btn-primary" onClick={() => void handleSave()} disabled={saving || !editCurr}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.25rem" }}>
+          <button className="btn btn-sm btn-primary" style={{ minHeight: 44, flex: "1 1 10rem", touchAction: "manipulation" }} onClick={() => void handleSave()} disabled={saving || !editCurr}>
             {saving ? <span className="spinner" /> : "Save & Recalculate"}
           </button>
-          <button className="btn btn-sm btn-ghost" onClick={() => setIsEditing(false)}>Cancel</button>
+          <button className="btn btn-sm btn-ghost" style={{ minHeight: 44, flex: "1 1 6rem", touchAction: "manipulation" }} onClick={() => setIsEditing(false)}>Cancel</button>
         </div>
       </div>
     );
@@ -112,8 +119,8 @@ function BillRow({
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.375rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.375rem" }}>
+        <div style={{ minWidth: 0, display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem" }}>
           <span style={{ fontWeight: 700, color: "var(--color-text-primary)" }}>
             ৳{parseFloat(bill.totalAmount).toLocaleString()}
           </span>
@@ -121,20 +128,71 @@ function BillRow({
           {isAdmin && !bill.isSettled && (
             <button 
               className="btn btn-ghost" 
-              style={{ padding: "0.25rem 0.5rem", fontSize: "0.75rem", color: "var(--color-text-muted)", marginLeft: "0.25rem" }}
+              style={{ minHeight: 44, padding: "0.5rem 0.75rem", fontSize: "0.875rem", color: "var(--color-text-muted)", marginLeft: "0.25rem", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
               onClick={() => setIsEditing(true)}
             >
               ✏️ Correct
             </button>
           )}
         </div>
-        <span className="text-muted" style={{ fontSize: "0.8125rem", textAlign: "right" }}>
-          {bill.memberCount} members · ৳{parseFloat(bill.perMemberAmount).toLocaleString()} each
+        <span className="text-muted" style={{ marginLeft: "auto", fontSize: "0.8125rem", textAlign: "right" }}>
+          {bill.memberCount} members
+          {bill.shareRange && (
+            <> · ৳{parseFloat(bill.shareRange.min).toLocaleString()}{bill.shareRange.min !== bill.shareRange.max ? `–৳${parseFloat(bill.shareRange.max).toLocaleString()}` : ""} each</>
+          )}
         </span>
       </div>
       <div className="text-muted" style={{ fontSize: "0.8125rem", marginBottom: "0.5rem" }}>
         {parseFloat(bill.previousReading).toLocaleString()} → {parseFloat(bill.currentReading).toLocaleString()} units ({units} used · ৳{parseFloat(bill.unitPrice)} /unit)
       </div>
+      <button
+        type="button"
+        className="btn btn-ghost"
+        onClick={() => setShowAllocations((visible) => !visible)}
+        aria-expanded={showAllocations}
+        style={{
+          width: "100%",
+          minHeight: 44,
+          justifyContent: "space-between",
+          padding: "0.625rem 0.75rem",
+          fontSize: "0.875rem",
+          touchAction: "manipulation",
+          WebkitTapHighlightColor: "transparent",
+        }}
+      >
+        <span>Charged members</span>
+        <span aria-hidden="true">{showAllocations ? "▴" : "▾"}</span>
+      </button>
+      {showAllocations && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem", paddingTop: "0.5rem" }}>
+          {bill.allocations.map((allocation) => (
+            <div
+              key={allocation.user.id}
+              style={{
+                minWidth: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: "0.625rem",
+                padding: "0.5rem 0.625rem",
+                borderRadius: "var(--radius-sm)",
+                background: "var(--color-bg-elevated)",
+              }}
+            >
+              {allocation.user.avatarUrl
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={allocation.user.avatarUrl} alt="" className="avatar avatar-sm" />
+                : <div className="avatar-fallback" style={{ width: 28, height: 28, fontSize: "0.75rem", flexShrink: 0 }}>{allocation.user.name.charAt(0)}</div>
+              }
+              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+                {allocation.user.name}
+              </span>
+              <span style={{ flexShrink: 0, fontSize: "0.875rem", fontWeight: 700 }}>
+                ৳{parseFloat(allocation.amount).toLocaleString()}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

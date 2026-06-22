@@ -2,7 +2,6 @@
 // No HTTP, no database calls — just formulas and rule checks.
 
 import Decimal from "decimal.js";
-import { div } from "@/lib/utils/decimal";
 
 /**
  * Computes the total bill amount from meter readings and unit price.
@@ -18,15 +17,48 @@ export function computeTotalFromReadings(
   return units.mul(unitPrice);
 }
 
+export type FridgeAllocationAmount = {
+  userId: string;
+  amount: Decimal;
+};
+
 /**
- * Computes the per-member share of a fridge bill.
- * Splits the total equally among the count of eligible members.
- * Returns null if memberCount is 0 (no members — should not happen).
+ * A member shares a fridge bill when they were active at any point during the
+ * calendar month covered by the bill.
  */
-export function computePerMemberAmount(
+export function isMemberEligibleForFridgeBill(
+  joinedAt: Date,
+  deactivatedAt: Date | null,
+  billMonthStart: Date
+): boolean {
+  const nextMonthStart = new Date(Date.UTC(
+    billMonthStart.getUTCFullYear(),
+    billMonthStart.getUTCMonth() + 1,
+    1
+  ));
+
+  return joinedAt < nextMonthStart
+    && (deactivatedAt === null || deactivatedAt >= billMonthStart);
+}
+
+/**
+ * Splits a bill into exact two-decimal allocations whose sum equals the bill.
+ * Any leftover paisa is assigned deterministically by sorted user id.
+ */
+export function computeFridgeAllocations(
   totalAmount: Decimal,
-  memberCount: number
-): Decimal | null {
-  if (memberCount === 0) return null;
-  return div(totalAmount, memberCount);
+  userIds: string[]
+): FridgeAllocationAmount[] {
+  const sortedUserIds = [...new Set(userIds)].sort();
+  if (sortedUserIds.length === 0) return [];
+
+  const normalizedTotal = totalAmount.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+  const totalPaisa = normalizedTotal.mul(100);
+  const basePaisa = totalPaisa.dividedToIntegerBy(sortedUserIds.length);
+  const remainderCount = totalPaisa.mod(sortedUserIds.length).toNumber();
+
+  return sortedUserIds.map((userId, index) => ({
+    userId,
+    amount: basePaisa.plus(index < remainderCount ? 1 : 0).div(100),
+  }));
 }

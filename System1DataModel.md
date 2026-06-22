@@ -54,9 +54,10 @@ Every transaction reflects one of two directions: contribution (bazar) or consum
 | 11 | MaidCharge | Monthly fixed maid fee deducted per active member |
 | 12 | MaidPayment | Records who physically paid the maid on behalf of group |
 | 13 | FridgeBill | Monthly fridge electricity bill split equally among members |
-| 14 | FridgePayment | Records who physically paid the fridge bill on behalf of group |
-| 15 | MonthlySettlement | Month-end settlement output — who owes whom |
-| 16 | SystemConfig | Global admin-controlled settings, single row |
+| 14 | FridgeAllocation | Frozen per-member share of one fridge bill |
+| 15 | FridgePayment | Records who physically paid the fridge bill on behalf of group |
+| 16 | MonthlySettlement | Month-end settlement output — who owes whom |
+| 17 | SystemConfig | Global admin-controlled settings, single row |
 
 ---
 
@@ -430,17 +431,17 @@ Records the monthly fridge electricity bill for a previous month. Split equally 
 | id | UUID | Primary key |
 | month | Date | First day of the month the bill is FOR e.g. 2024-11-01. Always a past month. |
 | total_amount | Decimal | Full electricity cost in taka |
-| per_member_amount | Decimal | Snapshot: total_amount ÷ active member count during bill month. Frozen, never recalculated. |
-| member_count_snapshot | Integer | How many members were included in the split. Audit field. |
+| member_count_snapshot | Integer | How many frozen FridgeAllocation rows were created. Audit field. |
 | recorded_by | UUID -> User | Which member recorded this bill |
 | recorded_at | Timestamp | When the bill was entered into the system |
 
 #### Business Rules
 
 - Any member can record a FridgeBill.
-- per_member_amount is calculated once at posting time by counting all User rows active at any point during the bill month — includes members who deactivated during or after that month.
-- Identical behaviour to BulkAllocation for deactivated members.
-- per_member_amount is a frozen snapshot — never recalculated after posting.
+- Exact per-member charges are created as FridgeAllocation rows in the same transaction as the bill.
+- Members active at any point during the bill month are included, even if they later deactivate.
+- Allocation recipients are frozen. Admin bill corrections change amounts for those same recipients only.
+- The bill and its payments affect the balance and settlement for `FridgeBill.month`, regardless of when they were recorded.
 - Only one FridgeBill allowed per month — block duplicates at application layer.
 - Cannot post a bill for the current or a future month.
 - FridgeBill cost never enters the meal rate formula.
@@ -453,7 +454,29 @@ Records the monthly fridge electricity bill for a previous month. Split equally 
 
 ---
 
-### 14. FridgePayment
+### 14. FridgeAllocation
+
+Frozen snapshot of one member's share of a FridgeBill.
+
+| Field | Type | Notes |
+|---|---|---|
+| id | UUID | Primary key |
+| bill_id | UUID -> FridgeBill | Bill being allocated |
+| user_id | UUID -> User | Member carrying this debit |
+| amount | Decimal | Exact two-decimal share; all allocations sum to the bill total |
+| allocated_at | Timestamp | When the snapshot was created |
+
+#### Business Rules
+
+- One allocation exists per included member per bill.
+- Recipients are members active at any point during the bill month.
+- Remainder paisa is distributed deterministically so allocation totals exactly equal the bill total.
+- Activation or deactivation after posting never changes the frozen recipient set.
+- An unsettled bill correction recalculates amounts for the same recipients atomically.
+
+---
+
+### 15. FridgePayment
 
 Records when a member pays the fridge bill on behalf of the group. Mirrors MaidPayment exactly.
 
@@ -463,17 +486,17 @@ Records when a member pays the fridge bill on behalf of the group. Mirrors MaidP
 | bill_id | UUID -> FridgeBill | Which bill this payment covers |
 | paid_by | UUID -> User | Who physically paid the fridge bill |
 | amount | Decimal | Amount paid in taka |
-| month | Date | Same month as the linked FridgeBill, for balance query convenience |
 | paid_at | Timestamp | When this was recorded |
 
 #### Business Rules
 
 - Paying member receives +amount credit to their balance.
-- Each member already carries their per_member_amount debit via FridgeBill.
+- Each included member carries their exact debit through FridgeAllocation.
 - The paying member is owed (total paid - own share) from the rest of the group, which surfaces naturally in monthly settlement.
 - FridgePayment is kept separate from BazarExpense to prevent bill costs from corrupting the meal rate calculation.
 - Any member can record a FridgePayment.
 - A FridgePayment can only be recorded after a FridgeBill exists for that month.
+- A FridgePayment belongs financially to its linked FridgeBill.month, not the calendar month of paid_at.
 
 #### Constraints
 
@@ -482,7 +505,7 @@ Records when a member pays the fridge bill on behalf of the group. Mirrors MaidP
 
 ---
 
-### 15. MonthlySettlement
+### 16. MonthlySettlement
 
 The output of the end-of-month settlement calculation. Records who owes whom from the shared meal/expense system. This data is exported to System 2 as debt entries.
 
@@ -510,7 +533,7 @@ The output of the end-of-month settlement calculation. Records who owes whom fro
 
 ---
 
-### 16. SystemConfig
+### 17. SystemConfig
 
 Global system settings managed by admins. There is always exactly one row in this table.
 
@@ -551,6 +574,7 @@ Global system settings managed by admins. There is always exactly one row in thi
 | MaidCharge | User (user_id) | One charge per user per month. |
 | MaidPayment | User (paid_by) | Many payments per user over time. |
 | FridgeBill | User (recorded_by) | One bill per month. Recorded by one member. |
+| FridgeAllocation | User, FridgeBill | One frozen allocation per included member per bill. |
 | FridgePayment | User (paid_by), FridgeBill | Many payments can reference one bill. |
 | MonthlySettlement | User (from_user_id, to_user_id) | Many rows per month (one per debtor-creditor pair). |
 | SystemConfig | User (updated_by), BazarTrip (active_trip_id) | Single row. References active trip and last admin who updated. |
@@ -597,8 +621,10 @@ Global system settings managed by admins. There is always exactly one row in thi
 ### Fridge Bill System
 
 - FridgeBill covers the previous month — never the current or future month.
-- per_member_amount is calculated once at posting time and never recalculated.
+- Exact FridgeAllocation rows are created once at posting time and always sum to the bill total.
 - Deactivated members are included if active at any point during the bill month.
+- Members fully deactivated before the bill month are excluded permanently.
+- Bills, payments, and allocations belong to the month covered by the bill.
 - FridgePayment mirrors MaidPayment — payer gets credit, all members carry their share as debit.
 - FridgeBill cost never enters the meal rate formula.
 
@@ -619,4 +645,4 @@ Global system settings managed by admins. There is always exactly one row in thi
 
 ---
 
-*Household Meal & Expense Management System | System 1 Data Model | Database-Agnostic | 16 Entities | Draft v1.2 | User entity updated with contact & banking fields; FridgeBill and FridgePayment entities added*
+*Household Meal & Expense Management System | System 1 Data Model | Database-Agnostic | 17 Entities | Draft v1.3 | Frozen per-member FridgeAllocation snapshots added*

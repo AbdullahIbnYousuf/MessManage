@@ -84,7 +84,7 @@ export function computeSettlement(balances: BalanceEntry[]): SettlementTransfer[
  *     + sum(BulkCycle.cost)
  *     - sum(MealRecord.meal_count × meal_rate)
  *     - sum(MaidCharge.amount)
- *     - sum(FridgeBill.per_member_amount)
+ *     - sum(FridgeAllocation.amount)
  *     - sum(BulkAllocation.amount)
  */
 export function computeNetBalance(params: {

@@ -3,13 +3,17 @@
 //   - Only the previous calendar month can be billed (never current or future).
 //   - Only one bill per month — duplicates are blocked.
 //   - totalAmount = (currentReading - previousReading) * unitPrice
-//   - per_member_amount = totalAmount / count of members active at any point in that month.
+//   - exact FridgeAllocation rows are frozen for members active during the bill month.
 //   - Any member can post.
 
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
-import { computePerMemberAmount, computeTotalFromReadings } from "@/lib/domain/fridge";
-import { previousMonthKey, previousMonthStart, previousMonthEnd } from "@/lib/utils/dates";
+import {
+  computeFridgeAllocations,
+  computeTotalFromReadings,
+  isMemberEligibleForFridgeBill,
+} from "@/lib/domain/fridge";
+import { previousMonthKey, previousMonthStart } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 
 export async function POST(request: Request) {
@@ -39,12 +43,22 @@ export async function POST(request: Request) {
     const monthKey = previousMonthKey();
     const monthDate = new Date(monthKey);
     const prevStart = previousMonthStart();
-    const prevEnd = previousMonthEnd();
 
     // Block duplicate bill for this month
     const existing = await db.fridgeBill.findUnique({ where: { month: monthDate } });
     if (existing) {
       return Response.json({ error: "A fridge bill for this month has already been posted." }, { status: 400 });
+    }
+
+    const settled = await db.monthlySettlement.findFirst({
+      where: { month: monthDate },
+      select: { id: true },
+    });
+    if (settled) {
+      return Response.json(
+        { error: "This month has already been settled. A fridge bill can no longer be posted." },
+        { status: 409 }
+      );
     }
 
     // Resolve previousReading: from body (first bill) or last bill's currentReading
@@ -83,50 +97,63 @@ export async function POST(request: Request) {
     }
 
     // Compute total
-    const totalAmount = computeTotalFromReadings(previousReading, currentReading, unitPrice);
-    if (!totalAmount) {
+    const computedTotal = computeTotalFromReadings(previousReading, currentReading, unitPrice);
+    if (!computedTotal) {
       return Response.json({ error: "Failed to compute total amount." }, { status: 500 });
     }
 
-    if (totalAmount.lte(0)) {
+    if (computedTotal.lte(0)) {
       return Response.json({ error: "Computed bill amount is zero — check your meter readings." }, { status: 400 });
     }
 
-    // Count eligible members
-    const eligibleMembers = await db.user.findMany({
-      where: {
-        joinedAt: { lte: prevEnd },
-        OR: [
-          { deactivatedAt: null },
-          { deactivatedAt: { gte: prevStart } },
-        ],
-      },
-      select: { id: true },
+    const totalAmount = computedTotal.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+
+    // Freeze the exact members who were active at any point during the bill month.
+    const members = await db.user.findMany({
+      select: { id: true, joinedAt: true, deactivatedAt: true },
     });
+    const eligibleMembers = members.filter((member) =>
+      isMemberEligibleForFridgeBill(member.joinedAt, member.deactivatedAt, prevStart)
+    );
 
     const memberCount = eligibleMembers.length;
     if (memberCount === 0) {
       return Response.json({ error: "No eligible members found for this month." }, { status: 400 });
     }
 
-    const perMemberAmount = computePerMemberAmount(totalAmount, memberCount);
-    if (!perMemberAmount) {
-      return Response.json({ error: "Failed to compute per-member amount." }, { status: 500 });
-    }
+    const allocations = computeFridgeAllocations(
+      totalAmount,
+      eligibleMembers.map((member) => member.id)
+    );
+    const postedAt = new Date();
 
-    const bill = await db.fridgeBill.create({
-      data: {
-        month: monthDate,
-        previousReading,
-        currentReading,
-        unitPrice,
-        totalAmount,
-        perMemberAmount,
-        memberCount,
-        postedAt: new Date(),
-        postedById: user.id,
-      },
+    const bill = await db.$transaction(async (tx) => {
+      const created = await tx.fridgeBill.create({
+        data: {
+          month: monthDate,
+          previousReading,
+          currentReading,
+          unitPrice,
+          totalAmount,
+          memberCount,
+          postedAt,
+          postedById: user.id,
+        },
+      });
+
+      await tx.fridgeAllocation.createMany({
+        data: allocations.map((allocation) => ({
+          billId: created.id,
+          userId: allocation.userId,
+          amount: allocation.amount,
+          allocatedAt: postedAt,
+        })),
+      });
+
+      return created;
     });
+
+    const allocationAmounts = allocations.map((allocation) => allocation.amount);
 
     return Response.json({
       data: {
@@ -136,8 +163,11 @@ export async function POST(request: Request) {
         currentReading: bill.currentReading.toFixed(2),
         unitPrice: bill.unitPrice.toFixed(4),
         totalAmount: bill.totalAmount.toFixed(2),
-        perMemberAmount: bill.perMemberAmount.toFixed(2),
         memberCount: bill.memberCount,
+        shareRange: {
+          min: Decimal.min(...allocationAmounts).toFixed(2),
+          max: Decimal.max(...allocationAmounts).toFixed(2),
+        },
       },
     }, { status: 201 });
   } catch (err) {

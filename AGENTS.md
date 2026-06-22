@@ -422,7 +422,7 @@ Operations that MUST use transactions:
 - Approving a MembershipRequest (creates User row + updates MembershipRequest.userId)
 - Midnight meal lock job (locks MealRecord rows + expires pending MealEditRequests)
 - Deactivating a member (updates User.status + User.deactivatedAt + sets meal_count = 0 on all future MealRecord rows from tomorrow onwards)
-- Posting a FridgeBill (creates FridgeBill row + may trigger related operations)
+- Posting a FridgeBill (creates the bill + exact FridgeAllocation rows)
 - Auto-applying maid charges (creates multiple MaidCharge rows for all active members)
 
 ---
@@ -497,7 +497,7 @@ Net Balance =
   + sum(BulkPayment.amount for user)
   - sum(MealRecord.meal_count × meal rate for that month)
   - sum(MaidCharge.amount for user)
-  - sum(FridgeBill.per_member_amount for user)
+  - sum(FridgeAllocation.amount for user)
   - sum(BulkAllocation.amount for user)
 ```
 
@@ -572,13 +572,15 @@ These are the rules most likely to be broken by a code agent.
 - FridgeBill.month refers to the previous month being settled — not the current month
 - Meter readings (previousReading, currentReading) are stored for record-keeping
 - totalAmount is calculated at posting time: (currentReading - previousReading) × unitPrice
-- per_member_amount is calculated at posting time: totalAmount ÷ count of all members
+- FridgeAllocation rows are created atomically at posting time for all members
   who were active at any point during the bill month
 - Deactivated members are included if they were active during the bill month — identical
   behaviour to BulkAllocation
-- per_member_amount is a frozen snapshot — never recalculated after posting
+- Allocation recipients are frozen snapshots; later lifecycle changes never alter them
+- Exact allocation amounts sum to totalAmount, with remainder paisa distributed deterministically
+- Bills, payments, allocations, balances, and settlement belong to FridgeBill.month
 - Only one FridgeBill per month. Block duplicates at the application layer.
-- FridgePayment mirrors MaidPayment exactly — payer gets credit, all members carry their debit
+- FridgePayment mirrors MaidPayment — payer gets credit, only frozen allocation recipients carry a debit
 - FridgeBill never enters the meal rate formula
 - SystemConfig.electricityUnitPrice is the default unit price, but can be overridden per bill
 
@@ -918,8 +920,8 @@ NEVER write business logic inside a route handler
 NEVER write database calls inside a domain function
 NEVER use the Pages Router — this project uses the App Router only
 NEVER use getServerSideProps or getStaticProps — they do not exist in App Router
-NEVER recalculate FridgeBill.per_member_amount after it has been posted
-NEVER recalculate FridgeBill.totalAmount after it has been posted
+NEVER add or remove FridgeAllocation recipients after a bill has been posted
+NEVER recalculate FridgeBill.totalAmount or allocation amounts after its month is settled
 NEVER post a FridgeBill for the current or a future month
 NEVER allow more than one FridgeBill per month
 NEVER blend FridgeBill cost into the meal rate formula

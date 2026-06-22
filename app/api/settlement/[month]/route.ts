@@ -53,6 +53,7 @@ export async function GET(
       bulkCycles,
       fridgePayments,
       fridgeBills,
+      fridgeAllocations,
       members,
     ] = await Promise.all([
       db.bazarExpense.findMany({
@@ -72,11 +73,14 @@ export async function GET(
         include: { bulkItem: { select: { name: true } }, purchasedBy: { select: { id: true, name: true, nickname: true } } },
       }),
       db.fridgePayment.findMany({
-        where: { paidAt: { gte: monthStart, lte: monthEnd } },
+        where: { bill: { month: monthDate } },
       }),
       db.fridgeBill.findMany({
-        where: { postedAt: { gte: monthStart, lte: monthEnd } },
-        select: { perMemberAmount: true, totalAmount: true },
+        where: { month: monthDate },
+        select: { totalAmount: true },
+      }),
+      db.fridgeAllocation.findMany({
+        where: { bill: { month: monthDate } },
       }),
       db.user.findMany({
         select: { id: true, name: true, nickname: true, avatarUrl: true },
@@ -112,7 +116,6 @@ export async function GET(
 
     // fridge total for the month
     const totalFridgeBillAmount = sum(fridgeBills.map((b) => b.totalAmount.toString()));
-    const perMemberFridgeShare  = sum(fridgeBills.map((b) => b.perMemberAmount.toString()));
 
     // ── 4. Per-Person Breakdown ──────────────────────────────────────────────
     const personBreakdown = members.map((m) => {
@@ -135,7 +138,11 @@ export async function GET(
       }));
       const bulkAllocTotal  = sum(userBulkAllocs.map((a) => a.amount.toString()));
 
-      const fridgeShare = perMemberFridgeShare;
+      const fridgeShare = sum(
+        fridgeAllocations
+          .filter((allocation) => allocation.userId === m.id)
+          .map((allocation) => allocation.amount.toString())
+      );
 
       // Net
       const credits = bazarContributed.add(maidPaymentMade).add(bulkPurchaseMade).add(fridgePaymentMade);

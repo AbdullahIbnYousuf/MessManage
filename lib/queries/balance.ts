@@ -132,7 +132,7 @@ export async function fetchMonthBalances(
     bulkAllocRows,
     bulkPurchaseRows,
     fridgePaymentRows,
-    fridgeBills,
+    fridgeAllocationRows,
   ] = await Promise.all([
     db.maidCharge.groupBy({
       by: ["userId"],
@@ -156,12 +156,13 @@ export async function fetchMonthBalances(
     }),
     db.fridgePayment.groupBy({
       by: ["paidById"],
-      where: { paidAt: { gte: monthStart, lte: monthEnd } },
+      where: { bill: { month: monthDate } },
       _sum: { amount: true },
     }),
-    db.fridgeBill.findMany({
-      where: { postedAt: { gte: monthStart, lte: monthEnd } },
-      select: { perMemberAmount: true },
+    db.fridgeAllocation.groupBy({
+      by: ["userId"],
+      where: { bill: { month: monthDate } },
+      _sum: { amount: true },
     }),
   ]);
 
@@ -187,10 +188,8 @@ export async function fetchMonthBalances(
   const fridgePaymentMap = new Map(
     fridgePaymentRows.map((r) => [r.paidById, new Decimal(r._sum.amount?.toString() ?? "0")])
   );
-
-  const totalFridgeBillShare = fridgeBills.reduce(
-    (s, b) => s.add(new Decimal(b.perMemberAmount.toString())),
-    ZERO
+  const fridgeAllocationMap = new Map(
+    fridgeAllocationRows.map((r) => [r.userId, new Decimal(r._sum.amount?.toString() ?? "0")])
   );
 
   // ── 6. Compute totals and meal rate ─────────────────────────────────────
@@ -214,6 +213,7 @@ export async function fetchMonthBalances(
     const bulkPurchases = bulkPurchaseMap.get(m.id) ?? ZERO;
     const maidCharge = maidChargeMap.get(m.id) ?? ZERO;
     const bulkAllocations = bulkAllocMap.get(m.id) ?? ZERO;
+    const fridgeBillShare = fridgeAllocationMap.get(m.id) ?? ZERO;
 
     const balance = computeNetBalance({
       totalBazarSpend: bazarContributed,
@@ -222,7 +222,7 @@ export async function fetchMonthBalances(
       totalBulkPurchases: bulkPurchases,
       totalMealCost: mealCost,
       totalMaidCharges: maidCharge,
-      totalFridgeBillShare: totalFridgeBillShare,
+      totalFridgeBillShare: fridgeBillShare,
       totalBulkAllocations: bulkAllocations,
     });
 
@@ -240,7 +240,7 @@ export async function fetchMonthBalances(
         bulkPurchases,
         mealCost,
         maidCharge,
-        fridgeBillShare: totalFridgeBillShare,
+        fridgeBillShare,
         bulkAllocations,
       },
     };
@@ -251,7 +251,7 @@ export async function fetchMonthBalances(
     totalMonthMeals > 0 ||
     !totalMonthBazar.isZero() ||
     maidChargeRows.length > 0 ||
-    fridgeBills.length > 0 ||
+    fridgeAllocationRows.length > 0 ||
     bulkPurchaseRows.length > 0;
 
   return {
