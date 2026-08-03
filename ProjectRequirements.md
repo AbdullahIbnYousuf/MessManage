@@ -211,6 +211,9 @@ Visit count is always derived by counting completed bazar expense entries per us
 
 - Fixed monthly charge per active member. Does not depend on meal count.
 - Applied as a separate line item each month — never blended into the meal rate.
+- Charges are applied manually by an admin; they are never generated automatically.
+- An untouched month intentionally remains at zero maid charges and can settle at zero.
+- Admins may apply charges to the current month or a past unsettled month.
 - Default charge is 700 taka per member per month, stored in system configuration.
 - Admin can change the default. Changes do not automatically affect already-posted charges. However, admins have a "Reset Current Month Charges" action to delete and reapply charges for the current month based on the new rate.
 - Deactivated members are not charged for any month where they are fully deactivated.

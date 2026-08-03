@@ -115,7 +115,7 @@ without restructuring what exists.
 
 - ✅ Monthly maid charge system (flat fee per member)
 - ✅ Maid payment recording (who paid on behalf of group)
-- ✅ Automatic charge application on 1st of month (cron job)
+- ✅ Manual admin charge application for unsettled months
 - ✅ Admin ability to reset current month charges
 
 **Fridge Bills:**
@@ -142,7 +142,6 @@ without restructuring what exists.
 **Background Jobs:**
 
 - ✅ Midnight lock (locks yesterday's meals, expires edit requests)
-- ✅ Auto maid charges (applies charges on 1st of month)
 - ✅ Auto settle (runs settlement on 1st of month)
 
 ---
@@ -199,7 +198,7 @@ Follow this structure exactly. Do not invent new top-level folders.
 │   │   ├── admin/                ← Admin-only endpoints (settings, members, membership, meal-edit-requests)
 │   │   ├── members/              ← Member profiles and aggregates
 │   │   ├── dashboard/            ← Dashboard data endpoint
-│   │   └── cron/                 ← Vercel cron job endpoints (midnight-lock, auto-maid-charges, auto-settle)
+│   │   └── cron/                 ← Vercel cron endpoints (midnight-lock, auto-settle, meal-reminders)
 │   ├── (auth)/                   ← Login, pending-approval, rejected, deactivated pages
 │   ├── dashboard/
 │   ├── meals/
@@ -423,7 +422,7 @@ Operations that MUST use transactions:
 - Midnight meal lock job (locks MealRecord rows + expires pending MealEditRequests)
 - Deactivating a member (updates User.status + User.deactivatedAt + sets meal_count = 0 on all future MealRecord rows from tomorrow onwards)
 - Posting a FridgeBill (creates the bill + exact FridgeAllocation rows)
-- Auto-applying maid charges (creates multiple MaidCharge rows for all active members)
+- Manually applying maid charges (creates multiple MaidCharge rows for eligible members)
 
 ---
 
@@ -563,6 +562,8 @@ These are the rules most likely to be broken by a code agent.
 ### Maid Rules
 
 - MaidCharge is a flat fee per active member per month. It does not depend on meal count.
+- Maid charges are manual-only. If an admin does not apply them, the month remains at zero maid charges.
+- Admins may apply charges to the current month or any past unsettled month.
 - MaidPayment is separate from BazarExpense and must never affect the meal rate.
 - Changing SystemConfig.maidChargeDefault does not automatically affect already-posted MaidCharge rows. Admins must use the "Reset Current Month Charges" action to delete and reapply charges for the current month based on the new rate.
 - Deactivated members do not receive a MaidCharge for months where they are fully deactivated.
@@ -724,12 +725,12 @@ export async function GET(request: Request) {
       "schedule": "0 0 * * *"
     },
     {
-      "path": "/api/cron/auto-maid-charges",
-      "schedule": "0 0 28 * *"
-    },
-    {
       "path": "/api/cron/auto-settle",
       "schedule": "0 0 5 * *"
+    },
+    {
+      "path": "/api/cron/meal-reminders",
+      "schedule": "30 14 * * *"
     }
   ]
 }
@@ -738,8 +739,8 @@ export async function GET(request: Request) {
 Three cron jobs are configured:
 
 1. **Midnight Lock** (daily at 00:00 UTC) — locks yesterday's meals and expires pending edit requests
-2. **Auto Maid Charges** (monthly at 00:00 UTC on the 28th) — applies maid charges for the current month (gives members notice before month-end)
-3. **Auto Settle** (monthly at 00:00 UTC on the 5th) — runs settlement for the previous month (allows buffer for late entries)
+2. **Auto Settle** (monthly at 00:00 UTC on the 5th) — runs settlement for the previous month (allows buffer for late entries)
+3. **Meal Reminders** — sends configured meal reminders; it does not create financial records
 
 ### Cron Endpoint Authentication
 
@@ -778,23 +779,11 @@ This job must be idempotent — running it twice must produce the same result as
 it once. Locking an already-locked record or expiring an already-expired request must
 not cause an error.
 
-### Auto Maid Charges Job
+### Manual Maid Charges
 
-This job runs at 01:00 on the 1st of every month. It automatically applies maid charges
-for the new month to all active members.
-
-```
-1. Get the current month (first day of the month)
-2. Get SystemConfig.maidChargeDefault
-3. Find all active users (status = 'active')
-4. For each active user, create a MaidCharge row with:
-   - userId = user.id
-   - amount = maidChargeDefault
-   - month = current month (first day)
-   - appliedAt = now
-5. Use a transaction to create all charges atomically
-6. Skip users who already have a charge for this month (idempotent)
-```
+Maid charges are never created by a cron job. An admin explicitly applies the configured
+charge to eligible members for the current month or a past unsettled month. If the action
+is not triggered, that month remains at zero maid charges.
 
 ### Auto Settle Job
 

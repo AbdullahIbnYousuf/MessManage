@@ -41,7 +41,6 @@ interface Props {
   dayName: string;
   isMaidChargeAlertPeriod: boolean;
   isMaidChargeApplied: boolean;
-  daysUntilMaidCharge: number;
 }
 
 /* ── Animated number counter ── */
@@ -143,7 +142,6 @@ export default function DashboardClient({
   dayName,
   isMaidChargeAlertPeriod,
   isMaidChargeApplied,
-  daysUntilMaidCharge,
 }: Props) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [balance, setBalance] = useState<string | null>(null);
@@ -245,16 +243,10 @@ export default function DashboardClient({
               <span style={{ fontSize: "1rem", lineHeight: 1.5 }}>🧹</span>
               <div>
                 <div style={{ fontWeight: 700, fontSize: "0.875rem", color: "var(--color-secondary)", marginBottom: "0.2rem" }}>
-                  {daysUntilMaidCharge === 0
-                    ? "Maid Charges Applying Today"
-                    : daysUntilMaidCharge === 1
-                    ? "Maid Charges Apply Tomorrow"
-                    : `Maid Charges in ${daysUntilMaidCharge} Days`}
+                  Maid Charges Not Applied
                 </div>
                 <div style={{ fontSize: "0.8125rem", color: "var(--color-text-secondary)" }}>
-                  {daysUntilMaidCharge === 0
-                    ? "Maid charges will be auto-applied to all active members today."
-                    : "Maid charges will be auto-applied to all active members on the 28th."}
+                  An admin can apply them manually. If skipped, this month remains at ৳0.
                 </div>
               </div>
             </div>

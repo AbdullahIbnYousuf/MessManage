@@ -1,9 +1,8 @@
-// GET /api/maid/charges — get maid charges for the current month (all active members)
-// Used to show the current month charge status
+// GET /api/maid/charges — get maid charges for a requested month
 
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
-import { currentMonthKey, previousMonthKey } from "@/lib/utils/dates";
+import { currentMonthKey } from "@/lib/utils/dates";
 
 export async function GET(request: Request) {
   try {
@@ -11,22 +10,33 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const monthParam = searchParams.get("month");
-    const monthKey = monthParam === "prev" ? previousMonthKey() : currentMonthKey();
+    const requestedMonth = monthParam ?? currentMonthKey().slice(0, 7);
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth)) {
+      return Response.json({ error: "Invalid month format. Use YYYY-MM." }, { status: 400 });
+    }
+    const monthKey = `${requestedMonth}-01`;
     const monthDate = new Date(monthKey);
 
-    const charges = await db.maidCharge.findMany({
-      where: { month: monthDate },
-      include: {
-        user: { select: { id: true, name: true, nickname: true, avatarUrl: true, status: true } },
-      },
-      orderBy: { user: { name: "asc" } },
-    });
+    const [charges, settlement] = await Promise.all([
+      db.maidCharge.findMany({
+        where: { month: monthDate },
+        include: {
+          user: { select: { id: true, name: true, nickname: true, avatarUrl: true, status: true } },
+        },
+        orderBy: { user: { name: "asc" } },
+      }),
+      db.monthlySettlement.findFirst({
+        where: { month: monthDate },
+        select: { id: true },
+      }),
+    ]);
 
     const config = await db.systemConfig.findFirst();
 
     return Response.json({
       data: {
         month: monthKey,
+        isSettled: settlement !== null,
         defaultCharge: config?.maidChargeDefault.toFixed(2) ?? "700.00",
         charges: charges.map((c) => ({
           id: c.id,

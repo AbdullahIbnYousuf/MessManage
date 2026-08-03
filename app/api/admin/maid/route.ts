@@ -1,18 +1,36 @@
-// POST /api/admin/maid — apply maid charges to all active members for the current month
+// POST /api/admin/maid — manually apply maid charges for an unsettled month
 
 import { requireAdmin } from "@/lib/session";
 import { db } from "@/lib/db";
+import { isMemberEligibleForMaidCharge } from "@/lib/domain/maid";
 import { currentMonthKey, getNow } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
     await requireAdmin();
 
-    const monthKey = currentMonthKey();
-    const monthDate = new Date(monthKey);
+    const body = await request.json().catch(() => ({})) as { month?: unknown };
+    const requestedMonth = typeof body.month === "string" ? body.month : currentMonthKey().slice(0, 7);
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth)) {
+      return Response.json({ error: "Invalid month format. Use YYYY-MM." }, { status: 400 });
+    }
 
-    // Check if charges already applied this month
+    const monthKey = `${requestedMonth}-01`;
+    if (monthKey > currentMonthKey()) {
+      return Response.json({ error: "Maid charges cannot be applied to a future month." }, { status: 400 });
+    }
+
+    const monthDate = new Date(monthKey);
+    const settled = await db.monthlySettlement.findFirst({
+      where: { month: monthDate },
+      select: { id: true },
+    });
+    if (settled) {
+      return Response.json({ error: "This month has already been settled." }, { status: 400 });
+    }
+
+    // A month is either wholly uncharged or charged once for every eligible member.
     const existing = await db.maidCharge.findFirst({
       where: { month: monthDate },
     });
@@ -27,15 +45,21 @@ export async function POST() {
     const config = await db.systemConfig.findFirst();
     const defaultCharge = new Decimal(config?.maidChargeDefault.toString() ?? "700");
 
-    // Get all active members
+    // For a past month, use lifecycle dates rather than current account status.
     const members = await db.user.findMany({
-      where: { status: "active" },
-      select: { id: true },
+      select: { id: true, joinedAt: true, deactivatedAt: true },
     });
+    const eligibleMembers = members.filter((member) =>
+      isMemberEligibleForMaidCharge(member.joinedAt, member.deactivatedAt, monthDate)
+    );
+
+    if (eligibleMembers.length === 0) {
+      return Response.json({ error: "No members were active during this month." }, { status: 400 });
+    }
 
     const now = getNow();
-    const chargeRows = members.map((m) => ({
-      userId: m.id,
+    const chargeRows = eligibleMembers.map((member) => ({
+      userId: member.id,
       amount: defaultCharge,
       month: monthDate,
       appliedAt: now,

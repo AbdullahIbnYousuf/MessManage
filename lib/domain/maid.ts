@@ -16,6 +16,22 @@ export function computeMaidCharge(
   return defaultCharge;
 }
 
+/** A member is charged when they were active at any point in the month. */
+export function isMemberEligibleForMaidCharge(
+  joinedAt: Date,
+  deactivatedAt: Date | null,
+  monthStart: Date
+): boolean {
+  const nextMonthStart = new Date(Date.UTC(
+    monthStart.getUTCFullYear(),
+    monthStart.getUTCMonth() + 1,
+    1
+  ));
+
+  return joinedAt < nextMonthStart
+    && (deactivatedAt === null || deactivatedAt >= monthStart);
+}
+
 /**
  * Validates a maid payment amount. Returns an error string or null.
  */

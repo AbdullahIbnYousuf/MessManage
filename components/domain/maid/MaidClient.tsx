@@ -185,23 +185,26 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [applySuccess, setApplySuccess] = useState(false);
+  const [isSelectedMonthSettled, setIsSelectedMonthSettled] = useState(false);
   const [pastPaymentsExpanded, setPastPaymentsExpanded] = useState(false);
 
   const [selectedMonth, setSelectedMonth] = useState<"current" | "prev">("current");
 
   const load = useCallback(async (month: "current" | "prev" = "current") => {
     setLoading(true);
-    const query = month === "prev" ? "?month=prev" : "";
+    const monthKey = month === "prev" ? previousMonthKey() : currentMonthKey;
+    const query = `?month=${monthKey.slice(0, 7)}`;
     const [chargesRes, paymentsRes] = await Promise.all([
       fetch(`/api/maid/charges${query}`),
       fetch("/api/maid/payment"),
     ]);
-    const chargesJson = await chargesRes.json() as { data?: { charges: ChargeEntry[]; defaultCharge: string } };
+    const chargesJson = await chargesRes.json() as { data?: { charges: ChargeEntry[]; defaultCharge: string; isSettled: boolean } };
     const paymentsJson = await paymentsRes.json() as { data?: Payment[] };
     setCharges(chargesJson.data?.charges ?? []);
+    setIsSelectedMonthSettled(chargesJson.data?.isSettled ?? false);
     setPayments(paymentsJson.data ?? []);
     setLoading(false);
-  }, []);
+  }, [currentMonthKey]);
 
   useEffect(() => { void load(selectedMonth); }, [load, selectedMonth]);
 
@@ -255,13 +258,18 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
     setApplyError(null);
     setApplySuccess(false);
     try {
-      const res = await fetch("/api/admin/maid", { method: "POST" });
+      const month = selectedMonth === "prev" ? previousMonthKey() : currentMonthKey;
+      const res = await fetch("/api/admin/maid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ month: month.slice(0, 7) }),
+      });
       const json = await res.json() as { error?: string; data?: { applied: number } };
       if (!res.ok) {
         setApplyError(json.error ?? "Failed to apply charges.");
       } else {
         setApplySuccess(true);
-        void load();
+        void load(selectedMonth);
       }
     } catch {
       setApplyError("Network error.");
@@ -307,7 +315,7 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
               transition: "all 0.18s ease",
               touchAction: "manipulation",
               WebkitTapHighlightColor: "transparent",
-              minHeight: "32px",
+              minHeight: "44px",
             }}
           >
             Current Month
@@ -326,15 +334,15 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
               transition: "all 0.18s ease",
               touchAction: "manipulation",
               WebkitTapHighlightColor: "transparent",
-              minHeight: "32px",
+              minHeight: "44px",
             }}
           >
             Previous Month
           </button>
         </div>
 
-        {isAdmin && !chargesApplied && selectedMonth === "current" && (
-          <button className="btn btn-primary" onClick={() => void applyCharges()} disabled={applying}>
+        {isAdmin && !chargesApplied && !isSelectedMonthSettled && (
+          <button className="btn btn-primary" style={{ minHeight: 44, width: "100%" }} onClick={() => void applyCharges()} disabled={applying}>
             {applying ? <span className="spinner" /> : `Apply ৳${defaultCharge} Charge to All`}
           </button>
         )}
@@ -356,7 +364,9 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
               <span>{selectedMonth === "current" ? "Charges This Month" : "Charges Previous Month"}</span>
               {chargesApplied
                 ? <span className="badge badge-success">Applied</span>
-                : <span className="badge badge-warning">Not Applied Yet</span>}
+                : isSelectedMonthSettled
+                  ? <span className="badge">Settled at ৳0</span>
+                  : <span className="badge badge-warning">Not Applied</span>}
             </div>
 
             {chargesApplied ? (
@@ -380,8 +390,10 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
             ) : (
               <p className="text-secondary" style={{ fontSize: "0.875rem" }}>
                 {isAdmin
-                  ? `No maid charges applied yet for ${monthLabel}. Use the button above to apply ৳${defaultCharge} to each active member.`
-                  : `No maid charges have been applied yet for ${monthLabel}.`}
+                  ? isSelectedMonthSettled
+                    ? `${monthLabel} was settled without maid charges.`
+                    : `No maid charges for ${monthLabel}. If left untouched, this month stays at ৳0.`
+                  : `No maid charges have been applied for ${monthLabel}; the month remains at ৳0.`}
               </p>
             )}
           </div>

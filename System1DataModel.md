@@ -389,6 +389,9 @@ The monthly fixed maid fee applied to each active member. It is a separate line 
 #### Business Rules
 
 - Maid charge does not depend on meal count — it is a flat fee per active member.
+- Maid charges are applied manually by an admin. There is no automatic charge job.
+- If an admin does not apply charges for an unsettled month, that month remains at zero maid charges.
+- An admin may apply charges to the current month or a past unsettled month.
 - Deactivated members do not receive a MaidCharge.
 - The amount is stored at posting time from SystemConfig.maid_charge_default. Changes to the default do not affect already-posted charges.
 - Admin can set a custom amount per member per month if needed, overriding the default.

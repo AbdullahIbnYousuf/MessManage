@@ -5,10 +5,6 @@
       "schedule": "0 0 * * *"
     },
     {
-      "path": "/api/cron/auto-maid-charges",
-      "schedule": "0 0 28 * *"
-    },
-    {
       "path": "/api/cron/auto-settle",
       "schedule": "0 0 20 * *"
     },

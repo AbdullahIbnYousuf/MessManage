@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import Decimal from "decimal.js";
-import { computeMaidCharge, validateMaidPayment } from "@/lib/domain/maid";
+import { computeMaidCharge, isMemberEligibleForMaidCharge, validateMaidPayment } from "@/lib/domain/maid";
 
 describe("computeMaidCharge", () => {
   it("returns default charge for active members", () => {
@@ -9,6 +9,34 @@ describe("computeMaidCharge", () => {
 
   it("returns zero for deactivated members", () => {
     expect(computeMaidCharge(new Decimal("700"), "deactivated").toFixed(2)).toBe("0.00");
+  });
+});
+
+describe("isMemberEligibleForMaidCharge", () => {
+  const month = new Date("2026-07-01T00:00:00.000Z");
+
+  it("includes a member active during the requested month", () => {
+    expect(isMemberEligibleForMaidCharge(new Date("2026-06-10"), null, month)).toBe(true);
+  });
+
+  it("excludes a member who joined after the requested month", () => {
+    expect(isMemberEligibleForMaidCharge(new Date("2026-08-01"), null, month)).toBe(false);
+  });
+
+  it("includes a member deactivated during the requested month", () => {
+    expect(isMemberEligibleForMaidCharge(
+      new Date("2026-05-01"),
+      new Date("2026-07-15"),
+      month
+    )).toBe(true);
+  });
+
+  it("excludes a member deactivated before the requested month", () => {
+    expect(isMemberEligibleForMaidCharge(
+      new Date("2026-05-01"),
+      new Date("2026-06-30"),
+      month
+    )).toBe(false);
   });
 });
 

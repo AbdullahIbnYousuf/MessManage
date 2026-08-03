@@ -49,8 +49,6 @@ export default async function DashboardPage() {
     isMaidChargeApplied = !!chargeExists;
   }
 
-  const daysUntilMaidCharge = 28 - day; // 0 on the 28th, positive before
-
   return (
     <DashboardClient
       userId={sessionUser.id}
@@ -64,7 +62,6 @@ export default async function DashboardPage() {
       dayName={dayName}
       isMaidChargeAlertPeriod={isMaidChargeAlertPeriod}
       isMaidChargeApplied={isMaidChargeApplied}
-      daysUntilMaidCharge={daysUntilMaidCharge}
     />
   );
 }
