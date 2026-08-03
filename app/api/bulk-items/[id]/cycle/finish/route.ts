@@ -3,7 +3,7 @@
 
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
-import { computeUserBulkAllocation } from "@/lib/domain/bulk";
+import { computeBulkAllocations } from "@/lib/domain/bulk";
 import Decimal from "decimal.js";
 import { today, isDeadlinePassed, getNow } from "@/lib/utils/dates";
 
@@ -64,19 +64,19 @@ export async function POST(
     const now = getNow();
 
     // Build allocation rows for all users who had meals during the cycle
-    const allocationRows = mealTotals
-      .filter((row) => (row._sum.mealCount ?? 0) > 0)
-      .map((row) => {
-        const userMeals = row._sum.mealCount ?? 0;
-        const allocation = computeUserBulkAllocation(cycleCost, totalMeals, userMeals);
-        return {
-          cycleId: cycle.id,
-          userId: row.userId,
-          mealsDuringCycle: userMeals,
-          amount: allocation,
-          allocatedAt: now,
-        };
-      });
+    const allocationRows = computeBulkAllocations(
+      cycleCost,
+      mealTotals.map((row) => ({
+        userId: row.userId,
+        meals: row._sum.mealCount ?? 0,
+      }))
+    ).map((allocation) => ({
+      cycleId: cycle.id,
+      userId: allocation.userId,
+      mealsDuringCycle: allocation.meals,
+      amount: allocation.amount,
+      allocatedAt: now,
+    }));
 
     // Close cycle + create allocation rows atomically
     await db.$transaction([

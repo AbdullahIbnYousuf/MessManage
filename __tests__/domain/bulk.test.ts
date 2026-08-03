@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from "vitest";
 import Decimal from "decimal.js";
-import { computeUserBulkAllocation, validateBulkCost } from "@/lib/domain/bulk";
+import { computeBulkAllocations, computeUserBulkAllocation, validateBulkCost } from "@/lib/domain/bulk";
 
 // ─── computeUserBulkAllocation ───────────────────────────────────────────────
 
@@ -54,6 +54,36 @@ describe("computeUserBulkAllocation", () => {
     // Due to rounding, the sum might differ by a tiny fraction
     // but for these exact values it should be exact
     expect(sum.toFixed(2)).toBe("1400.00");
+  });
+});
+
+describe("computeBulkAllocations", () => {
+  it("distributes remainder paisa so allocations exactly equal the cycle cost", () => {
+    const allocations = computeBulkAllocations(new Decimal("1720"), [
+      { userId: "shafin", meals: 54 },
+      { userId: "shrestha", meals: 53 },
+      { userId: "jameel", meals: 48 },
+      { userId: "abdullah", meals: 31 },
+      { userId: "mostafijur", meals: 11 },
+      { userId: "irfan", meals: 36 },
+    ]);
+
+    const total = allocations.reduce(
+      (sum, allocation) => sum.add(allocation.amount),
+      new Decimal(0)
+    );
+    expect(total.toFixed(2)).toBe("1720.00");
+    expect(allocations.find((a) => a.userId === "mostafijur")?.amount.toFixed(2)).toBe("81.20");
+  });
+
+  it("uses user id as a stable tie-breaker", () => {
+    const allocations = computeBulkAllocations(new Decimal("0.01"), [
+      { userId: "b", meals: 1 },
+      { userId: "a", meals: 1 },
+    ]);
+
+    expect(allocations.find((a) => a.userId === "a")?.amount.toFixed(2)).toBe("0.01");
+    expect(allocations.find((a) => a.userId === "b")?.amount.toFixed(2)).toBe("0.00");
   });
 });
 
