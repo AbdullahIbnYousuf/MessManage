@@ -8,9 +8,11 @@ import {
   canRespondToTransfer,
   decodeLedgerCursor,
   paginateLedgerEntries,
+  paginateDebtRequests,
   parsePositiveAmount,
   positionForMember,
   validateOptionalDescription,
+  validateRequiredDescription,
   validateRejectionReason,
   validateUuid,
 } from "@/lib/domain/debts";
@@ -35,6 +37,7 @@ function obligation(
     source: "meal_settlement",
     sourceReference: `meal-settlement:${id}`,
     monthlySettlementId: `settlement-${id}`,
+    debtRequestId: null,
     month,
     createdAt: new Date(`${month}-20T00:00:00.000Z`),
   };
@@ -171,6 +174,7 @@ function ledgerEntry(
       source: "meal_settlement",
       sourceReference: `meal-settlement:${id}`,
       month: "2026-05",
+      debtRequestId: null,
       debtor: member,
       creditor: { ...member, id: "other" },
     };
@@ -232,6 +236,40 @@ describe("DebtSync ledger and validation", () => {
     expect(validateOptionalDescription("  Paid in cash  ")).toBe("Paid in cash");
     expect(validateOptionalDescription("   ")).toBeNull();
     expect(() => validateOptionalDescription("x".repeat(301))).toThrow();
+  });
+
+  it("requires a meaningful debt request description", () => {
+    expect(validateRequiredDescription("  Shared medicine  ")).toBe("Shared medicine");
+    expect(() => validateRequiredDescription("no")).toThrow();
+    expect(() => validateRequiredDescription("x".repeat(301))).toThrow();
+  });
+
+  it("paginates participant debt requests deterministically", () => {
+    const participant = { id: "member", name: "Member", avatarUrl: null };
+    const makeRequest = (id: string, createdAt: string) => ({
+      id,
+      amount: "10.00",
+      description: "Shared purchase",
+      status: "pending" as const,
+      rejectionReason: null,
+      createdAt,
+      respondedAt: null,
+      cancelledAt: null,
+      obligationId: null,
+      requester: participant,
+      debtor: { ...participant, id: "other" },
+    });
+    const firstId = "00000000-0000-4000-8000-000000000010";
+    const secondId = "00000000-0000-4000-8000-000000000011";
+    const requests = [
+      makeRequest(firstId, "2026-08-05T00:00:00.000Z"),
+      makeRequest(secondId, "2026-08-06T00:00:00.000Z"),
+    ];
+    const page = paginateDebtRequests(requests, 1);
+    expect(page.requests[0]?.id).toBe(secondId);
+    expect(page.nextCursor).not.toBeNull();
+    expect(paginateDebtRequests(requests, 1, page.nextCursor!).requests[0]?.id).toBe(firstId);
+    expect(() => paginateDebtRequests(requests, 1, "bad-cursor")).toThrow();
   });
 
   it("validates UUIDs and rejection reasons without coercion", () => {

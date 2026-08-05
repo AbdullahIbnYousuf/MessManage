@@ -2,6 +2,7 @@ import type {
   DebtNotificationEntity,
   DebtNotificationType,
   DebtObligationSource,
+  DebtRequestStatus,
   PushDeliveryStatus,
   TransferSource,
   TransferStatus,
@@ -20,8 +21,9 @@ export type DebtObligationBalanceRecord = {
   amount: string;
   source: DebtObligationSource;
   sourceReference: string;
-  monthlySettlementId: string;
-  month: string;
+  monthlySettlementId: string | null;
+  debtRequestId: string | null;
+  month: string | null;
   createdAt: Date;
 };
 
@@ -46,6 +48,8 @@ export type DebtPaymentDetail = DebtPaymentLedgerEntry & {
 
 export type DebtClearance = DebtMemberTotals & {
   pendingCount: number;
+  pendingPaymentCount: number;
+  pendingDebtRequestCount: number;
   canDeactivate: boolean;
 };
 
@@ -76,7 +80,8 @@ export type DebtObligationLedgerEntry = {
   amount: string;
   source: DebtObligationSource;
   sourceReference: string;
-  month: string;
+  month: string | null;
+  debtRequestId: string | null;
   debtor: DebtMember;
   creditor: DebtMember;
 };
@@ -115,9 +120,38 @@ export type DebtLedgerPage = {
 export type DebtDashboardSummary = DebtMemberTotals & {
   pendingIncomingCount: number;
   pendingOutgoingCount: number;
+  pendingDebtRequestIncomingCount: number;
+  pendingDebtRequestOutgoingCount: number;
   unreadNotificationCount: number;
   pairwise: DebtSummaryPairwise[];
   recentActivity: DebtLedgerEntry[];
+};
+
+export type DebtRequestItem = {
+  id: string;
+  amount: string;
+  description: string;
+  status: DebtRequestStatus;
+  rejectionReason: string | null;
+  createdAt: string;
+  respondedAt: string | null;
+  cancelledAt: string | null;
+  obligationId: string | null;
+  requester: DebtMember;
+  debtor: DebtMember;
+};
+
+export type DebtRequestPage = {
+  requests: DebtRequestItem[];
+  nextCursor: string | null;
+};
+
+export type DebtRequestFilters = {
+  userId: string;
+  direction?: "all" | "incoming" | "outgoing";
+  status?: DebtRequestStatus;
+  cursor?: string;
+  limit?: number;
 };
 
 export type DebtLedgerFilters = {

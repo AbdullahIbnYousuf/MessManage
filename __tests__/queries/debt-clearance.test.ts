@@ -12,6 +12,7 @@ describe("fetchDebtClearance", () => {
         ]),
       },
       transfer: { findMany: vi.fn().mockResolvedValue([]) },
+      debtRequest: { count: vi.fn().mockResolvedValue(0) },
     };
 
     await expect(fetchDebtClearance(client as never, "member")).resolves.toEqual({
@@ -19,6 +20,8 @@ describe("fetchDebtClearance", () => {
       owedToYou: "4.10",
       net: "-8.25",
       pendingCount: 0,
+      pendingPaymentCount: 0,
+      pendingDebtRequestCount: 0,
       canDeactivate: false,
     });
   });
@@ -31,12 +34,15 @@ describe("fetchDebtClearance", () => {
           { senderId: "member", receiverId: "a", amount: new Decimal("5.00"), status: "pending" },
         ]),
       },
+      debtRequest: { count: vi.fn().mockResolvedValue(0) },
     };
 
     await expect(fetchDebtClearance(client as never, "member")).resolves.toMatchObject({
       youOwe: "0.00",
       owedToYou: "0.00",
       pendingCount: 1,
+      pendingPaymentCount: 1,
+      pendingDebtRequestCount: 0,
       canDeactivate: false,
     });
   });
@@ -45,11 +51,27 @@ describe("fetchDebtClearance", () => {
     const client = {
       debtObligation: { findMany: vi.fn().mockResolvedValue([]) },
       transfer: { findMany: vi.fn().mockResolvedValue([]) },
+      debtRequest: { count: vi.fn().mockResolvedValue(0) },
     };
 
     await expect(fetchDebtClearance(client as never, "member")).resolves.toMatchObject({
       pendingCount: 0,
       canDeactivate: true,
+    });
+  });
+
+  it("blocks a debt-free member while a debt request is pending", async () => {
+    const client = {
+      debtObligation: { findMany: vi.fn().mockResolvedValue([]) },
+      transfer: { findMany: vi.fn().mockResolvedValue([]) },
+      debtRequest: { count: vi.fn().mockResolvedValue(1) },
+    };
+
+    await expect(fetchDebtClearance(client as never, "member")).resolves.toMatchObject({
+      pendingCount: 1,
+      pendingPaymentCount: 0,
+      pendingDebtRequestCount: 1,
+      canDeactivate: false,
     });
   });
 });

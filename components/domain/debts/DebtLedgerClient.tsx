@@ -8,7 +8,7 @@ import DebtLedgerEntryCard from "@/components/domain/debts/DebtLedgerEntryCard";
 
 type Member = { id: string; name: string; nickname: string | null };
 
-export default function DebtLedgerClient() {
+export default function DebtLedgerClient({ currentUserId }: { currentUserId: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryString = searchParams.toString();
@@ -56,7 +56,7 @@ export default function DebtLedgerClient() {
       <label><span>From date</span><input className="input" type="date" value={searchParams.get("from") ?? ""} onChange={(event) => setFilter("from", event.target.value)} /></label>
       <label><span>To date</span><input className="input" type="date" value={searchParams.get("to") ?? ""} onChange={(event) => setFilter("to", event.target.value)} /></label>
     </div>
-    {loading ? <div className="debt-state"><span className="spinner" /> Loading ledger…</div> : error ? <div className="debt-error" role="alert">{error}<button className="btn btn-secondary" onClick={() => void load()}>Retry</button></div> : entries.length === 0 ? <div className="debt-empty">No records match these filters.</div> : <div className="debt-list">{entries.map((entry) => <DebtLedgerEntryCard key={`${entry.type}-${entry.id}`} entry={entry} />)}</div>}
+    {loading ? <div className="debt-state"><span className="spinner" /> Loading ledger…</div> : error ? <div className="debt-error" role="alert">{error}<button className="btn btn-secondary" onClick={() => void load()}>Retry</button></div> : entries.length === 0 ? <div className="debt-empty">No records match these filters.</div> : <div className="debt-list">{entries.map((entry) => <DebtLedgerEntryCard key={`${entry.type}-${entry.id}`} entry={entry} currentUserId={currentUserId} />)}</div>}
     {nextCursor && !loading && <button className="btn btn-secondary debt-load-more" disabled={loadingMore} onClick={() => void load(nextCursor)}>{loadingMore ? <><span className="spinner" /> Loading…</> : "Load more"}</button>}
   </div>;
 }

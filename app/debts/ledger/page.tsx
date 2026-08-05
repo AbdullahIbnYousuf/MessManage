@@ -9,5 +9,5 @@ export default async function DebtLedgerPage() {
   const user = await getSessionUser();
   if (!user) redirect("/auth/login");
   if (process.env.NEXT_PUBLIC_DEBTSYNC_ENABLED !== "true") redirect("/dashboard");
-  return <Suspense fallback={<div className="page-container debt-state"><span className="spinner" /> Loading ledger…</div>}><DebtLedgerClient /></Suspense>;
+  return <Suspense fallback={<div className="page-container debt-state"><span className="spinner" /> Loading ledger…</div>}><DebtLedgerClient currentUserId={user.id} /></Suspense>;
 }

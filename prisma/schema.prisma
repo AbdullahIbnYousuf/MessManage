@@ -48,6 +48,8 @@ model User {
   settlementRunsExecuted    MonthlySettlementRun[] @relation("SettlementRunActor")
   debtObligationsOwed       DebtObligation[]       @relation("DebtObligationDebtor")
   debtObligationsReceivable DebtObligation[]       @relation("DebtObligationCreditor")
+  debtRequestsMade          DebtRequest[]          @relation("DebtRequestRequester")
+  debtRequestsReceived      DebtRequest[]          @relation("DebtRequestDebtor")
   transfersSent             Transfer[]             @relation("TransferSender")
   transfersReceived         Transfer[]             @relation("TransferReceiver")
   debtNotifications         DebtNotification[]
@@ -296,16 +298,40 @@ model DebtObligation {
   amount              Decimal              @db.Decimal(12, 2)
   source              DebtObligationSource
   sourceReference     String               @unique @map("source_reference")
-  monthlySettlementId String               @unique @map("monthly_settlement_id")
+  monthlySettlementId String?              @unique @map("monthly_settlement_id")
+  debtRequestId       String?              @unique @map("debt_request_id")
   createdAt           DateTime             @map("created_at")
   debtor              User                 @relation("DebtObligationDebtor", fields: [debtorId], references: [id])
   creditor            User                 @relation("DebtObligationCreditor", fields: [creditorId], references: [id])
-  monthlySettlement   MonthlySettlement    @relation(fields: [monthlySettlementId], references: [id])
+  monthlySettlement   MonthlySettlement?   @relation(fields: [monthlySettlementId], references: [id], onDelete: Restrict)
+  debtRequest         DebtRequest?         @relation(fields: [debtRequestId], references: [id], onDelete: Restrict)
 
   @@index([debtorId, createdAt])
   @@index([creditorId, createdAt])
   @@index([source, createdAt])
   @@map("DebtObligation")
+}
+
+model DebtRequest {
+  id              String            @id @default(uuid())
+  requesterId     String            @map("requester_id")
+  debtorId        String            @map("debtor_id")
+  amount          Decimal           @db.Decimal(12, 2)
+  description     String
+  status          DebtRequestStatus @default(pending)
+  clientRequestId String            @unique @map("client_request_id")
+  rejectionReason String?           @map("rejection_reason")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  respondedAt     DateTime?         @map("responded_at")
+  cancelledAt     DateTime?         @map("cancelled_at")
+  requester       User              @relation("DebtRequestRequester", fields: [requesterId], references: [id])
+  debtor          User              @relation("DebtRequestDebtor", fields: [debtorId], references: [id])
+  obligation      DebtObligation?
+
+  @@index([requesterId, status, createdAt])
+  @@index([debtorId, status, createdAt])
+  @@index([status, createdAt])
+  @@map("DebtRequest")
 }
 
 model Transfer {
@@ -441,6 +467,14 @@ enum MealReminderType {
 
 enum DebtObligationSource {
   meal_settlement
+  member_request
+}
+
+enum DebtRequestStatus {
+  pending
+  accepted
+  rejected
+  cancelled
 }
 
 enum SettlementTrigger {
@@ -464,6 +498,7 @@ enum TransferSource {
 enum DebtNotificationEntity {
   obligation
   transfer
+  debt_request
 }
 
 enum DebtNotificationType {
@@ -476,6 +511,10 @@ enum DebtNotificationType {
   reversal_accepted
   reversal_rejected
   reversal_cancelled
+  debt_request_received
+  debt_request_accepted
+  debt_request_rejected
+  debt_request_cancelled
 }
 
 enum PushDeliveryStatus {

@@ -70,7 +70,8 @@ function obligationBalanceRecord(
     source: obligation.source,
     sourceReference: obligation.sourceReference,
     monthlySettlementId: obligation.monthlySettlementId,
-    month: obligation.monthlySettlement.month.toISOString().slice(0, 7),
+    debtRequestId: obligation.debtRequestId,
+    month: obligation.monthlySettlement?.month.toISOString().slice(0, 7) ?? null,
     createdAt: obligation.createdAt,
   };
 }
@@ -165,7 +166,7 @@ export async function fetchDebtSummary(
   currentUserId: string
 ): Promise<DebtDashboardSummary> {
   const involvement = transferMemberWhere(currentUserId);
-  const [obligations, transfers, members, unreadNotificationCount] = await Promise.all([
+  const [obligations, transfers, pendingDebtRequests, members, unreadNotificationCount] = await Promise.all([
     db.debtObligation.findMany({
       where: obligationMemberWhere(currentUserId),
       include: obligationInclude,
@@ -173,6 +174,13 @@ export async function fetchDebtSummary(
     db.transfer.findMany({
       where: involvement,
       include: transferInclude,
+    }),
+    db.debtRequest.findMany({
+      where: {
+        status: "pending",
+        OR: [{ requesterId: currentUserId }, { debtorId: currentUserId }],
+      },
+      select: { requesterId: true, debtorId: true },
     }),
     db.user.findMany({
       where: { id: { not: currentUserId } },
@@ -193,10 +201,21 @@ export async function fetchDebtSummary(
   const pendingOutgoing = transfers.filter(
     (transfer) => transfer.senderId === currentUserId && transfer.status === "pending"
   );
+  const pendingDebtRequestIncomingCount = pendingDebtRequests.filter(
+    (request) => request.debtorId === currentUserId
+  ).length;
+  const pendingDebtRequestOutgoingCount = pendingDebtRequests.filter(
+    (request) => request.requesterId === currentUserId
+  ).length;
   const pendingMemberIds = new Set(
-    [...pendingIncoming, ...pendingOutgoing].map((transfer) =>
-      transfer.senderId === currentUserId ? transfer.receiverId : transfer.senderId
-    )
+    [
+      ...[...pendingIncoming, ...pendingOutgoing].map((transfer) =>
+        transfer.senderId === currentUserId ? transfer.receiverId : transfer.senderId
+      ),
+      ...pendingDebtRequests.map((request) =>
+        request.requesterId === currentUserId ? request.debtorId : request.requesterId
+      ),
+    ]
   );
 
   const pairwise = members
@@ -243,6 +262,8 @@ export async function fetchDebtSummary(
     ...totals,
     pendingIncomingCount: pendingIncoming.length,
     pendingOutgoingCount: pendingOutgoing.length,
+    pendingDebtRequestIncomingCount,
+    pendingDebtRequestOutgoingCount,
     unreadNotificationCount,
     pairwise,
     recentActivity,
@@ -299,7 +320,7 @@ export async function fetchDebtObligations(
     where: {
       ...(filters.memberId ? obligationMemberWhere(filters.memberId) : {}),
       ...(filters.month
-        ? { monthlySettlement: { month: filters.month } }
+        ? { monthlySettlement: { is: { month: filters.month } } }
         : {}),
     },
     include: obligationInclude,

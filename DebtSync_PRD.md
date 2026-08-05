@@ -16,7 +16,7 @@
 
 ## 1. Product Summary
 
-DebtSync is the long-running debt and payment ledger for the existing MealSync household application. MealSync calculates permanent month-end obligations from meals and shared household costs. DebtSync receives those obligations, records actual payments between members, requires the receiver to confirm each payment, and derives the current debt position from the complete history.
+DebtSync is the long-running debt and payment ledger for the existing MealSync household application. MealSync calculates permanent month-end obligations from meals and shared household costs. DebtSync receives those obligations, records actual payments between members, allows members to request confirmation of personal debts, and derives the current debt position from the complete history.
 
 DebtSync will be built inside the existing MealSync web application. It will reuse the current Next.js App Router frontend and API routes, PostgreSQL database, Prisma ORM, Google OAuth membership, approved `User` records, member payment details, Vercel deployment, and browser push subscriptions.
 
@@ -37,6 +37,7 @@ DebtSync must close that gap without turning MealSync into a payment processor. 
 
 - Every MealSync settlement obligation appears exactly once.
 - Members can record money they actually sent.
+- Members can propose a personal debt that affects balances only after the named debtor confirms it.
 - A claimed payment has no accounting effect until its receiver confirms it.
 - Every balance can be reproduced from immutable source records.
 - Debts continue across months until later payments offset them.
@@ -53,6 +54,7 @@ DebtSync must close that gap without turning MealSync into a payment processor. 
 4. Preserve an immutable audit trail without storing calculated balances.
 5. Reuse the current MealSync identity, interface, deployment, and notification infrastructure.
 6. Work well on both desktop and mobile browsers.
+7. Allow participant-private debt requests without permitting unilateral balance changes.
 
 ### 3.2 Release Success Measures
 
@@ -100,6 +102,7 @@ An inactive, pending, rejected, or unauthenticated user cannot access DebtSync o
 
 - MealSync settlement obligation creation and historical backfill
 - Direct payment recording
+- Participant-confirmed member debt requests
 - Receiver acceptance and rejection
 - Sender cancellation while pending
 - Full reversal of an accepted payment through a new payment record
@@ -117,7 +120,6 @@ An inactive, pending, rejected, or unauthenticated user cannot access DebtSync o
 
 **Release 2**
 
-- Money requests that spawn payments after request acceptance
 - Group expenses with equal and custom fixed splits
 - Participant-level confirmation and dispute handling
 
@@ -147,7 +149,7 @@ An inactive, pending, rejected, or unauthenticated user cannot access DebtSync o
 
 DebtSync derives balances from only two Release 1 record classes:
 
-1. Immutable `DebtObligation` records created from MealSync settlements.
+1. Immutable `DebtObligation` records created from MealSync settlements or accepted member debt requests.
 2. `Transfer` records whose status is `accepted`.
 
 No balance, debt total, or snapshot is stored in Release 1.
@@ -190,6 +192,7 @@ overall_net(A) = sum of pairwise(A, every other member)
 - A payment may partially reduce a debt.
 - A payment may cover multiple historical obligations without explicit allocation.
 - A payment may exceed the current pairwise debt. The interface must warn the sender, but allow submission because the extra amount represents a real loan or credit in the opposite direction once accepted.
+- A pending, rejected, or cancelled debt request contributes zero. Acceptance creates one immutable obligation from the named debtor to the requester.
 
 ### 6.5 Precision and Currency
 
@@ -269,7 +272,17 @@ overall_net(A) = sum of pairwise(A, every other member)
 6. Only one pending or accepted reversal may exist for one original payment. A rejected or cancelled reversal may be retried.
 7. Reversal payments cannot themselves be reversed. A new direct payment must be used for any further correction.
 
-### 7.7 View the Ledger
+### 7.7 Request Debt Confirmation
+
+1. An active member selects **Request Debt** and names another active member as the proposed debtor.
+2. The requester enters a positive amount, a required explanation, and confirms submission.
+3. The request remains private to its two participants and has no accounting effect while pending.
+4. The named debtor accepts or rejects it; rejection requires a reason.
+5. Acceptance atomically creates one immutable `DebtObligation` from the debtor to the requester.
+6. The requester may cancel only while the request is pending.
+7. The accepted obligation appears in the shared ledger without exposing the private request description to other members.
+
+### 7.8 View the Ledger
 
 1. Any approved member opens the household ledger.
 2. DebtSync shows obligations and payments in one chronological view.
@@ -345,10 +358,10 @@ overall_net(A) = sum of pairwise(A, every other member)
 ### FR-08: Dashboard
 
 - Show `You owe`, `Owed to you`, and signed `Net position` separately.
-- Show one pairwise row for every member with whom the current user has a nonzero balance or pending payment.
+- Show one pairwise row for every member with whom the current user has a nonzero balance, pending payment, or pending debt request.
 - Show pending incoming actions before informational activity.
 - Show recent obligations and payments in reverse chronological order.
-- Provide clear links to send a payment, review pending payments, view the ledger, and open notifications.
+- Provide clear links to request debt, send a payment, review pending actions, view the ledger, and open notifications.
 - Never use color alone to communicate debt direction or payment status.
 
 ### FR-09: Shared Ledger
@@ -371,6 +384,7 @@ overall_net(A) = sum of pairwise(A, every other member)
 
 - An admin cannot deactivate a member if any pairwise balance involving that member is nonzero.
 - An admin cannot deactivate a member with any pending incoming or outgoing payment.
+- An admin cannot deactivate a member involved in any pending debt request.
 - The block response must identify the outstanding total and pending-action count without exposing secrets.
 - Historical obligations and payments remain visible after eventual deactivation.
 
@@ -380,6 +394,17 @@ overall_net(A) = sum of pairwise(A, every other member)
 - Financial records are never hard-deleted through application APIs.
 - Every state transition stores the responsible actor through sender/receiver ownership and transition timestamps.
 - Server logs must include entity ID and transition name but must not log bank account numbers or push-subscription secrets.
+
+### FR-13: Member Debt Requests
+
+- Only an authenticated active member may request debt confirmation from a different active member.
+- The authenticated member is always the requester and proposed creditor; the client cannot override identity.
+- Only the named debtor may accept or reject, and only the requester may cancel while pending.
+- Pending, rejected, and cancelled requests have no accounting effect.
+- Acceptance and creation of the matching `member_request` obligation occur atomically and exactly once.
+- Request creation is idempotent by a unique client-generated request ID.
+- Request details are readable only by both participants. Accepted obligations remain visible to all active members in the shared ledger.
+- Pending debt requests block deactivation of either participant.
 
 ---
 
@@ -405,6 +430,17 @@ MonthlySettlementRun committed
 ```
 
 A settlement run and its rows are immutable. An obligation has no mutable workflow status. Whether its economic effect has been offset is visible through the current pairwise balance, not by mutating the source obligation.
+
+### 9.3 Debt Request State Machine
+
+```text
+created -> pending
+pending -> accepted   (named debtor only; creates one obligation)
+pending -> rejected   (named debtor only; reason required)
+pending -> cancelled  (requester only)
+```
+
+All terminal request states are immutable. Only the accepted state creates an accounting source record.
 
 ---
 
@@ -437,9 +473,10 @@ Required indexes:
 | `debtorId` | User UUID | Required; differs from creditor |
 | `creditorId` | User UUID | Required; differs from debtor |
 | `amount` | Decimal(12,2) | Greater than zero |
-| `source` | `DebtObligationSource` | Release 1 value: `meal_settlement` |
-| `sourceReference` | String | Unique; `meal-settlement:<settlement-id>` |
-| `monthlySettlementId` | UUID | Required and unique in Release 1 |
+| `source` | `DebtObligationSource` | `meal_settlement` or `member_request` |
+| `sourceReference` | String | Unique; `meal-settlement:<id>` or `debt-request:<id>` |
+| `monthlySettlementId` | UUID, nullable | Unique; required only for settlement obligations |
+| `debtRequestId` | UUID, nullable | Unique; required only for accepted member requests |
 | `createdAt` | Timestamp | Original settlement time for backfill; commit time for new rows |
 
 Required indexes:
@@ -476,14 +513,37 @@ Required indexes:
 
 The partial unique index is a database requirement, not only an application pre-check, so concurrent reversal requests cannot both create active reversals.
 
-### 10.4 DebtNotification
+### 10.4 DebtRequest
+
+| Field | Type | Rules |
+|---|---|---|
+| `id` | UUID string | Primary key |
+| `requesterId` | User UUID | Authenticated requester and proposed creditor |
+| `debtorId` | User UUID | Different active member who must respond |
+| `amount` | Decimal(12,2) | Greater than zero |
+| `description` | String | Required, trimmed, 3-300 characters |
+| `status` | `DebtRequestStatus` | `pending`, `accepted`, `rejected`, `cancelled` |
+| `clientRequestId` | UUID string | Unique idempotency key |
+| `rejectionReason` | String, nullable | Required only when rejected; 3-300 characters |
+| `createdAt` | Timestamp | Server-generated |
+| `respondedAt` | Timestamp, nullable | Set on accept or reject |
+| `cancelledAt` | Timestamp, nullable | Set on cancellation |
+
+Required indexes:
+
+- Unique `(clientRequestId)`
+- `(requesterId, status, createdAt)`
+- `(debtorId, status, createdAt)`
+- `(status, createdAt)`
+
+### 10.5 DebtNotification
 
 | Field | Type | Rules |
 |---|---|---|
 | `id` | UUID string | Primary key |
 | `userId` | User UUID | Notification owner |
 | `type` | `DebtNotificationType` | Event-specific enum |
-| `entityType` | `DebtNotificationEntity` | `obligation` or `transfer` |
+| `entityType` | `DebtNotificationEntity` | `obligation`, `transfer`, or `debt_request` |
 | `entityId` | UUID | Related entity identifier |
 | `title` | String | Short display title |
 | `body` | String | Concise event summary, no sensitive banking data |
@@ -498,14 +558,15 @@ Required indexes:
 - `(userId, createdAt)`
 - `(entityType, entityId)`
 
-### 10.5 Required Enum Values
+### 10.6 Required Enum Values
 
 ```text
-DebtObligationSource: meal_settlement
+DebtObligationSource: meal_settlement, member_request
+DebtRequestStatus: pending, accepted, rejected, cancelled
 SettlementTrigger: manual, cron, backfill
 TransferStatus: pending, accepted, rejected, cancelled
 TransferSource: direct, reversal
-DebtNotificationEntity: obligation, transfer
+DebtNotificationEntity: obligation, transfer, debt_request
 DebtNotificationType:
   obligation_created
   payment_received
@@ -516,16 +577,22 @@ DebtNotificationType:
   reversal_accepted
   reversal_rejected
   reversal_cancelled
+  debt_request_received
+  debt_request_accepted
+  debt_request_rejected
+  debt_request_cancelled
 PushDeliveryStatus: pending, sent, failed, skipped
 ```
 
-### 10.6 Existing Model Changes
+### 10.7 Existing Model Changes
 
 - Add nullable `runId` and a `run` relation to `MonthlySettlement` for the rollout; all new rows must require it in application logic.
 - Add `obligation` as an optional one-to-one relation on `MonthlySettlement` to support migration before backfill completes.
 - Add `@@unique([month, fromUserId, toUserId])` to `MonthlySettlement`.
 - Add obligation, transfer, and debt-notification relations to `User` using explicit relation names for both sides.
 - Add the optional manual-run actor relation from `MonthlySettlementRun` to `User`.
+- Make `DebtObligation.monthlySettlementId` nullable and add a nullable unique request relation without modifying existing obligation rows.
+- Add requester and debtor relations from `DebtRequest` to `User`.
 - Preserve the existing meal-reminder `NotificationDelivery` model; do not repurpose or delete it.
 
 ---
@@ -546,6 +613,8 @@ Returns the current member's dashboard data.
     "net": "-930.00",
     "pendingIncomingCount": 1,
     "pendingOutgoingCount": 0,
+    "pendingDebtRequestIncomingCount": 1,
+    "pendingDebtRequestOutgoingCount": 0,
     "unreadNotificationCount": 2,
     "pairwise": [
       {
@@ -642,7 +711,15 @@ Request:
 
 Only the original payment receiver may call this endpoint. The server makes that authenticated user the reversal sender, derives the opposite direction and original amount, and returns the new pending reversal.
 
-### 11.9 `GET /api/notifications/inbox`
+### 11.9 Debt Request Endpoints
+
+- `GET /api/debts/requests` lists only requests involving the authenticated member and supports `direction`, `status`, `cursor`, and `limit`.
+- `POST /api/debts/requests` creates an idempotent pending request from `debtorUserId`, decimal-string `amount`, required `description`, and `clientRequestId`.
+- `GET /api/debts/requests/[id]` returns details only when the authenticated member is a participant.
+- `POST /api/debts/requests/[id]/respond` accepts with `{ "decision": "accept" }` or rejects with a required reason.
+- `POST /api/debts/requests/[id]/cancel` allows only the pending request's requester to cancel.
+
+### 11.10 `GET /api/notifications/inbox`
 
 Query parameters:
 
@@ -652,15 +729,15 @@ Query parameters:
 
 Returns only the authenticated user's notifications and unread count.
 
-### 11.10 `PATCH /api/notifications/[id]/read`
+### 11.11 `PATCH /api/notifications/[id]/read`
 
 Marks one notification owned by the current user as read. The operation is idempotent.
 
-### 11.11 `POST /api/notifications/read-all`
+### 11.12 `POST /api/notifications/read-all`
 
 Marks all unread DebtSync notifications owned by the current user as read.
 
-### 11.12 Error Codes
+### 11.13 Error Codes
 
 Required stable codes:
 
@@ -682,6 +759,12 @@ DEACTIVATION_BLOCKED_BY_DEBT
 VALIDATION_ERROR
 INTERNAL_ERROR
 FEATURE_DISABLED
+SELF_DEBT_REQUEST_NOT_ALLOWED
+DEBT_REQUEST_NOT_FOUND
+DEBT_REQUEST_NOT_PENDING
+DEBT_REQUEST_FORBIDDEN
+DEBT_REQUEST_DUPLICATE_CONFLICT
+INVALID_DEBT_REQUEST_DESCRIPTION
 ```
 
 During rollout, disabled DebtSync mutation endpoints return `503` with `FEATURE_DISABLED`. The server-side mutation gate never disables the MealSync settlement-to-obligation handoff.
@@ -697,6 +780,10 @@ During rollout, disabled DebtSync mutation endpoints return `503` with `FEATURE_
 | Accept/reject payment | No | Yes | No | No |
 | Cancel pending payment | Yes | No | No | No |
 | Return an accepted direct payment | No | Yes | No | No |
+| Create debt request as creditor | Yes | N/A | N/A | Yes, as self |
+| Accept/reject debt request | No | Named debtor only | No | No |
+| Cancel pending debt request | Requester only | No | No | No |
+| View unresolved debt request | Participant | Participant | No | Only if participant |
 | Edit/delete obligation | No | No | No | No |
 | Edit/delete accepted payment | No | No | No | No |
 | Read another user's notification | No | No | No | No |
@@ -719,11 +806,11 @@ All authorization checks must occur on the server even when the interface hides 
 Required sections in order:
 
 1. Compact summary strip: `You owe`, `Owed to you`, and `Net position`.
-2. Pending actions: incoming confirmations first, then pending outgoing payments.
+2. Pending actions: incoming debt requests, incoming payment confirmations, then outgoing requests and payments.
 3. Pairwise balances with member identity and explicit text direction.
 4. Recent activity combining obligations and payments.
 
-Primary command: **Send Payment**.
+Primary commands: **Request Debt** and **Record Payment**.
 
 Zero state: state that the household has no current debt and provide ledger access without celebratory or misleading financial claims.
 
@@ -756,24 +843,33 @@ Zero state: state that the household has no current debt and provide ledger acce
 - Show source month for imported obligations.
 - Show payment status as icon plus text, not color alone.
 - Preserve stable dimensions while loading and paginating.
+- Label accepted member-request obligations separately from imported settlement obligations without exposing the private request description.
 
-### 13.6 Notifications (`/notifications`)
+### 13.6 Debt Requests (`/debts/requests`, `/debts/requests/new`, `/debts/requests/[id]`)
+
+- Active-member selector with no self-option, decimal BDT amount, required description, character count, and final confirmation.
+- Participant-only history filters for incoming, outgoing, and status.
+- Detail view shows participants, amount, description, status, reason, and timestamps.
+- Named debtor receives deliberate accept/reject controls; requester receives pending cancellation control.
+- Acceptance explicitly warns that it creates permanent debt but does not move money.
+
+### 13.7 Notifications (`/notifications`)
 
 - Unread-first inbox with chronological grouping.
 - Mark one or all as read.
-- Selecting a notification opens its related obligation or payment context.
+- Selecting a notification opens its related obligation, payment, or debt-request context.
 - Notification copy must describe recorded activity, never imply that DebtSync moved money.
 
-### 13.7 Responsive Behavior
+### 13.8 Responsive Behavior
 
 - Desktop uses the existing sidebar and constrained content width.
-- Mobile keeps primary summary, pending actions, and send-payment command in the first viewport.
+- Mobile keeps primary summary, pending actions, and debt/payment commands near the first viewport.
 - Tables become labeled stacked rows rather than horizontally clipped tables.
 - Financial amounts and status controls must not overlap or truncate.
 - Touch targets must be at least 44 by 44 CSS pixels.
 - Confirmation and rejection actions require deliberate taps and cannot be preselected.
 
-### 13.8 Accessibility and Content
+### 13.9 Accessibility and Content
 
 - Use semantic headings, labels, buttons, and status text.
 - Maintain visible keyboard focus and full keyboard operation.
@@ -795,6 +891,9 @@ Zero state: state that the household has no current debt and provide ledger acce
 | Payment cancelled | Receiver | Yes | Yes |
 | Return payment created | Original sender, now reversal receiver | Yes | Yes |
 | Reversal accepted/rejected/cancelled | Other involved member | Yes | Yes |
+| Debt request created | Named debtor | Yes | Yes |
+| Debt request accepted/rejected | Requester | Yes | Yes |
+| Debt request cancelled | Named debtor | Yes | Yes |
 
 Push rules:
 
@@ -820,6 +919,10 @@ Push rules:
 - **Historical member deactivation:** keep their name, obligations, payments, and balances visible in history.
 - **Existing duplicate settlement pairs:** migration preflight must report and stop before adding the unique constraint.
 - **Reversal rejected or cancelled:** original accepted payment remains effective; another reversal attempt may be created.
+- **Debt request retry:** the same client request ID and payload returns the existing request; a conflicting payload returns `409`.
+- **Debt request state:** pending, rejected, and cancelled states create no obligation; acceptance creates exactly one.
+- **Request privacy:** non-participants cannot read request descriptions or terminal request history.
+- **Concurrent request and deactivation:** serializable transactions force one operation to retry or fail safely.
 
 ---
 
@@ -829,7 +932,7 @@ Push rules:
 - Re-read relevant database state inside every financial mutation; never trust client-supplied status or actor IDs.
 - Use Prisma transactions for financial record plus persistent notification creation.
 - Use conditional `updateMany` or equivalent status predicates for race-safe state transitions.
-- Payment creation and member deactivation must both use serializable transactions with bounded retry. Both must re-read user status and pending-transfer state inside the transaction so neither can commit an invalid race outcome.
+- Payment creation, debt-request creation/acceptance, and member deactivation use serializable transactions with bounded retry. They re-read relevant member status and pending state so concurrent operations cannot commit an invalid outcome.
 - Do not expose push-subscription keys through API responses.
 - Do not log full bank accounts, phone numbers, or request payloads containing sensitive contact data.
 - Keep financial history permanently unless a future documented retention policy supersedes this PRD.
@@ -854,12 +957,15 @@ Release 1 is accepted only when all of the following are true:
 8. Sender, receiver, other-member, inactive-user, and admin permission tests pass.
 9. Double submission and concurrent response tests cannot create duplicate effects.
 10. In-app notification creation is transactional and push failure is non-blocking.
-11. Debt-aware deactivation blocks users with nonzero balances or pending payments.
-12. Desktop and mobile interfaces support the complete payment-confirmation workflow.
+11. Debt-aware deactivation blocks users with nonzero balances, pending payments, or pending debt requests.
+12. Desktop and mobile interfaces support the complete payment- and debt-confirmation workflows.
 13. Existing MealSync automated tests pass without regression.
 14. Production backfill totals are reviewed before the DebtSync navigation is enabled.
 15. Concurrent reversal creation cannot produce more than one pending or accepted reversal for an original payment.
 16. A zero-transfer month is permanently marked settled exactly once.
+17. Pending, rejected, and cancelled debt requests have no accounting effect.
+18. Accepted debt requests create exactly one correctly directed obligation and remain participant-private outside the shared obligation record.
+19. Pending debt requests block deactivation and concurrent state transitions cannot create duplicate obligations.
 
 ---
 
@@ -867,7 +973,7 @@ Release 1 is accepted only when all of the following are true:
 
 Release 1 must leave the following enum extensions and source relationships possible without changing its accounting principles:
 
-- Money requests create a pending payment but never directly affect balances.
+- A future payment-request feature may create a pending payment, but remains distinct from Release 1 debt confirmation requests.
 - Confirmed group-expense participant shares create obligations.
 - Smart settlement produces suggestions only; accepted payments remain the only payment events that affect balances.
 - A future multi-household version would require a household entity and tenant scoping across all financial records. It is not part of this release and must not be partially introduced now.

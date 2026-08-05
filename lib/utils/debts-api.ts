@@ -16,7 +16,7 @@ export function requireDebtMutationsEnabled(): void {
   if (process.env.DEBTSYNC_MUTATIONS_ENABLED !== "true") {
     throw new DebtError(
       "FEATURE_DISABLED",
-      "DebtSync payment changes are temporarily disabled."
+      "DebtSync changes are temporarily disabled."
     );
   }
 }

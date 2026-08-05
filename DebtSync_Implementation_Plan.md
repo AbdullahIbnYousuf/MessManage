@@ -621,22 +621,45 @@ Use explicit labels and direction sentences. Never rely on color alone.
 Extend the existing admin deactivation route before changing user status:
 
 1. Calculate all pairwise positions involving the target member.
-2. Count pending incoming and outgoing transfers.
+2. Count pending incoming and outgoing transfers and pending debt requests involving the member.
 3. Block if any pairwise amount is nonzero or pending count is greater than zero.
 4. Return `409` with `DEACTIVATION_BLOCKED_BY_DEBT`, gross amount owed, gross amount owing, and pending count.
 5. Preserve current MealSync deactivation checks and execute all checks before mutation.
 
 The existing `GET` preview must return the debt-clearance result so the confirmation interface can explain a blocked deactivation. The `POST` must recalculate the same result and commit the clearance check and status change using a serializable transaction with bounded retry for serialization conflicts.
 
-Payment creation must use the same serializable isolation and bounded-retry policy. Inside that transaction it must re-read both sender and receiver status before creating the pending transfer. Deactivation must re-read pairwise balances and pending transfers inside its transaction. This symmetric policy ensures a concurrent deactivation and payment creation cannot both commit an invalid result.
+Payment and debt-request creation must use the same serializable isolation and bounded-retry policy. Inside those transactions they must re-read both participants' status before creating the pending record. Deactivation must re-read pairwise balances, pending transfers, and pending debt requests inside its transaction. This symmetric policy ensures concurrent deactivation and financial-action creation cannot both commit an invalid result.
 
 Do not allow admin override. Historical records remain linked to the deactivated user.
 
 ### Exit Criteria
 
 - Debt-free members can still be deactivated under current MealSync rules.
-- Members with debt or pending payment actions cannot be deactivated.
+- Members with debt, pending payment actions, or pending debt requests cannot be deactivated.
 - Reactivation and historical reporting continue to work.
+
+---
+
+## 12A. Phase 9: Member Debt Requests
+
+Add a participant-confirmed **Request Debt** workflow to Release 1:
+
+1. Add an additive `DebtRequest` model with requester, named debtor, exact amount, required description, terminal status timestamps, and a unique client request ID.
+2. Extend `DebtObligation` with a nullable unique request relation while preserving all existing settlement relations and rows.
+3. Create participant-scoped list/detail APIs plus idempotent creation, debtor-only response, and requester-only cancellation commands.
+4. On acceptance, conditionally transition the request and create its `member_request` obligation and notification atomically in a serializable transaction.
+5. Keep pending/rejected/cancelled requests out of accounting and private to their participants; expose only the accepted obligation to the shared ledger.
+6. Add request creation, history, and detail pages, dashboard pending-action sections, deep-linked notifications, and mobile-first controls.
+7. Count pending requests in the serializable deactivation clearance check.
+
+No existing database row is updated by the migration. There is no backfill for member requests.
+
+### Exit Criteria
+
+- A request cannot change debt without confirmation from the named debtor.
+- Acceptance creates exactly one correctly directed immutable obligation.
+- Non-participants cannot read private request details.
+- Creation, response, cancellation, notification, and deactivation races are safe and tested.
 
 ---
 
@@ -679,6 +702,10 @@ Cover:
 - Notification ownership
 - Push failure isolation
 - Debt-aware deactivation
+- Debt-request creation idempotency and participant-only visibility
+- Debtor-only acceptance/rejection and requester-only cancellation
+- Accepted request obligation direction and exactness
+- Pending debt-request deactivation blocking
 
 ### 13.3 Settlement Integration Tests
 
@@ -692,6 +719,8 @@ Cover manual and cron calls through the shared service:
 - Concurrent reversal requests with different client request IDs produce only one active reversal.
 - Concurrent payment creation and deactivation force one transaction to retry or fail safely.
 - Backfill is idempotent and preserves source values.
+- Concurrent request acceptance creates one obligation.
+- Concurrent debt-request creation and deactivation force one transaction to retry or fail safely.
 
 ### 13.4 Regression Tests
 
@@ -715,6 +744,8 @@ Add Playwright for critical browser journeys if it is not already present:
 - Original receiver returns accepted payment and original sender accepts
 - Filter shared ledger
 - Read one and all notifications
+- Create, accept, reject, and cancel debt requests
+- Verify accepted request balance and shared-ledger effect
 - Mobile workflow at a 390 by 844 viewport
 - Desktop workflow at a 1440 by 900 viewport
 
@@ -731,9 +762,10 @@ Capture screenshots for dashboard, payment detail, ledger, notifications, and al
 3. Run the backfill once, then again to prove idempotency.
 4. Compare settlement-run, settlement-row, and obligation counts by month.
 5. Calculate fixture balances independently and compare them with the summary API.
-6. Enable DebtSync mutations in staging and exercise payment state transitions.
+6. Enable DebtSync mutations in staging and exercise payment and debt-request state transitions.
 7. Force a push failure and verify accounting remains committed.
 8. Run full automated and browser tests.
+9. Exercise debt-request creation, rejection, cancellation, and accepted-obligation creation using staging accounts.
 
 ### 14.2 Production
 
@@ -742,9 +774,10 @@ Capture screenshots for dashboard, payment detail, ledger, notifications, and al
 3. Deploy the atomic settlement writer and DebtSync APIs/pages; keep `NEXT_PUBLIC_DEBTSYNC_ENABLED=false` and `DEBTSYNC_MUTATIONS_ENABLED=false`.
 4. Run the settlement-run and obligation backfill, then save its reconciliation output.
 5. Verify every settlement month has one run, every settlement row has one obligation, and household net sums to zero.
-6. Enable `DEBTSYNC_MUTATIONS_ENABLED` and complete one controlled payment and confirmation using team accounts.
+6. Enable `DEBTSYNC_MUTATIONS_ENABLED` and complete one controlled payment confirmation and one controlled debt-request acceptance using team accounts.
 7. Enable `NEXT_PUBLIC_DEBTSYNC_ENABLED` and redeploy.
 8. Monitor server errors, conflict responses, failed push delivery, and reconciliation counts.
+9. Verify the additive debt-request migration preserved all historical obligation links before enabling mutations.
 
 The existing auto-settlement schedule remains the repository's actual `0 0 20 * *` schedule: 06:00 Asia/Dhaka on the 20th, settling the previous month. Do not replace it with stale 1st- or 5th-of-month documentation.
 
@@ -773,6 +806,9 @@ The existing auto-settlement schedule remains the repository's actual `0 0 20 * 
 - [ ] Dashboard, payment, ledger, and notification pages complete
 - [ ] Mobile and desktop browser tests pass
 - [ ] Member deactivation respects DebtSync
+- [ ] Debt requests are participant-private and confirmation-based
+- [ ] Accepted debt requests create one immutable obligation
+- [ ] Pending debt requests block deactivation
 - [ ] Existing MealSync tests pass
 - [ ] Production reconciliation reviewed
 - [ ] Controlled production workflow passed
@@ -788,6 +824,7 @@ DebtSync Release 1 is done when:
 - The production database contains one settlement run for every settled month, including zero-transfer months created after release.
 - New settlement obligations are created atomically and idempotently.
 - Members can record, confirm, reject, cancel, and return payments under the exact permission rules.
+- Members can create, accept, reject, and cancel participant-private debt requests under the exact permission rules.
 - All balances are derived correctly from obligations and accepted transfers.
 - All financial actions retain an immutable, inspectable history.
 - In-app and push notifications behave according to the PRD.

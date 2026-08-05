@@ -59,7 +59,11 @@ export default function NotificationsClient() {
 }
 
 function notificationHref(item: DebtNotificationItem): string {
-  return item.entityType === "transfer" ? `/debts/payments/${item.entityId}` : "/debts/ledger?type=obligation";
+  return item.entityType === "transfer"
+    ? `/debts/payments/${item.entityId}`
+    : item.entityType === "debt_request"
+      ? `/debts/requests/${item.entityId}`
+      : "/debts/ledger?type=obligation";
 }
 
 function formatDate(value: string): string {

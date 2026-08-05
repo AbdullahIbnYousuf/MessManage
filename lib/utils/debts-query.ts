@@ -1,9 +1,15 @@
-import type { TransferStatus } from "@prisma/client";
+import type { DebtRequestStatus, TransferStatus } from "@prisma/client";
 import { DebtError } from "@/lib/domain/debts/errors";
 import { validateUuid } from "@/lib/domain/debts/validation";
 import { parseDateString } from "@/lib/utils/dates";
 
 const TRANSFER_STATUSES: TransferStatus[] = [
+  "pending",
+  "accepted",
+  "rejected",
+  "cancelled",
+];
+const DEBT_REQUEST_STATUSES: DebtRequestStatus[] = [
   "pending",
   "accepted",
   "rejected",
@@ -38,6 +44,16 @@ export function parseTransferStatus(
     throw new DebtError("VALIDATION_ERROR", "Invalid payment status.");
   }
   return value as TransferStatus;
+}
+
+export function parseDebtRequestStatus(
+  value: string | null
+): DebtRequestStatus | undefined {
+  if (value === null) return undefined;
+  if (!DEBT_REQUEST_STATUSES.includes(value as DebtRequestStatus)) {
+    throw new DebtError("VALIDATION_ERROR", "Invalid debt request status.");
+  }
+  return value as DebtRequestStatus;
 }
 
 export function parseDateParam(

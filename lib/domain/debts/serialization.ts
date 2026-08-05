@@ -19,6 +19,7 @@ export function serializeObligationLedgerEntry(
     source: obligation.source,
     sourceReference: obligation.sourceReference,
     month: obligation.month,
+    debtRequestId: obligation.debtRequestId,
     debtor,
     creditor,
   };

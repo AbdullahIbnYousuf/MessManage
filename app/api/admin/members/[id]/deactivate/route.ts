@@ -96,6 +96,8 @@ export async function POST(
             youOwe: debtClearance.youOwe,
             owedToYou: debtClearance.owedToYou,
             pendingCount: debtClearance.pendingCount,
+            pendingPaymentCount: debtClearance.pendingPaymentCount,
+            pendingDebtRequestCount: debtClearance.pendingDebtRequestCount,
           }
         );
       }

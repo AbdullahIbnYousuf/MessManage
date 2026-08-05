@@ -2,16 +2,19 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import type { DebtDashboardSummary, DebtLedgerPage, DebtPaymentLedgerEntry } from "@/types/debts";
+import type { DebtDashboardSummary, DebtLedgerPage, DebtPaymentLedgerEntry, DebtRequestItem, DebtRequestPage } from "@/types/debts";
 import { formatTaka } from "@/lib/utils/decimal";
 import DebtLedgerEntryCard from "@/components/domain/debts/DebtLedgerEntryCard";
+import DebtRequestCard from "@/components/domain/debts/DebtRequestCard";
 
 type ApiResult<T> = { data?: T; error?: string };
 
-export default function DebtDashboardClient() {
+export default function DebtDashboardClient({ currentUserId }: { currentUserId: string }) {
   const [summary, setSummary] = useState<DebtDashboardSummary | null>(null);
   const [incoming, setIncoming] = useState<DebtPaymentLedgerEntry[]>([]);
   const [outgoing, setOutgoing] = useState<DebtPaymentLedgerEntry[]>([]);
+  const [incomingRequests, setIncomingRequests] = useState<DebtRequestItem[]>([]);
+  const [outgoingRequests, setOutgoingRequests] = useState<DebtRequestItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,22 +22,42 @@ export default function DebtDashboardClient() {
     setLoading(true);
     setError(null);
     try {
-      const [summaryResponse, incomingResponse, outgoingResponse] = await Promise.all([
+      const [summaryResponse, incomingResponse, outgoingResponse, incomingRequestResponse, outgoingRequestResponse] = await Promise.all([
         fetch("/api/debts/summary"),
         fetch("/api/debts/payments?direction=incoming&status=pending&limit=50"),
         fetch("/api/debts/payments?direction=outgoing&status=pending&limit=50"),
+        fetch("/api/debts/requests?direction=incoming&status=pending&limit=50"),
+        fetch("/api/debts/requests?direction=outgoing&status=pending&limit=50"),
       ]);
-      const [summaryJson, incomingJson, outgoingJson] = await Promise.all([
+      const [summaryJson, incomingJson, outgoingJson, incomingRequestJson, outgoingRequestJson] = await Promise.all([
         summaryResponse.json() as Promise<ApiResult<DebtDashboardSummary>>,
         incomingResponse.json() as Promise<ApiResult<DebtLedgerPage>>,
         outgoingResponse.json() as Promise<ApiResult<DebtLedgerPage>>,
+        incomingRequestResponse.json() as Promise<ApiResult<DebtRequestPage>>,
+        outgoingRequestResponse.json() as Promise<ApiResult<DebtRequestPage>>,
       ]);
-      if (!summaryResponse.ok || !summaryJson.data) {
-        throw new Error(summaryJson.error ?? "Could not load DebtSync.");
+      if (
+        !summaryResponse.ok
+        || !incomingResponse.ok
+        || !outgoingResponse.ok
+        || !incomingRequestResponse.ok
+        || !outgoingRequestResponse.ok
+        || !summaryJson.data
+      ) {
+        throw new Error(
+          summaryJson.error
+          ?? incomingJson.error
+          ?? outgoingJson.error
+          ?? incomingRequestJson.error
+          ?? outgoingRequestJson.error
+          ?? "Could not load DebtSync."
+        );
       }
       setSummary(summaryJson.data);
       setIncoming((incomingJson.data?.entries ?? []).filter((item): item is DebtPaymentLedgerEntry => item.type === "payment"));
       setOutgoing((outgoingJson.data?.entries ?? []).filter((item): item is DebtPaymentLedgerEntry => item.type === "payment"));
+      setIncomingRequests(incomingRequestJson.data?.requests ?? []);
+      setOutgoingRequests(outgoingRequestJson.data?.requests ?? []);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Could not load DebtSync.");
     } finally {
@@ -51,7 +74,7 @@ export default function DebtDashboardClient() {
           <h1 className="debt-title">DebtSync</h1>
           <p className="text-secondary debt-subtitle">Track confirmed debts and payments between members.</p>
         </div>
-        <Link href="/debts/payments/new" className="btn btn-primary debt-full-mobile">Record payment</Link>
+        <div className="debt-command-grid"><Link href="/debts/requests/new" className="btn btn-secondary debt-full-mobile">Request debt</Link><Link href="/debts/payments/new" className="btn btn-primary debt-full-mobile">Record payment</Link></div>
       </div>
 
       {loading && <div className="debt-state"><span className="spinner" /> Loading balances…</div>}
@@ -65,6 +88,8 @@ export default function DebtDashboardClient() {
             <div className="stat-card"><span className="stat-label">Net position</span><span className="stat-value">{formatTaka(summary.net)}</span><span className="stat-sub">Owed to you minus what you owe</span></div>
           </section>
 
+          <RequestSection title="Debt requests needing your response" count={summary.pendingDebtRequestIncomingCount} entries={incomingRequests} currentUserId={currentUserId} empty="No debt requests need your response." />
+          <RequestSection title="Pending debt requests sent by you" count={summary.pendingDebtRequestOutgoingCount} entries={outgoingRequests} currentUserId={currentUserId} empty="You have no pending debt requests." />
           <PaymentSection title="Confirm incoming payments" count={summary.pendingIncomingCount} entries={incoming} empty="No payments need your confirmation." />
           <PaymentSection title="Pending outgoing payments" count={summary.pendingOutgoingCount} entries={outgoing} empty="No outgoing payments are waiting." />
 
@@ -84,7 +109,7 @@ export default function DebtDashboardClient() {
 
           <section>
             <div className="debt-section-heading"><h2>Recent activity</h2><Link href="/debts/ledger">View all</Link></div>
-            {summary.recentActivity.length === 0 ? <div className="debt-empty">No DebtSync activity yet.</div> : <div className="debt-list">{summary.recentActivity.map((entry) => <DebtLedgerEntryCard key={`${entry.type}-${entry.id}`} entry={entry} />)}</div>}
+            {summary.recentActivity.length === 0 ? <div className="debt-empty">No DebtSync activity yet.</div> : <div className="debt-list">{summary.recentActivity.map((entry) => <DebtLedgerEntryCard key={`${entry.type}-${entry.id}`} entry={entry} currentUserId={currentUserId} />)}</div>}
           </section>
         </div>
       )}
@@ -94,4 +119,8 @@ export default function DebtDashboardClient() {
 
 function PaymentSection({ title, count, entries, empty }: { title: string; count: number; entries: DebtPaymentLedgerEntry[]; empty: string }) {
   return <section><div className="debt-section-heading"><h2>{title}</h2><span className="badge badge-warning">{count}</span></div>{entries.length === 0 ? <div className="debt-empty">{empty}</div> : <div className="debt-list">{entries.map((entry) => <DebtLedgerEntryCard key={entry.id} entry={entry} />)}</div>}</section>;
+}
+
+function RequestSection({ title, count, entries, currentUserId, empty }: { title: string; count: number; entries: DebtRequestItem[]; currentUserId: string; empty: string }) {
+  return <section><div className="debt-section-heading"><h2>{title}</h2><div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}><Link href="/debts/requests">View all</Link><span className="badge badge-warning">{count}</span></div></div>{entries.length === 0 ? <div className="debt-empty">{empty}</div> : <div className="debt-list">{entries.map((request) => <DebtRequestCard key={request.id} request={request} currentUserId={currentUserId} />)}</div>}</section>;
 }

@@ -67,7 +67,9 @@ export async function deliverDebtNotifications(
           body: notification.body,
           url: notification.entityType === "transfer"
             ? `/debts/payments/${notification.entityId}`
-            : "/debts/ledger",
+            : notification.entityType === "debt_request"
+              ? `/debts/requests/${notification.entityId}`
+              : "/debts/ledger",
           tag: `debt-${notification.type}-${notification.entityId}`,
         });
         if (result.invalidSubscription) {

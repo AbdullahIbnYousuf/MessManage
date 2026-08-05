@@ -43,19 +43,19 @@ describe("debt-aware member deactivation", () => {
     mocks.txMealFind.mockResolvedValue({ date: new Date("2026-07-20T00:00:00.000Z") });
     mocks.txUserUpdate.mockResolvedValue({});
     mocks.txMealUpdate.mockResolvedValue({ count: 3 });
-    mocks.clearance.mockResolvedValue({ youOwe: "0.00", owedToYou: "0.00", net: "0.00", pendingCount: 0, canDeactivate: true });
+    mocks.clearance.mockResolvedValue({ youOwe: "0.00", owedToYou: "0.00", net: "0.00", pendingCount: 0, pendingPaymentCount: 0, pendingDebtRequestCount: 0, canDeactivate: true });
     mocks.serializable.mockImplementation((operation: (client: typeof tx) => Promise<unknown>) => operation(tx));
   });
 
   it("includes debt clearance in the GET preview", async () => {
-    mocks.clearance.mockResolvedValue({ youOwe: "10.00", owedToYou: "3.00", net: "-7.00", pendingCount: 1, canDeactivate: false });
+    mocks.clearance.mockResolvedValue({ youOwe: "10.00", owedToYou: "3.00", net: "-7.00", pendingCount: 1, pendingPaymentCount: 0, pendingDebtRequestCount: 1, canDeactivate: false });
     const response = await GET(new Request("http://localhost"), { params: Promise.resolve({ id: memberId }) });
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ data: { debtClearance: { youOwe: "10.00", owedToYou: "3.00", pendingCount: 1, canDeactivate: false } } });
   });
 
   it("returns a stable 409 and performs no writes when debt remains", async () => {
-    mocks.clearance.mockResolvedValue({ youOwe: "10.00", owedToYou: "3.00", net: "-7.00", pendingCount: 2, canDeactivate: false });
+    mocks.clearance.mockResolvedValue({ youOwe: "10.00", owedToYou: "3.00", net: "-7.00", pendingCount: 2, pendingPaymentCount: 1, pendingDebtRequestCount: 1, canDeactivate: false });
     const response = await POST(new Request("http://localhost", { method: "POST" }), { params: Promise.resolve({ id: memberId }) });
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({ code: "DEACTIVATION_BLOCKED_BY_DEBT", youOwe: "10.00", owedToYou: "3.00", pendingCount: 2 });

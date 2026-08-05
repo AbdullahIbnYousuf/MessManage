@@ -24,7 +24,7 @@ export function DebtStatusBadge({ status }: { status: string }) {
   return <span className={`badge ${badge}`}>{status.replaceAll("_", " ")}</span>;
 }
 
-export default function DebtLedgerEntryCard({ entry }: { entry: DebtLedgerEntry }) {
+export default function DebtLedgerEntryCard({ entry, currentUserId }: { entry: DebtLedgerEntry; currentUserId?: string }) {
   if (entry.type === "payment") {
     return (
       <Link href={`/debts/payments/${entry.id}`} className="debt-ledger-row">
@@ -47,21 +47,27 @@ export default function DebtLedgerEntryCard({ entry }: { entry: DebtLedgerEntry 
     );
   }
 
-  return (
-    <div className="debt-ledger-row">
+  const content = (
+    <>
       <div className="debt-ledger-row__top">
         <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 700, overflowWrap: "anywhere" }}>
             {entry.debtor.name} owes {entry.creditor.name}
           </div>
           <div className="text-muted" style={{ fontSize: "0.75rem", marginTop: 3 }}>
-            Settlement obligation · {entry.month}
+            {entry.source === "member_request" ? "Accepted member debt request" : `Settlement obligation · ${entry.month}`}
           </div>
         </div>
         <div style={{ fontWeight: 800, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
           {formatTaka(entry.amount)}
         </div>
       </div>
-    </div>
+    </>
   );
+  const canOpenRequest = entry.source === "member_request"
+    && entry.debtRequestId
+    && (entry.debtor.id === currentUserId || entry.creditor.id === currentUserId);
+  return canOpenRequest
+    ? <Link href={`/debts/requests/${entry.debtRequestId}`} className="debt-ledger-row">{content}</Link>
+    : <div className="debt-ledger-row">{content}</div>;
 }

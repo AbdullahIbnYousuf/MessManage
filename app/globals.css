@@ -555,6 +555,7 @@
   .debt-back { margin-bottom: 0.75rem; font-size: 0.875rem; }
   .debt-back a, .debt-section-heading a { color: var(--color-primary-light); text-decoration: none; }
   .debt-stack { display: flex; flex-direction: column; gap: 1.5rem; }
+  .debt-command-grid { display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap; }
   .debt-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
   .debt-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem; }
   .debt-section-heading h2, .debt-actions h2, .debt-confirm h2 { margin: 0; font-size: 1rem; font-weight: 800; }
@@ -600,6 +601,7 @@
     .debt-summary-grid .stat-card { min-width: 0; }
     .debt-filters { grid-template-columns: 1fr; }
     .debt-full-mobile { width: 100%; min-height: 44px; }
+    .debt-command-grid { width: 100%; display: grid; grid-template-columns: 1fr; }
     .debt-ledger-row__top { align-items: flex-start; }
   }
 }

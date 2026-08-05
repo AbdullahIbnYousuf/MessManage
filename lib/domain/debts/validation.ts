@@ -45,6 +45,19 @@ export function validateOptionalDescription(value: unknown): string | null {
   return description;
 }
 
+export function validateRequiredDescription(value: unknown): string {
+  if (typeof value !== "string") {
+    throw new DebtValidationError("A description is required.");
+  }
+  const description = value.trim();
+  if (description.length < 3 || description.length > 300) {
+    throw new DebtValidationError(
+      "Description must be between 3 and 300 characters."
+    );
+  }
+  return description;
+}
+
 export function validateUuid(value: unknown, fieldName: string): string {
   if (typeof value !== "string" || !UUID_PATTERN.test(value)) {
     throw new DebtValidationError(`${fieldName} must be a valid UUID.`);

@@ -16,6 +16,15 @@ type PaymentNotificationInput = {
   source: "direct" | "reversal";
 };
 
+type DebtRequestNotificationInput = {
+  requestId: string;
+  requesterId: string;
+  requesterName: string;
+  debtorId: string;
+  debtorName: string;
+  amount: string;
+};
+
 export function buildObligationNotifications(
   obligationId: string,
   transfer: SettlementTransfer,
@@ -95,6 +104,47 @@ export function buildPaymentCancelledNotification(
     entityId: input.transferId,
     title: isReversal ? "Return payment cancelled" : "Payment cancelled",
     body: `${input.senderName} cancelled the recorded Tk ${input.amount} ${isReversal ? "return payment" : "payment"}.`,
+  };
+}
+
+export function buildDebtRequestCreatedNotification(
+  input: DebtRequestNotificationInput
+): DebtNotificationDraft {
+  return {
+    userId: input.debtorId,
+    type: "debt_request_received",
+    entityType: "debt_request",
+    entityId: input.requestId,
+    title: "Debt confirmation requested",
+    body: `${input.requesterName} requested confirmation that you owe Tk ${input.amount}.`,
+  };
+}
+
+export function buildDebtRequestResponseNotification(
+  input: DebtRequestNotificationInput,
+  decision: "accept" | "reject"
+): DebtNotificationDraft {
+  const accepted = decision === "accept";
+  return {
+    userId: input.requesterId,
+    type: accepted ? "debt_request_accepted" : "debt_request_rejected",
+    entityType: "debt_request",
+    entityId: input.requestId,
+    title: `Debt request ${accepted ? "accepted" : "rejected"}`,
+    body: `${input.debtorName} ${accepted ? "accepted" : "rejected"} your Tk ${input.amount} debt request.`,
+  };
+}
+
+export function buildDebtRequestCancelledNotification(
+  input: DebtRequestNotificationInput
+): DebtNotificationDraft {
+  return {
+    userId: input.debtorId,
+    type: "debt_request_cancelled",
+    entityType: "debt_request",
+    entityId: input.requestId,
+    title: "Debt request cancelled",
+    body: `${input.requesterName} cancelled the Tk ${input.amount} debt request.`,
   };
 }
 

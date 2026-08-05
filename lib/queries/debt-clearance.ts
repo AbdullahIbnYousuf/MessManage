@@ -4,14 +4,14 @@ import type { DebtClearance } from "@/types/debts";
 
 type DebtReadClient = Pick<
   Prisma.TransactionClient,
-  "debtObligation" | "transfer"
+  "debtObligation" | "transfer" | "debtRequest"
 >;
 
 export async function fetchDebtClearance(
   client: DebtReadClient,
   userId: string
 ): Promise<DebtClearance> {
-  const [obligations, transfers] = await Promise.all([
+  const [obligations, transfers, pendingDebtRequestCount] = await Promise.all([
     client.debtObligation.findMany({
       where: { OR: [{ debtorId: userId }, { creditorId: userId }] },
       select: { debtorId: true, creditorId: true, amount: true },
@@ -25,6 +25,12 @@ export async function fetchDebtClearance(
         status: true,
       },
     }),
+    client.debtRequest.count({
+      where: {
+        status: "pending",
+        OR: [{ requesterId: userId }, { debtorId: userId }],
+      },
+    }),
   ]);
 
   const positions = calculatePairwisePositions(
@@ -32,11 +38,14 @@ export async function fetchDebtClearance(
     transfers.map((row) => ({ ...row, amount: row.amount.toFixed(2) }))
   );
   const totals = calculateMemberTotals(userId, positions);
-  const pendingCount = transfers.filter((row) => row.status === "pending").length;
+  const pendingPaymentCount = transfers.filter((row) => row.status === "pending").length;
+  const pendingCount = pendingPaymentCount + pendingDebtRequestCount;
 
   return {
     ...totals,
     pendingCount,
+    pendingPaymentCount,
+    pendingDebtRequestCount,
     canDeactivate:
       totals.youOwe === "0.00"
       && totals.owedToYou === "0.00"

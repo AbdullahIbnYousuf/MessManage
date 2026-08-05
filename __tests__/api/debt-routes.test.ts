@@ -85,6 +85,8 @@ describe("DebtSync API routes", () => {
       net: "0.00",
       pendingIncomingCount: 0,
       pendingOutgoingCount: 0,
+      pendingDebtRequestIncomingCount: 0,
+      pendingDebtRequestOutgoingCount: 0,
       unreadNotificationCount: 0,
       pairwise: [],
       recentActivity: [],

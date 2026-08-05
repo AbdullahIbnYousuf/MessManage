@@ -8,5 +8,5 @@ export default async function DebtsPage() {
   const user = await getSessionUser();
   if (!user) redirect("/auth/login");
   if (process.env.NEXT_PUBLIC_DEBTSYNC_ENABLED !== "true") redirect("/dashboard");
-  return <DebtDashboardClient />;
+  return <DebtDashboardClient currentUserId={user.id} />;
 }
