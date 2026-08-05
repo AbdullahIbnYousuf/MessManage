@@ -88,11 +88,6 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
             <div className="stat-card"><span className="stat-label">Net position</span><span className="stat-value">{formatTaka(summary.net)}</span><span className="stat-sub">Owed to you minus what you owe</span></div>
           </section>
 
-          <RequestSection title="Debt requests needing your response" count={summary.pendingDebtRequestIncomingCount} entries={incomingRequests} currentUserId={currentUserId} empty="No debt requests need your response." />
-          <RequestSection title="Pending debt requests sent by you" count={summary.pendingDebtRequestOutgoingCount} entries={outgoingRequests} currentUserId={currentUserId} empty="You have no pending debt requests." />
-          <PaymentSection title="Confirm incoming payments" count={summary.pendingIncomingCount} entries={incoming} empty="No payments need your confirmation." />
-          <PaymentSection title="Pending outgoing payments" count={summary.pendingOutgoingCount} entries={outgoing} empty="No outgoing payments are waiting." />
-
           <section>
             <div className="debt-section-heading"><h2>Member positions</h2><Link href="/debts/ledger">Full ledger</Link></div>
             {summary.pairwise.length === 0 ? <div className="debt-empty">All member positions are settled.</div> : (
@@ -106,6 +101,11 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
               </div>
             )}
           </section>
+
+          <RequestSection title="Debt requests needing your response" count={summary.pendingDebtRequestIncomingCount} entries={incomingRequests} currentUserId={currentUserId} empty="No debt requests need your response." />
+          <RequestSection title="Pending debt requests sent by you" count={summary.pendingDebtRequestOutgoingCount} entries={outgoingRequests} currentUserId={currentUserId} empty="You have no pending debt requests." />
+          <PaymentSection title="Confirm incoming payments" count={summary.pendingIncomingCount} entries={incoming} empty="No payments need your confirmation." />
+          <PaymentSection title="Pending outgoing payments" count={summary.pendingOutgoingCount} entries={outgoing} empty="No outgoing payments are waiting." />
 
           <section>
             <div className="debt-section-heading"><h2>Recent activity</h2><Link href="/debts/ledger">View all</Link></div>
