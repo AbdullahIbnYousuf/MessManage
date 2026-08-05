@@ -9,59 +9,65 @@ datasource db {
 }
 
 model User {
-  id                       String              @id @default(uuid())
-  email                    String              @unique
-  name                     String
-  avatarUrl                String?             @map("avatar_url")
-  role                     UserRole            @default(member)
-  status                   UserStatus          @default(active)
-  joinedAt                 DateTime            @map("joined_at")
-  deactivatedAt            DateTime?           @map("deactivated_at")
-  phoneNumber              String?             @map("phone_number")
-  phoneNumber2             String?             @map("phone_number_2")
-  bkashNumber              String?             @map("bkash_number")
-  bankName                 String?             @map("bank_name")
-  bankAccountNumber        String?             @map("bank_account_number")
-  emergencyContactName     String?             @map("emergency_contact_name")
-  emergencyContactPhone    String?             @map("emergency_contact_phone")
-  emergencyContactRelation String?             @map("emergency_contact_relation")
-  nickname                 String?
-  bazarExpenses            BazarExpense[]
-  assignedTrips1           BazarTrip[]         @relation("BazarTripAssignee1")
-  assignedTrips2           BazarTrip[]         @relation("BazarTripAssignee2")
-  triggeredTrips           BazarTrip[]         @relation("BazarTripTriggeredBy")
-  bulkAllocations          BulkAllocation[]
-  bulkCyclesFinished       BulkCycle[]         @relation("BulkCycleFinishedBy")
-  bulkCyclesPurchased      BulkCycle[]         @relation("BulkCyclePurchasedBy")
-  fridgeAllocations        FridgeAllocation[]
-  fridgePayments           FridgePayment[]
-  maidCharges              MaidCharge[]
-  maidPayments             MaidPayment[]
-  reviewedEditReqs         MealEditRequest[]   @relation("MealEditRequestReviewer")
-  mealEditRequests         MealEditRequest[]   @relation("MealEditRequestUser")
-  mealPattern              MealPattern?
-  mealRecords              MealRecord[]
-  reviewedMemberships      MembershipRequest[] @relation("MembershipRequestReviewer")
-  approvedRequest          MembershipRequest?  @relation("MembershipRequestUser")
-  settlementsFrom          MonthlySettlement[] @relation("SettlementFrom")
-  settlementsTo            MonthlySettlement[] @relation("SettlementTo")
-  systemConfigUpdates      SystemConfig[]
-  pushSubscriptions        PushSubscription[]
-  notificationDeliveries   NotificationDelivery[]
+  id                        String                 @id @default(uuid())
+  email                     String                 @unique
+  name                      String
+  avatarUrl                 String?                @map("avatar_url")
+  role                      UserRole               @default(member)
+  status                    UserStatus             @default(active)
+  joinedAt                  DateTime               @map("joined_at")
+  deactivatedAt             DateTime?              @map("deactivated_at")
+  phoneNumber               String?                @map("phone_number")
+  phoneNumber2              String?                @map("phone_number_2")
+  bkashNumber               String?                @map("bkash_number")
+  bankName                  String?                @map("bank_name")
+  bankAccountNumber         String?                @map("bank_account_number")
+  emergencyContactName      String?                @map("emergency_contact_name")
+  emergencyContactPhone     String?                @map("emergency_contact_phone")
+  emergencyContactRelation  String?                @map("emergency_contact_relation")
+  nickname                  String?
+  bazarExpenses             BazarExpense[]
+  assignedTrips1            BazarTrip[]            @relation("BazarTripAssignee1")
+  assignedTrips2            BazarTrip[]            @relation("BazarTripAssignee2")
+  triggeredTrips            BazarTrip[]            @relation("BazarTripTriggeredBy")
+  bulkAllocations           BulkAllocation[]
+  bulkCyclesFinished        BulkCycle[]            @relation("BulkCycleFinishedBy")
+  bulkCyclesPurchased       BulkCycle[]            @relation("BulkCyclePurchasedBy")
+  fridgeAllocations         FridgeAllocation[]
+  fridgePayments            FridgePayment[]
+  maidCharges               MaidCharge[]
+  maidPayments              MaidPayment[]
+  reviewedEditReqs          MealEditRequest[]      @relation("MealEditRequestReviewer")
+  mealEditRequests          MealEditRequest[]      @relation("MealEditRequestUser")
+  mealPattern               MealPattern?
+  mealRecords               MealRecord[]
+  reviewedMemberships       MembershipRequest[]    @relation("MembershipRequestReviewer")
+  approvedRequest           MembershipRequest?     @relation("MembershipRequestUser")
+  settlementsFrom           MonthlySettlement[]    @relation("SettlementFrom")
+  settlementsTo             MonthlySettlement[]    @relation("SettlementTo")
+  settlementRunsExecuted    MonthlySettlementRun[] @relation("SettlementRunActor")
+  debtObligationsOwed       DebtObligation[]       @relation("DebtObligationDebtor")
+  debtObligationsReceivable DebtObligation[]       @relation("DebtObligationCreditor")
+  transfersSent             Transfer[]             @relation("TransferSender")
+  transfersReceived         Transfer[]             @relation("TransferReceiver")
+  debtNotifications         DebtNotification[]
+  systemConfigUpdates       SystemConfig[]
+  pushSubscriptions         PushSubscription[]
+  notificationDeliveries    NotificationDelivery[]
 
   @@map("User")
 }
 
 model FridgeBill {
-  id              String          @id @default(uuid())
-  month           DateTime        @unique @db.Date
-  totalAmount     Decimal         @map("total_amount") @db.Decimal(12, 2)
-  memberCount     Int             @map("member_count")
-  postedAt        DateTime        @map("posted_at")
-  postedById      String          @map("posted_by")
-  previousReading Decimal         @map("previous_reading") @db.Decimal(10, 2)
-  currentReading  Decimal         @map("current_reading") @db.Decimal(10, 2)
-  unitPrice       Decimal         @map("unit_price") @db.Decimal(10, 4)
+  id              String             @id @default(uuid())
+  month           DateTime           @unique @db.Date
+  totalAmount     Decimal            @map("total_amount") @db.Decimal(12, 2)
+  memberCount     Int                @map("member_count")
+  postedAt        DateTime           @map("posted_at")
+  postedById      String             @map("posted_by")
+  previousReading Decimal            @map("previous_reading") @db.Decimal(10, 2)
+  currentReading  Decimal            @map("current_reading") @db.Decimal(10, 2)
+  unitPrice       Decimal            @map("unit_price") @db.Decimal(10, 4)
   allocations     FridgeAllocation[]
   payments        FridgePayment[]
 
@@ -253,16 +259,99 @@ model MaidPayment {
 }
 
 model MonthlySettlement {
-  id         String   @id @default(uuid())
-  month      DateTime @db.Date
-  fromUserId String   @map("from_user_id")
-  toUserId   String   @map("to_user_id")
-  amount     Decimal  @db.Decimal(12, 2)
-  settledAt  DateTime @map("settled_at")
-  fromUser   User     @relation("SettlementFrom", fields: [fromUserId], references: [id])
-  toUser     User     @relation("SettlementTo", fields: [toUserId], references: [id])
+  id         String                @id @default(uuid())
+  month      DateTime              @db.Date
+  fromUserId String                @map("from_user_id")
+  toUserId   String                @map("to_user_id")
+  amount     Decimal               @db.Decimal(12, 2)
+  settledAt  DateTime              @map("settled_at")
+  runId      String?               @map("run_id")
+  fromUser   User                  @relation("SettlementFrom", fields: [fromUserId], references: [id])
+  toUser     User                  @relation("SettlementTo", fields: [toUserId], references: [id])
+  run        MonthlySettlementRun? @relation(fields: [runId], references: [id], onDelete: Restrict)
+  obligation DebtObligation?
 
+  @@unique([month, fromUserId, toUserId])
+  @@index([runId])
   @@map("MonthlySettlement")
+}
+
+model MonthlySettlementRun {
+  id          String              @id @default(uuid())
+  month       DateTime            @unique @db.Date
+  trigger     SettlementTrigger
+  settledById String?             @map("settled_by")
+  settledAt   DateTime            @map("settled_at")
+  settledBy   User?               @relation("SettlementRunActor", fields: [settledById], references: [id])
+  settlements MonthlySettlement[]
+
+  @@index([settledAt])
+  @@map("MonthlySettlementRun")
+}
+
+model DebtObligation {
+  id                  String               @id @default(uuid())
+  debtorId            String               @map("debtor_id")
+  creditorId          String               @map("creditor_id")
+  amount              Decimal              @db.Decimal(12, 2)
+  source              DebtObligationSource
+  sourceReference     String               @unique @map("source_reference")
+  monthlySettlementId String               @unique @map("monthly_settlement_id")
+  createdAt           DateTime             @map("created_at")
+  debtor              User                 @relation("DebtObligationDebtor", fields: [debtorId], references: [id])
+  creditor            User                 @relation("DebtObligationCreditor", fields: [creditorId], references: [id])
+  monthlySettlement   MonthlySettlement    @relation(fields: [monthlySettlementId], references: [id])
+
+  @@index([debtorId, createdAt])
+  @@index([creditorId, createdAt])
+  @@index([source, createdAt])
+  @@map("DebtObligation")
+}
+
+model Transfer {
+  id                 String         @id @default(uuid())
+  senderId           String         @map("sender_id")
+  receiverId         String         @map("receiver_id")
+  amount             Decimal        @db.Decimal(12, 2)
+  description        String?
+  status             TransferStatus @default(pending)
+  source             TransferSource
+  clientRequestId    String         @unique @map("client_request_id")
+  reversesTransferId String?        @map("reverses_transfer_id")
+  rejectionReason    String?        @map("rejection_reason")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  respondedAt        DateTime?      @map("responded_at")
+  cancelledAt        DateTime?      @map("cancelled_at")
+  sender             User           @relation("TransferSender", fields: [senderId], references: [id])
+  receiver           User           @relation("TransferReceiver", fields: [receiverId], references: [id])
+  reversesTransfer   Transfer?      @relation("TransferReversal", fields: [reversesTransferId], references: [id], onDelete: Restrict)
+  reversalAttempts   Transfer[]     @relation("TransferReversal")
+
+  @@index([senderId, status, createdAt])
+  @@index([receiverId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([reversesTransferId])
+  @@map("Transfer")
+}
+
+model DebtNotification {
+  id              String                 @id @default(uuid())
+  userId          String                 @map("user_id")
+  type            DebtNotificationType
+  entityType      DebtNotificationEntity @map("entity_type")
+  entityId        String                 @map("entity_id")
+  title           String
+  body            String
+  readAt          DateTime?              @map("read_at")
+  pushStatus      PushDeliveryStatus     @default(pending) @map("push_status")
+  pushAttemptedAt DateTime?              @map("push_attempted_at")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  user            User                   @relation(fields: [userId], references: [id])
+
+  @@index([userId, readAt, createdAt])
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@map("DebtNotification")
 }
 
 model SystemConfig {
@@ -348,4 +437,50 @@ enum MealEditRequestStatus {
 enum MealReminderType {
   previous_night
   deadline_morning
+}
+
+enum DebtObligationSource {
+  meal_settlement
+}
+
+enum SettlementTrigger {
+  manual
+  cron
+  backfill
+}
+
+enum TransferStatus {
+  pending
+  accepted
+  rejected
+  cancelled
+}
+
+enum TransferSource {
+  direct
+  reversal
+}
+
+enum DebtNotificationEntity {
+  obligation
+  transfer
+}
+
+enum DebtNotificationType {
+  obligation_created
+  payment_received
+  payment_accepted
+  payment_rejected
+  payment_cancelled
+  reversal_received
+  reversal_accepted
+  reversal_rejected
+  reversal_cancelled
+}
+
+enum PushDeliveryStatus {
+  pending
+  sent
+  failed
+  skipped
 }

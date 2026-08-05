@@ -269,6 +269,17 @@ After backfill, verify:
 - All existing settlement months have exactly one run.
 - Reconciliation output is saved for deployment review.
 
+### Phase 1-2 Execution Record — 2026-08-05
+
+- Applied migration: `20260805194500_add_debtsync_release_1`
+- Migration SQL was verified to contain no `DROP`, `TRUNCATE`, `DELETE`, or data-rewriting `UPDATE` statements.
+- Pre-migration settlement snapshot: `count=10`, `months=2`, `total=7505.15`, `duplicates=0`, `invalid=0`.
+- Settlement financial-field checksum before migration: `ada1d18dbc9e08cd113fc9a15c2d10c44b072b533f9592928adb77b8d16a6de8`.
+- First backfill: `scanned=10 created=10 skipped=0 failed=0 runsCreated=2 runsSkipped=0 settlementsLinked=10`.
+- Idempotency rerun: `scanned=10 created=0 skipped=10 failed=0 runsCreated=0 runsSkipped=2 settlementsLinked=0`.
+- Final reconciliation: `settlements=10`, `obligations=10`, `runs=2`, `reconciliationIssues=0`, `duplicateSourceReferences=0`.
+- Post-backfill settlement financial-field checksum remained `ada1d18dbc9e08cd113fc9a15c2d10c44b072b533f9592928adb77b8d16a6de8`; existing settlement amounts, parties, months, and timestamps were unchanged.
+
 ---
 
 ## 7. Phase 3: Atomic MealSync Settlement Handoff
