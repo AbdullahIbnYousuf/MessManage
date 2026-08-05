@@ -21,7 +21,7 @@ The implementation must preserve the central distinction in `DebtSync_PRD.md`:
 - MealSync `MonthlySettlement` rows create immutable debt obligations.
 - DebtSync `Transfer` rows describe claimed payments.
 - Obligations affect balances immediately.
-- Transfers affect balances only after receiver acceptance.
+- Transfers affect balances only after confirmation by the non-initiating participant.
 
 The implementation is complete only when every Release 1 acceptance criterion in the PRD passes.
 
@@ -71,7 +71,7 @@ Add a separate server-only rollout flag:
 DEBTSYNC_MUTATIONS_ENABLED=false
 ```
 
-`NEXT_PUBLIC_DEBTSYNC_ENABLED` controls user-facing navigation and pages. The server-only flag blocks direct payment creation, response, cancellation, and reversal until backfill and reconciliation pass. It does not disable the atomic MealSync settlement handoff, which must remain active once its schema and service are deployed. Authentication and authorization remain mandatory regardless of either flag.
+`NEXT_PUBLIC_DEBTSYNC_ENABLED` controls user-facing navigation and pages. The server-only flag blocks sender- and receiver-initiated payment creation, response, cancellation, and reversal until migration and reconciliation pass. It does not disable the atomic MealSync settlement handoff, which must remain active once its schema and service are deployed. Authentication and authorization remain mandatory regardless of either flag.
 
 ### Milestones
 
@@ -164,6 +164,7 @@ Add explicit `User` relations for:
 - Obligations as creditor
 - Sent transfers
 - Received transfers
+- Initiated transfers through a nullable relation that preserves legacy rows
 - Owned debt notifications
 
 Add an explicit self-relation on `Transfer` between an original payment and its reversal attempts.
@@ -425,6 +426,7 @@ Reject malformed cursors with `VALIDATION_ERROR` rather than silently restarting
 Implement server-only command functions before route handlers:
 
 - `createPayment`
+- `createReceivedMoney`
 - `respondToPayment`
 - `cancelPayment`
 - `createReturnPayment`
@@ -450,12 +452,15 @@ Each command must:
 
 Create the pending transfer and receiver notification atomically.
 
+`createReceivedMoney` uses the same validation, idempotency, serializable bounded-retry, and notification rules, but stores the selected lender as `senderId`, the authenticated borrower as both `receiverId` and `initiatedById`, and notifies the lender to confirm that the money was sent. New sender-initiated payments explicitly store the sender as `initiatedById`; existing null values remain legacy sender-initiated rows.
+
 ### 9.3 Race-Safe Responses
 
 Use a conditional update whose predicate includes both ID and `status = pending`.
 
-- Accept/reject actor must equal `receiverId`.
-- Cancel actor must equal `senderId`.
+- Accept/reject actor must equal the non-initiating participant.
+- Cancel actor must equal the initiating participant.
+- When `initiatedById` is null, derive legacy ownership as sender initiates and receiver responds.
 - Exactly one concurrent terminal transition may update one row.
 - If affected row count is zero, reload and return either `403`, `404`, or `409` based on current state.
 
@@ -483,6 +488,7 @@ app/api/debts/summary/route.ts
 app/api/debts/ledger/route.ts
 app/api/debts/obligations/route.ts
 app/api/debts/payments/route.ts
+app/api/debts/payments/received/route.ts
 app/api/debts/payments/[id]/respond/route.ts
 app/api/debts/payments/[id]/cancel/route.ts
 app/api/debts/payments/[id]/reverse/route.ts
@@ -562,6 +568,7 @@ Create authenticated pages:
 ```text
 app/debts/page.tsx
 app/debts/payments/new/page.tsx
+app/debts/payments/received/new/page.tsx
 app/debts/payments/[id]/page.tsx
 app/debts/ledger/page.tsx
 app/notifications/page.tsx
@@ -581,9 +588,9 @@ Create focused client components under `components/domain/debts/`; keep server p
 Build in this order:
 
 1. `You owe`, `Owed to you`, and `Net position`
-2. Pending incoming confirmations
-3. Pending outgoing payments
-4. Pairwise member positions
+2. Pairwise member positions
+3. Payment and debt-request records needing the current member's response
+4. Pending records initiated by the current member
 5. Recent mixed activity
 
 Use explicit labels and direction sentences. Never rely on color alone.
@@ -593,6 +600,8 @@ Use explicit labels and direction sentences. Never rely on color alone.
 - Generate one `clientRequestId` when the form session begins and reuse it for network retries.
 - Show selected member's current pairwise position and available payment-reference details.
 - Warn but do not block an overpayment.
+- Provide a separate mobile-first **Record money received** form whose lender must confirm the existing money movement.
+- Warn the borrower that confirmation creates or increases debt to the selected lender.
 - Require a final confirmation before creating a payment.
 - Require a rejection reason before rejection.
 - Confirm cancellation and return-payment actions.
@@ -663,6 +672,26 @@ No existing database row is updated by the migration. There is no backfill for m
 
 ---
 
+## 12B. Phase 10: Record Money Received
+
+Add the borrower-initiated workflow without changing accepted-transfer accounting:
+
+1. Add nullable `Transfer.initiatedById` and its `User` relation through an additive migration. Do not backfill, recalculate, or modify existing transfers.
+2. Add `createReceivedMoney` and `POST /api/debts/payments/received` using the existing mutation flag, exact decimal validation, idempotency, serializable bounded retry, transactional notifications, and best-effort push delivery.
+3. Generalize pending response and cancellation ownership around the initiator while treating a null initiator as a legacy sender-initiated payment.
+4. Add `needs_response` and `initiated_by_me` payment filters while preserving incoming/outgoing as actual money-direction filters.
+5. Add the mobile-first form, contextual payment-detail actions and notification wording, and dashboard sections for both initiation directions.
+6. Reuse the existing direct transfer row after acceptance; never create a duplicate obligation or accounting record.
+
+### Exit Criteria
+
+- Pending, rejected, and cancelled receiver-initiated records never affect balances.
+- Acceptance makes the receiver owe the sender by the exact amount using the existing transfer formula.
+- Sender-initiated and legacy-null behavior remains unchanged.
+- Participant permissions, idempotency, concurrency, notification, deactivation, mobile, and desktop cases pass.
+
+---
+
 ## 13. Automated Test Plan
 
 ### 13.1 Domain Tests
@@ -690,11 +719,13 @@ Cover:
 - Auth required and inactive account handling
 - Self-payment rejection
 - Unknown/inactive receiver rejection
+- Unknown/inactive selected lender rejection
 - Invalid amount, description, reason, and UUID input
 - Idempotent payment retry
 - Conflicting payload with reused request ID
 - Receiver-only accept/reject
-- Sender-only cancellation
+- Non-initiator-only accept/reject in both initiation directions
+- Initiator-only cancellation in both initiation directions
 - Original-receiver-only return payment
 - Concurrent accept/reject/cancel winner behavior
 - Terminal state immutability
@@ -706,6 +737,8 @@ Cover:
 - Debtor-only acceptance/rejection and requester-only cancellation
 - Accepted request obligation direction and exactness
 - Pending debt-request deactivation blocking
+- Receiver-initiated creation idempotency and conflicting request IDs
+- Legacy null-initiator ownership
 
 ### 13.3 Settlement Integration Tests
 
@@ -739,6 +772,8 @@ Run the full existing test suite and specifically verify:
 Add Playwright for critical browser journeys if it is not already present:
 
 - Send payment, receiver accepts, both dashboards update
+- Record money received, lender confirms, both dashboards update
+- Lender rejects a received-money record and borrower cancels a pending record
 - Receiver rejects with reason
 - Sender cancels pending payment
 - Original receiver returns accepted payment and original sender accepts
@@ -762,19 +797,20 @@ Capture screenshots for dashboard, payment detail, ledger, notifications, and al
 3. Run the backfill once, then again to prove idempotency.
 4. Compare settlement-run, settlement-row, and obligation counts by month.
 5. Calculate fixture balances independently and compare them with the summary API.
-6. Enable DebtSync mutations in staging and exercise payment and debt-request state transitions.
+6. Enable DebtSync mutations in staging and exercise sender-initiated payments, receiver-initiated received-money records, and debt-request state transitions.
 7. Force a push failure and verify accounting remains committed.
 8. Run full automated and browser tests.
 9. Exercise debt-request creation, rejection, cancellation, and accepted-obligation creation using staging accounts.
+10. Exercise received-money creation, lender confirmation/rejection, borrower cancellation, and full reversal using two staging accounts.
 
 ### 14.2 Production
 
 1. Take a database backup or verified restore point.
-2. Apply the reviewed additive migration with navigation and DebtSync mutations disabled.
+2. Record existing transfer counts, accepted totals, and a deterministic transfer checksum; then apply the reviewed additive migration with navigation and DebtSync mutations disabled.
 3. Deploy the atomic settlement writer and DebtSync APIs/pages; keep `NEXT_PUBLIC_DEBTSYNC_ENABLED=false` and `DEBTSYNC_MUTATIONS_ENABLED=false`.
 4. Run the settlement-run and obligation backfill, then save its reconciliation output.
-5. Verify every settlement month has one run, every settlement row has one obligation, and household net sums to zero.
-6. Enable `DEBTSYNC_MUTATIONS_ENABLED` and complete one controlled payment confirmation and one controlled debt-request acceptance using team accounts.
+5. Verify every settlement month has one run, every settlement row has one obligation, household net sums to zero, and transfer counts, accepted totals, and checksum are unchanged by the migration.
+6. Enable `DEBTSYNC_MUTATIONS_ENABLED` and complete one controlled sender-initiated payment, one receiver-initiated received-money confirmation, and one controlled debt-request acceptance using team accounts.
 7. Enable `NEXT_PUBLIC_DEBTSYNC_ENABLED` and redeploy.
 8. Monitor server errors, conflict responses, failed push delivery, and reconciliation counts.
 9. Verify the additive debt-request migration preserved all historical obligation links before enabling mutations.
@@ -801,6 +837,8 @@ The existing auto-settlement schedule remains the repository's actual `0 0 20 * 
 - [ ] New settlement handoff is atomic
 - [ ] Balance invariants pass fixtures
 - [ ] Payment commands are idempotent and race-safe
+- [ ] Receiver-initiated received-money records preserve existing accepted-transfer accounting
+- [ ] Legacy null-initiator payment behavior remains unchanged
 - [ ] Active reversal uniqueness is enforced by a partial database index
 - [ ] Notifications are persistent and push is non-blocking
 - [ ] Dashboard, payment, ledger, and notification pages complete
@@ -823,7 +861,7 @@ DebtSync Release 1 is done when:
 - The production database contains one obligation for every MealSync settlement row.
 - The production database contains one settlement run for every settled month, including zero-transfer months created after release.
 - New settlement obligations are created atomically and idempotently.
-- Members can record, confirm, reject, cancel, and return payments under the exact permission rules.
+- Members can record money sent or received, confirm, reject, cancel, and return payments under the exact permission rules.
 - Members can create, accept, reject, and cancel participant-private debt requests under the exact permission rules.
 - All balances are derived correctly from obligations and accepted transfers.
 - All financial actions retain an immutable, inspectable history.

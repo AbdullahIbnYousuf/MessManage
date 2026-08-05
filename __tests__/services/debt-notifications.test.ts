@@ -57,6 +57,7 @@ const paymentInput = {
   receiverName: "Receiver",
   amount: "50.00",
   source: "direct" as const,
+  initiatedBy: "sender" as const,
 };
 
 describe("DebtSync notification copy", () => {
@@ -91,6 +92,22 @@ describe("DebtSync notification copy", () => {
       .toBe("reversal_accepted");
     expect(buildPaymentCancelledNotification(reversal).type)
       .toBe("reversal_cancelled");
+  });
+
+  it("targets the lender with contextual receiver-initiated copy", () => {
+    const received = { ...paymentInput, initiatedBy: "receiver" as const };
+    expect(buildPaymentCreatedNotification(received)).toMatchObject({
+      userId: senderId,
+      title: "Money sent confirmation requested",
+    });
+    expect(buildPaymentResponseNotification(received, "accept")).toMatchObject({
+      userId: receiverId,
+      title: "Received money record accepted",
+    });
+    expect(buildPaymentCancelledNotification(received)).toMatchObject({
+      userId: senderId,
+      title: "Received money record cancelled",
+    });
   });
 
   it("rejects malformed notification cursors", () => {

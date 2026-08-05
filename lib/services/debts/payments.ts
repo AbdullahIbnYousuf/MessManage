@@ -15,6 +15,11 @@ import {
 } from "@/lib/domain/debts/validation";
 import { serializeTransferLedgerEntry } from "@/lib/domain/debts/serialization";
 import {
+  transferConfirmerId,
+  transferInitiation,
+  transferInitiatorId,
+} from "@/lib/domain/debts/transfers";
+import {
   deliverDebtNotifications,
   persistDebtNotifications,
 } from "@/lib/services/debts/notifications";
@@ -54,6 +59,13 @@ export type CreatePaymentInput = {
   clientRequestId: unknown;
 };
 
+export type CreateReceivedMoneyInput = {
+  senderUserId: unknown;
+  amount: unknown;
+  description?: unknown;
+  clientRequestId: unknown;
+};
+
 export type RespondToPaymentInput = {
   paymentId: unknown;
   decision: unknown;
@@ -83,6 +95,7 @@ function transferRecord(transfer: CommandTransfer): DebtTransferBalanceRecord {
     id: transfer.id,
     senderId: transfer.senderId,
     receiverId: transfer.receiverId,
+    initiatedById: transfer.initiatedById,
     amount: transfer.amount.toFixed(2),
     description: transfer.description,
     status: transfer.status,
@@ -112,6 +125,7 @@ function notificationInput(transfer: CommandTransfer) {
     receiverName: transfer.receiver.nickname || transfer.receiver.name,
     amount: transfer.amount.toFixed(2),
     source: transfer.source,
+    initiatedBy: transferInitiation(transfer),
   };
 }
 
@@ -161,6 +175,23 @@ function isMatchingDirectRequest(
 ): boolean {
   return transfer.senderId === actorId
     && transfer.receiverId === receiverId
+    && transferInitiatorId(transfer) === actorId
+    && transfer.source === "direct"
+    && transfer.reversesTransferId === null
+    && transfer.amount.eq(amount)
+    && transfer.description === description;
+}
+
+function isMatchingReceivedMoneyRequest(
+  transfer: CommandTransfer,
+  actorId: string,
+  senderId: string,
+  amount: Decimal,
+  description: string | null
+): boolean {
+  return transfer.senderId === senderId
+    && transfer.receiverId === actorId
+    && transferInitiatorId(transfer) === actorId
     && transfer.source === "direct"
     && transfer.reversesTransferId === null
     && transfer.amount.eq(amount)
@@ -174,6 +205,7 @@ function isMatchingReturnRequest(
 ): boolean {
   return transfer.senderId === actorId
     && transfer.receiverId === original.senderId
+    && transferInitiatorId(transfer) === actorId
     && transfer.source === "reversal"
     && transfer.reversesTransferId === original.id
     && transfer.amount.eq(original.amount)
@@ -193,7 +225,7 @@ async function deliverAfterCommit(
 
 function logTransferTransition(
   paymentId: string,
-  transition: "created" | "accepted" | "rejected" | "cancelled" | "return_created"
+  transition: "created" | "received_created" | "accepted" | "rejected" | "cancelled" | "return_created"
 ): void {
   console.info("DebtSync transfer transition.", { paymentId, transition });
 }
@@ -268,6 +300,7 @@ export async function createPayment(
         data: {
           senderId: actorId,
           receiverId,
+          initiatedById: actorId,
           amount,
           description,
           status: "pending",
@@ -311,6 +344,114 @@ export async function createPayment(
   return result;
 }
 
+export async function createReceivedMoney(
+  actorId: string,
+  input: CreateReceivedMoneyInput
+): Promise<PaymentCommandResult> {
+  const senderId = parseUuid(input.senderUserId, "senderUserId");
+  const clientRequestId = parseUuid(input.clientRequestId, "clientRequestId");
+  const amount = parseAmount(input.amount);
+  const description = parseDescription(input.description);
+
+  if (senderId === actorId) {
+    throw new DebtError(
+      "SELF_PAYMENT_NOT_ALLOWED",
+      "Received money must name another member as the sender."
+    );
+  }
+
+  const createInTransaction = async (): Promise<PaymentCommandResult> =>
+    withSerializableRetry(async (tx) => {
+      await requireActiveActor(tx, actorId);
+
+      const existing = await tx.transfer.findUnique({
+        where: { clientRequestId },
+        include: commandTransferInclude,
+      });
+      if (existing) {
+        if (!isMatchingReceivedMoneyRequest(
+          existing,
+          actorId,
+          senderId,
+          amount,
+          description
+        )) {
+          throw duplicateConflict();
+        }
+        return {
+          payment: serializeCommandTransfer(existing),
+          created: false,
+          notificationIds: [],
+        };
+      }
+
+      const sender = await tx.user.findUnique({
+        where: { id: senderId },
+        select: { status: true },
+      });
+      if (!sender || sender.status !== "active") {
+        throw new DebtError(
+          "MEMBER_NOT_FOUND",
+          "The selected active member was not found."
+        );
+      }
+
+      const transfer = await tx.transfer.create({
+        data: {
+          senderId,
+          receiverId: actorId,
+          initiatedById: actorId,
+          amount,
+          description,
+          status: "pending",
+          source: "direct",
+          clientRequestId,
+        },
+        include: commandTransferInclude,
+      });
+      const notificationIds = await persistDebtNotifications(tx, [
+        buildPaymentCreatedNotification(notificationInput(transfer)),
+      ]);
+      return {
+        payment: serializeCommandTransfer(transfer),
+        created: true,
+        notificationIds,
+      };
+    });
+
+  let result: PaymentCommandResult;
+  try {
+    result = await createInTransaction();
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) throw error;
+    const existing = await db.transfer.findUnique({
+      where: { clientRequestId },
+      include: commandTransferInclude,
+    });
+    if (!existing) throw error;
+    if (!isMatchingReceivedMoneyRequest(
+      existing,
+      actorId,
+      senderId,
+      amount,
+      description
+    )) {
+      throw duplicateConflict();
+    }
+    result = {
+      payment: serializeCommandTransfer(existing),
+      created: false,
+      notificationIds: [],
+    };
+  }
+
+  if (result.created) {
+    logTransferTransition(result.payment.id, "received_created");
+  }
+  await deliverAfterCommit(result.notificationIds, "received money creation");
+  return result;
+}
+
 export async function respondToPayment(
   actorId: string,
   input: RespondToPaymentInput
@@ -344,10 +485,10 @@ export async function respondToPayment(
     if (!transfer) {
       throw new DebtError("PAYMENT_NOT_FOUND", "Payment not found.");
     }
-    if (transfer.receiverId !== actorId) {
+    if (transferConfirmerId(transfer) !== actorId) {
       throw new DebtError(
         "PAYMENT_FORBIDDEN",
-        "Only the payment receiver can respond."
+        "Only the non-initiating participant can respond."
       );
     }
     if (transfer.status !== "pending") {
@@ -415,10 +556,10 @@ export async function cancelPayment(
     if (!transfer) {
       throw new DebtError("PAYMENT_NOT_FOUND", "Payment not found.");
     }
-    if (transfer.senderId !== actorId) {
+    if (transferInitiatorId(transfer) !== actorId) {
       throw new DebtError(
         "PAYMENT_FORBIDDEN",
-        "Only the payment sender can cancel it."
+        "Only the member who started this payment record can cancel it."
       );
     }
     if (transfer.status !== "pending") {
@@ -539,6 +680,7 @@ export async function createReturnPayment(
         data: {
           senderId: actorId,
           receiverId: original.senderId,
+          initiatedById: actorId,
           amount: original.amount,
           description: null,
           status: "pending",

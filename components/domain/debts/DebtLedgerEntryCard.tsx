@@ -34,7 +34,7 @@ export default function DebtLedgerEntryCard({ entry, currentUserId }: { entry: D
               {entry.sender.name} paid {entry.receiver.name}
             </div>
             <div className="text-muted" style={{ fontSize: "0.75rem", marginTop: 3 }}>
-              {entry.source === "reversal" ? "Return payment" : "Payment"} · {formatWhen(entry.createdAt)}
+              {entry.source === "reversal" ? "Return payment" : entry.initiatedBy === "receiver" ? "Money received record" : "Payment"} · {formatWhen(entry.createdAt)}
             </div>
           </div>
           <div style={{ textAlign: "right", flexShrink: 0 }}>

@@ -47,6 +47,7 @@ vi.mock("@/lib/services/debts/notifications", () => ({
 import {
   cancelPayment,
   createPayment,
+  createReceivedMoney,
   createReturnPayment,
   respondToPayment,
 } from "@/lib/services/debts/payments";
@@ -65,6 +66,7 @@ function payment(overrides: Record<string, unknown> = {}) {
     id: paymentId,
     senderId: actorId,
     receiverId,
+    initiatedById: null,
     amount: new Decimal("50.00"),
     description: "Cash",
     status: "pending",
@@ -115,6 +117,7 @@ describe("DebtSync payment commands", () => {
       data: expect.objectContaining({
         senderId: actorId,
         receiverId,
+        initiatedById: actorId,
         amount: new Decimal("50.00"),
         description: "Cash",
         status: "pending",
@@ -143,6 +146,79 @@ describe("DebtSync payment commands", () => {
       clientRequestId: requestId,
     })).rejects.toMatchObject({ code: "INVALID_DESCRIPTION" });
     expect(mocks.serializable).not.toHaveBeenCalled();
+  });
+
+  it("creates a receiver-initiated record with the selected lender as sender", async () => {
+    const receivedRecord = payment({
+      senderId: receiverId,
+      receiverId: actorId,
+      initiatedById: actorId,
+      sender: member(receiverId, "Lender"),
+      receiver: member(actorId, "Borrower"),
+    });
+    mocks.tx.transfer.create.mockResolvedValue(receivedRecord);
+
+    const result = await createReceivedMoney(actorId, {
+      senderUserId: receiverId,
+      amount: "50.00",
+      description: " Short-term loan ",
+      clientRequestId: requestId,
+    });
+
+    expect(result.payment.initiatedBy).toBe("receiver");
+    expect(mocks.tx.transfer.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        senderId: receiverId,
+        receiverId: actorId,
+        initiatedById: actorId,
+        amount: new Decimal("50.00"),
+        description: "Short-term loan",
+        status: "pending",
+        source: "direct",
+      }),
+    }));
+    expect(mocks.persist).toHaveBeenCalledOnce();
+  });
+
+  it("validates receiver-initiated records and re-reads both members", async () => {
+    await expect(createReceivedMoney(actorId, {
+      senderUserId: actorId,
+      amount: "50.00",
+      clientRequestId: requestId,
+    })).rejects.toMatchObject({ code: "SELF_PAYMENT_NOT_ALLOWED" });
+
+    mocks.tx.user.findUnique
+      .mockResolvedValueOnce({ status: "active" })
+      .mockResolvedValueOnce({ status: "deactivated" });
+    await expect(createReceivedMoney(actorId, {
+      senderUserId: receiverId,
+      amount: "50.00",
+      clientRequestId: requestId,
+    })).rejects.toMatchObject({ code: "MEMBER_NOT_FOUND" });
+    expect(mocks.tx.transfer.create).not.toHaveBeenCalled();
+  });
+
+  it("keeps receiver-initiated creation idempotent and rejects conflicts", async () => {
+    const receivedRecord = payment({
+      senderId: receiverId,
+      receiverId: actorId,
+      initiatedById: actorId,
+      sender: member(receiverId, "Lender"),
+      receiver: member(actorId, "Borrower"),
+    });
+    mocks.tx.transfer.findUnique.mockResolvedValue(receivedRecord);
+    await expect(createReceivedMoney(actorId, {
+      senderUserId: receiverId,
+      amount: "50.00",
+      description: "Cash",
+      clientRequestId: requestId,
+    })).resolves.toMatchObject({ created: false });
+    await expect(createReceivedMoney(actorId, {
+      senderUserId: receiverId,
+      amount: "51.00",
+      description: "Cash",
+      clientRequestId: requestId,
+    })).rejects.toMatchObject({ code: "DUPLICATE_REQUEST_CONFLICT" });
   });
 
   it("re-reads both users and rejects an inactive receiver", async () => {
@@ -225,6 +301,32 @@ describe("DebtSync payment commands", () => {
     }));
   });
 
+  it("lets only the lender respond to a receiver-initiated record", async () => {
+    const receivedRecord = payment({
+      senderId: receiverId,
+      receiverId: actorId,
+      initiatedById: actorId,
+      sender: member(receiverId, "Lender"),
+      receiver: member(actorId, "Borrower"),
+    });
+    mocks.tx.transfer.findUnique.mockResolvedValue(receivedRecord);
+    await expect(respondToPayment(actorId, {
+      paymentId,
+      decision: "accept",
+    })).rejects.toMatchObject({ code: "PAYMENT_FORBIDDEN" });
+
+    mocks.tx.transfer.findUnique.mockResolvedValue(receivedRecord);
+    mocks.tx.transfer.findUniqueOrThrow.mockResolvedValue({
+      ...receivedRecord,
+      status: "accepted",
+      respondedAt: new Date("2026-08-02T00:00:00.000Z"),
+    });
+    await expect(respondToPayment(receiverId, {
+      paymentId,
+      decision: "accept",
+    })).resolves.toMatchObject({ payment: { status: "accepted" } });
+  });
+
   it("requires a valid reason when rejecting", async () => {
     await expect(respondToPayment(receiverId, {
       paymentId,
@@ -265,6 +367,30 @@ describe("DebtSync payment commands", () => {
     expect(result.payment.status).toBe("cancelled");
   });
 
+  it("lets only the borrower cancel a receiver-initiated record", async () => {
+    const receivedRecord = payment({
+      senderId: receiverId,
+      receiverId: actorId,
+      initiatedById: actorId,
+      sender: member(receiverId, "Lender"),
+      receiver: member(actorId, "Borrower"),
+    });
+    mocks.tx.transfer.findUnique.mockResolvedValue(receivedRecord);
+    await expect(cancelPayment(receiverId, paymentId)).rejects.toMatchObject({
+      code: "PAYMENT_FORBIDDEN",
+    });
+
+    mocks.tx.transfer.findUnique.mockResolvedValue(receivedRecord);
+    mocks.tx.transfer.findUniqueOrThrow.mockResolvedValue({
+      ...receivedRecord,
+      status: "cancelled",
+      cancelledAt: new Date("2026-08-02T00:00:00.000Z"),
+    });
+    await expect(cancelPayment(actorId, paymentId)).resolves.toMatchObject({
+      payment: { status: "cancelled" },
+    });
+  });
+
   it("creates an exact opposite pending return payment", async () => {
     const original = payment({ status: "accepted" });
     const reversal = payment({
@@ -292,6 +418,7 @@ describe("DebtSync payment commands", () => {
       data: expect.objectContaining({
         senderId: receiverId,
         receiverId: actorId,
+        initiatedById: receiverId,
         amount: original.amount,
         source: "reversal",
         reversesTransferId: paymentId,

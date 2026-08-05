@@ -31,6 +31,7 @@ export type DebtTransferBalanceRecord = {
   id: string;
   senderId: string;
   receiverId: string;
+  initiatedById: string | null;
   amount: string;
   description: string | null;
   status: TransferStatus;
@@ -98,6 +99,7 @@ export type DebtPaymentLedgerEntry = {
   rejectionReason: string | null;
   respondedAt: string | null;
   cancelledAt: string | null;
+  initiatedBy: "sender" | "receiver";
   sender: DebtMember;
   receiver: DebtMember;
 };
@@ -120,6 +122,8 @@ export type DebtLedgerPage = {
 export type DebtDashboardSummary = DebtMemberTotals & {
   pendingIncomingCount: number;
   pendingOutgoingCount: number;
+  pendingPaymentResponseCount: number;
+  pendingPaymentInitiatedCount: number;
   pendingDebtRequestIncomingCount: number;
   pendingDebtRequestOutgoingCount: number;
   unreadNotificationCount: number;
@@ -175,6 +179,7 @@ export type DebtPaymentFilters = {
   currentUserId?: string;
   memberId?: string;
   direction?: "all" | "incoming" | "outgoing";
+  action?: "all" | "needs_response" | "initiated_by_me";
   status?: TransferStatus;
   cursor?: string;
   limit?: number;

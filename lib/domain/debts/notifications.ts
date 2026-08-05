@@ -14,6 +14,7 @@ type PaymentNotificationInput = {
   receiverName: string;
   amount: string;
   source: "direct" | "reversal";
+  initiatedBy: "sender" | "receiver";
 };
 
 type DebtRequestNotificationInput = {
@@ -61,6 +62,17 @@ export function buildPaymentCreatedNotification(
   input: PaymentNotificationInput
 ): DebtNotificationDraft {
   const isReversal = input.source === "reversal";
+  const receiverInitiated = !isReversal && input.initiatedBy === "receiver";
+  if (receiverInitiated) {
+    return {
+      userId: input.senderId,
+      type: "payment_received",
+      entityType: "transfer",
+      entityId: input.transferId,
+      title: "Money sent confirmation requested",
+      body: `${input.receiverName} recorded receiving Tk ${input.amount} from you. Confirm whether you sent it.`,
+    };
+  }
   return {
     userId: input.receiverId,
     type: isReversal ? "reversal_received" : "payment_received",
@@ -79,6 +91,17 @@ export function buildPaymentResponseNotification(
 ): DebtNotificationDraft {
   const isReversal = input.source === "reversal";
   const accepted = decision === "accept";
+  const receiverInitiated = !isReversal && input.initiatedBy === "receiver";
+  if (receiverInitiated) {
+    return {
+      userId: input.receiverId,
+      type: accepted ? "payment_accepted" : "payment_rejected",
+      entityType: "transfer",
+      entityId: input.transferId,
+      title: `Received money record ${accepted ? "accepted" : "rejected"}`,
+      body: `${input.senderName} ${accepted ? "accepted" : "rejected"} your record of receiving Tk ${input.amount} from them.`,
+    };
+  }
   return {
     userId: input.senderId,
     type: isReversal
@@ -97,6 +120,17 @@ export function buildPaymentCancelledNotification(
   input: PaymentNotificationInput
 ): DebtNotificationDraft {
   const isReversal = input.source === "reversal";
+  const receiverInitiated = !isReversal && input.initiatedBy === "receiver";
+  if (receiverInitiated) {
+    return {
+      userId: input.senderId,
+      type: "payment_cancelled",
+      entityType: "transfer",
+      entityId: input.transferId,
+      title: "Received money record cancelled",
+      body: `${input.receiverName} cancelled the record of receiving Tk ${input.amount} from you.`,
+    };
+  }
   return {
     userId: input.receiverId,
     type: isReversal ? "reversal_cancelled" : "payment_cancelled",

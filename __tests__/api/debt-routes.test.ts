@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   session: vi.fn(),
   createPayment: vi.fn(),
+  createReceivedMoney: vi.fn(),
   respond: vi.fn(),
   summary: vi.fn(),
   ledger: vi.fn(),
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/session", () => ({ getSessionUser: mocks.session }));
 vi.mock("@/lib/services/debts/payments", () => ({
   createPayment: mocks.createPayment,
+  createReceivedMoney: mocks.createReceivedMoney,
   respondToPayment: mocks.respond,
   cancelPayment: vi.fn(),
   createReturnPayment: vi.fn(),
@@ -31,6 +33,7 @@ import { GET as getLedger } from "@/app/api/debts/ledger/route";
 import {
   POST as createPaymentRoute,
 } from "@/app/api/debts/payments/route";
+import { POST as createReceivedMoneyRoute } from "@/app/api/debts/payments/received/route";
 import { POST as respondRoute } from "@/app/api/debts/payments/[id]/respond/route";
 import { GET as getNotificationInbox } from "@/app/api/notifications/inbox/route";
 
@@ -61,6 +64,7 @@ const payment = {
   rejectionReason: null,
   respondedAt: null,
   cancelledAt: null,
+  initiatedBy: "sender",
   sender: { id: userId, name: "Member", avatarUrl: null },
   receiver: { id: receiverId, name: "Receiver", avatarUrl: null },
 };
@@ -71,6 +75,16 @@ describe("DebtSync API routes", () => {
     mocks.session.mockResolvedValue(activeUser);
     mocks.createPayment.mockResolvedValue({
       payment,
+      created: true,
+      notificationIds: ["notification"],
+    });
+    mocks.createReceivedMoney.mockResolvedValue({
+      payment: {
+        ...payment,
+        initiatedBy: "receiver",
+        sender: payment.receiver,
+        receiver: payment.sender,
+      },
       created: true,
       notificationIds: ["notification"],
     });
@@ -85,6 +99,8 @@ describe("DebtSync API routes", () => {
       net: "0.00",
       pendingIncomingCount: 0,
       pendingOutgoingCount: 0,
+      pendingPaymentResponseCount: 0,
+      pendingPaymentInitiatedCount: 0,
       pendingDebtRequestIncomingCount: 0,
       pendingDebtRequestOutgoingCount: 0,
       unreadNotificationCount: 0,
@@ -144,6 +160,28 @@ describe("DebtSync API routes", () => {
     expect(response.status).toBe(201);
     expect(mocks.createPayment).toHaveBeenCalledWith(userId, {
       receiverUserId: receiverId,
+      amount: "50.00",
+      description: undefined,
+      clientRequestId: requestId,
+    });
+  });
+
+  it("uses the authenticated member as receiver for money received", async () => {
+    const response = await createReceivedMoneyRoute(new Request(
+      "http://localhost/api/debts/payments/received",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          receiverId: "browser-supplied-actor",
+          senderUserId: receiverId,
+          amount: "50.00",
+          clientRequestId: requestId,
+        }),
+      }
+    ));
+    expect(response.status).toBe(201);
+    expect(mocks.createReceivedMoney).toHaveBeenCalledWith(userId, {
+      senderUserId: receiverId,
       amount: "50.00",
       description: undefined,
       clientRequestId: requestId,

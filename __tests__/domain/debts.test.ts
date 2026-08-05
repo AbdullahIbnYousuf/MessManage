@@ -11,6 +11,9 @@ import {
   paginateDebtRequests,
   parsePositiveAmount,
   positionForMember,
+  transferConfirmerId,
+  transferInitiation,
+  transferInitiatorId,
   validateOptionalDescription,
   validateRequiredDescription,
   validateRejectionReason,
@@ -55,6 +58,7 @@ function transfer(
     id,
     senderId,
     receiverId,
+    initiatedById: null,
     amount,
     description: null,
     status,
@@ -109,6 +113,13 @@ describe("DebtSync accounting", () => {
       .toBe("0.00");
     expect(memberPosition("a", "b", obligations, [transfer("p3", "a", "b", "125.00")]))
       .toBe("25.00");
+  });
+
+  it("makes a borrower owe the lender after accepted money received", () => {
+    const received = transfer("borrowed", "lender", "borrower", "75.25");
+    received.initiatedById = "borrower";
+    expect(memberPosition("borrower", "lender", [], [received]))
+      .toBe("-75.25");
   });
 
   it("adds multiple accepted payments and an accepted reversal", () => {
@@ -191,6 +202,7 @@ function ledgerEntry(
     rejectionReason: null,
     respondedAt: createdAt,
     cancelledAt: null,
+    initiatedBy: "sender",
     sender: member,
     receiver: { ...member, id: "other" },
   };
@@ -290,5 +302,17 @@ describe("DebtSync ledger and validation", () => {
     expect(canCreateTransferReversal("accepted", "direct")).toBe(true);
     expect(canCreateTransferReversal("accepted", "reversal")).toBe(false);
     expect(canCreateTransferReversal("pending", "direct")).toBe(false);
+  });
+
+  it("derives transfer ownership while preserving legacy records", () => {
+    const legacy = { senderId: "sender", receiverId: "receiver", initiatedById: null };
+    expect(transferInitiation(legacy)).toBe("sender");
+    expect(transferInitiatorId(legacy)).toBe("sender");
+    expect(transferConfirmerId(legacy)).toBe("receiver");
+
+    const received = { ...legacy, initiatedById: "receiver" };
+    expect(transferInitiation(received)).toBe("receiver");
+    expect(transferInitiatorId(received)).toBe("receiver");
+    expect(transferConfirmerId(received)).toBe("sender");
   });
 });

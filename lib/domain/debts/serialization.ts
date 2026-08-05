@@ -5,6 +5,7 @@ import type {
   DebtPaymentLedgerEntry,
   DebtTransferBalanceRecord,
 } from "@/types/debts";
+import { transferInitiation } from "@/lib/domain/debts/transfers";
 
 export function serializeObligationLedgerEntry(
   obligation: DebtObligationBalanceRecord,
@@ -42,6 +43,7 @@ export function serializeTransferLedgerEntry(
     rejectionReason: transfer.rejectionReason,
     respondedAt: transfer.respondedAt?.toISOString() ?? null,
     cancelledAt: transfer.cancelledAt?.toISOString() ?? null,
+    initiatedBy: transferInitiation(transfer),
     sender,
     receiver,
   };

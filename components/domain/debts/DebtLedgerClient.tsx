@@ -48,7 +48,7 @@ export default function DebtLedgerClient({ currentUserId }: { currentUserId: str
 
   const type = searchParams.get("type") ?? "all";
   return <div className="page-container debt-page">
-    <div className="section-header"><div><div className="debt-back"><Link href="/debts">← DebtSync</Link></div><h1 className="debt-title">Debt ledger</h1><p className="text-secondary debt-subtitle">Settlement obligations and member-confirmed payments.</p></div><Link href="/debts/payments/new" className="btn btn-primary">Record payment</Link></div>
+    <div className="section-header"><div><div className="debt-back"><Link href="/debts">← DebtSync</Link></div><h1 className="debt-title">Debt ledger</h1><p className="text-secondary debt-subtitle">Settlement obligations and member-confirmed payments.</p></div><div className="debt-command-grid"><Link href="/debts/payments/received/new" className="btn btn-secondary debt-full-mobile">Record money received</Link><Link href="/debts/payments/new" className="btn btn-primary debt-full-mobile">Record payment</Link></div></div>
     <div className="card debt-filters">
       <label><span>Member</span><select className="input" value={searchParams.get("memberId") ?? ""} onChange={(event) => setFilter("memberId", event.target.value)}><option value="">All members</option>{members.map((member) => <option key={member.id} value={member.id}>{member.nickname || member.name}</option>)}</select></label>
       <label><span>Record type</span><select className="input" value={type} onChange={(event) => setFilter("type", event.target.value)}><option value="all">All records</option><option value="obligation">Obligations</option><option value="payment">Payments</option></select></label>

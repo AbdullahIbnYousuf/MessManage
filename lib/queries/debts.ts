@@ -9,6 +9,8 @@ import {
   positionForMember,
   serializeObligationLedgerEntry,
   serializeTransferLedgerEntry,
+  transferConfirmerId,
+  transferInitiatorId,
 } from "@/lib/domain/debts";
 import type {
   DebtDashboardSummary,
@@ -83,6 +85,7 @@ function transferBalanceRecord(
     id: transfer.id,
     senderId: transfer.senderId,
     receiverId: transfer.receiverId,
+    initiatedById: transfer.initiatedById,
     amount: transfer.amount.toFixed(2),
     description: transfer.description,
     status: transfer.status,
@@ -201,6 +204,14 @@ export async function fetchDebtSummary(
   const pendingOutgoing = transfers.filter(
     (transfer) => transfer.senderId === currentUserId && transfer.status === "pending"
   );
+  const pendingPaymentResponseCount = transfers.filter(
+    (transfer) => transfer.status === "pending"
+      && transferConfirmerId(transfer) === currentUserId
+  ).length;
+  const pendingPaymentInitiatedCount = transfers.filter(
+    (transfer) => transfer.status === "pending"
+      && transferInitiatorId(transfer) === currentUserId
+  ).length;
   const pendingDebtRequestIncomingCount = pendingDebtRequests.filter(
     (request) => request.debtorId === currentUserId
   ).length;
@@ -262,6 +273,8 @@ export async function fetchDebtSummary(
     ...totals,
     pendingIncomingCount: pendingIncoming.length,
     pendingOutgoingCount: pendingOutgoing.length,
+    pendingPaymentResponseCount,
+    pendingPaymentInitiatedCount,
     pendingDebtRequestIncomingCount,
     pendingDebtRequestOutgoingCount,
     unreadNotificationCount,
@@ -337,9 +350,10 @@ export async function fetchDebtPayments(
   filters: DebtPaymentFilters = {}
 ): Promise<DebtLedgerPage> {
   const direction = filters.direction ?? "all";
-  if (direction !== "all" && !filters.currentUserId) {
+  const action = filters.action ?? "all";
+  if ((direction !== "all" || action !== "all") && !filters.currentUserId) {
     throw new DebtValidationError(
-      "A current member is required for incoming or outgoing payment filters."
+      "A current member is required for directional or action payment filters."
     );
   }
   const directionWhere: Prisma.TransferWhereInput =
@@ -358,8 +372,23 @@ export async function fetchDebtPayments(
     include: transferInclude,
   });
 
+  const normalized = transfers.map(normalizeTransfer);
+  const actionFiltered = action === "all"
+    ? normalized
+    : normalized.filter((transfer) => {
+        const initiatorId = transfer.initiatedBy === "sender"
+          ? transfer.sender.id
+          : transfer.receiver.id;
+        const confirmerId = transfer.initiatedBy === "sender"
+          ? transfer.receiver.id
+          : transfer.sender.id;
+        return action === "initiated_by_me"
+          ? initiatorId === filters.currentUserId
+          : confirmerId === filters.currentUserId;
+      });
+
   return paginateLedgerEntries(
-    transfers.map(normalizeTransfer),
+    actionFiltered,
     normalizeLimit(filters.limit),
     filters.cursor
   );

@@ -11,8 +11,8 @@ type ApiResult<T> = { data?: T; error?: string };
 
 export default function DebtDashboardClient({ currentUserId }: { currentUserId: string }) {
   const [summary, setSummary] = useState<DebtDashboardSummary | null>(null);
-  const [incoming, setIncoming] = useState<DebtPaymentLedgerEntry[]>([]);
-  const [outgoing, setOutgoing] = useState<DebtPaymentLedgerEntry[]>([]);
+  const [needsResponse, setNeedsResponse] = useState<DebtPaymentLedgerEntry[]>([]);
+  const [initiatedByMe, setInitiatedByMe] = useState<DebtPaymentLedgerEntry[]>([]);
   const [incomingRequests, setIncomingRequests] = useState<DebtRequestItem[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<DebtRequestItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,8 +24,8 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
     try {
       const [summaryResponse, incomingResponse, outgoingResponse, incomingRequestResponse, outgoingRequestResponse] = await Promise.all([
         fetch("/api/debts/summary"),
-        fetch("/api/debts/payments?direction=incoming&status=pending&limit=50"),
-        fetch("/api/debts/payments?direction=outgoing&status=pending&limit=50"),
+        fetch("/api/debts/payments?action=needs_response&status=pending&limit=50"),
+        fetch("/api/debts/payments?action=initiated_by_me&status=pending&limit=50"),
         fetch("/api/debts/requests?direction=incoming&status=pending&limit=50"),
         fetch("/api/debts/requests?direction=outgoing&status=pending&limit=50"),
       ]);
@@ -54,8 +54,8 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
         );
       }
       setSummary(summaryJson.data);
-      setIncoming((incomingJson.data?.entries ?? []).filter((item): item is DebtPaymentLedgerEntry => item.type === "payment"));
-      setOutgoing((outgoingJson.data?.entries ?? []).filter((item): item is DebtPaymentLedgerEntry => item.type === "payment"));
+      setNeedsResponse((incomingJson.data?.entries ?? []).filter((item): item is DebtPaymentLedgerEntry => item.type === "payment"));
+      setInitiatedByMe((outgoingJson.data?.entries ?? []).filter((item): item is DebtPaymentLedgerEntry => item.type === "payment"));
       setIncomingRequests(incomingRequestJson.data?.requests ?? []);
       setOutgoingRequests(outgoingRequestJson.data?.requests ?? []);
     } catch (loadError) {
@@ -74,7 +74,7 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
           <h1 className="debt-title">DebtSync</h1>
           <p className="text-secondary debt-subtitle">Track confirmed debts and payments between members.</p>
         </div>
-        <div className="debt-command-grid"><Link href="/debts/requests/new" className="btn btn-secondary debt-full-mobile">Request debt</Link><Link href="/debts/payments/new" className="btn btn-primary debt-full-mobile">Record payment</Link></div>
+        <div className="debt-command-grid"><Link href="/debts/requests/new" className="btn btn-secondary debt-full-mobile">Request debt</Link><Link href="/debts/payments/received/new" className="btn btn-secondary debt-full-mobile">Record money received</Link><Link href="/debts/payments/new" className="btn btn-primary debt-full-mobile">Record payment</Link></div>
       </div>
 
       {loading && <div className="debt-state"><span className="spinner" /> Loading balances…</div>}
@@ -104,8 +104,8 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
 
           <RequestSection title="Debt requests needing your response" count={summary.pendingDebtRequestIncomingCount} entries={incomingRequests} currentUserId={currentUserId} empty="No debt requests need your response." />
           <RequestSection title="Pending debt requests sent by you" count={summary.pendingDebtRequestOutgoingCount} entries={outgoingRequests} currentUserId={currentUserId} empty="You have no pending debt requests." />
-          <PaymentSection title="Confirm incoming payments" count={summary.pendingIncomingCount} entries={incoming} empty="No payments need your confirmation." />
-          <PaymentSection title="Pending outgoing payments" count={summary.pendingOutgoingCount} entries={outgoing} empty="No outgoing payments are waiting." />
+          <PaymentSection title="Payments needing your response" count={summary.pendingPaymentResponseCount} entries={needsResponse} empty="No payment records need your response." />
+          <PaymentSection title="Pending payment records started by you" count={summary.pendingPaymentInitiatedCount} entries={initiatedByMe} empty="You have no pending payment records." />
 
           <section>
             <div className="debt-section-heading"><h2>Recent activity</h2><Link href="/debts/ledger">View all</Link></div>

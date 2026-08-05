@@ -52,19 +52,23 @@ export default function PaymentDetailClient({ paymentId, currentUserId }: { paym
 
   const isSender = payment.sender.id === currentUserId;
   const isReceiver = payment.receiver.id === currentUserId;
+  const receiverInitiated = payment.initiatedBy === "receiver";
+  const isInitiator = receiverInitiated ? isReceiver : isSender;
+  const isConfirmer = receiverInitiated ? isSender : isReceiver;
   const created = formatDate(payment.createdAt);
 
   return (
     <div className="page-container debt-page">
       <div className="debt-back"><Link href="/debts">← DebtSync</Link></div>
-      <div className="section-header"><div><h1 className="debt-title">Payment details</h1><p className="text-secondary debt-subtitle">{payment.source === "reversal" ? "Return payment" : "Direct payment"}</p></div><DebtStatusBadge status={payment.status} /></div>
+      <div className="section-header"><div><h1 className="debt-title">Payment details</h1><p className="text-secondary debt-subtitle">{payment.source === "reversal" ? "Return payment" : receiverInitiated ? "Money received record" : "Direct payment"}</p></div><DebtStatusBadge status={payment.status} /></div>
       <div className="card debt-detail">
         <div className="debt-detail-amount">{formatTaka(payment.amount)}</div>
-        <p className="debt-direction">{payment.sender.name} recorded a payment to {payment.receiver.name}.</p>
+        <p className="debt-direction">{receiverInitiated ? `${payment.receiver.name} recorded receiving money from ${payment.sender.name}.` : `${payment.sender.name} recorded a payment to ${payment.receiver.name}.`}</p>
         <dl className="debt-detail-list">
           <div><dt>From</dt><dd>{payment.sender.name}{isSender ? " (you)" : ""}</dd></div>
           <div><dt>To</dt><dd>{payment.receiver.name}{isReceiver ? " (you)" : ""}</dd></div>
           <div><dt>Recorded</dt><dd>{created}</dd></div>
+          <div><dt>Started by</dt><dd>{receiverInitiated ? payment.receiver.name : payment.sender.name}{isInitiator ? " (you)" : ""}</dd></div>
           {payment.respondedAt && <div><dt>Responded</dt><dd>{formatDate(payment.respondedAt)}</dd></div>}
           {payment.cancelledAt && <div><dt>Cancelled</dt><dd>{formatDate(payment.cancelledAt)}</dd></div>}
           {payment.description && <div><dt>Description</dt><dd>{payment.description}</dd></div>}
@@ -77,9 +81,9 @@ export default function PaymentDetailClient({ paymentId, currentUserId }: { paym
       <div className="debt-note">DebtSync records member confirmation; it does not transfer money through the app.</div>
       {error && <div className="debt-error" role="alert">{error}</div>}
 
-      {payment.status === "pending" && isReceiver && <div className="card debt-actions"><h2>Confirm this payment</h2><button className="btn btn-primary" disabled={busy} onClick={() => void mutate(`/api/debts/payments/${payment.id}/respond`, { decision: "accept" })}>Accept payment</button>{!showReject ? <button className="btn btn-danger" disabled={busy} onClick={() => setShowReject(true)}>Reject payment</button> : <div className="debt-reject"><label><span>Reason for rejection</span><textarea className="input" rows={3} maxLength={240} value={reason} onChange={(event) => setReason(event.target.value)} /></label><button className="btn btn-danger" disabled={busy || !reason.trim()} onClick={() => void mutate(`/api/debts/payments/${payment.id}/respond`, { decision: "reject", reason: reason.trim() })}>Confirm rejection</button><button className="btn btn-secondary" disabled={busy} onClick={() => setShowReject(false)}>Go back</button></div>}</div>}
+      {payment.status === "pending" && isConfirmer && <div className="card debt-actions"><h2>{receiverInitiated ? "Confirm money sent" : "Confirm this payment"}</h2>{receiverInitiated && <p className="text-secondary">Confirm that you sent {payment.receiver.name} {formatTaka(payment.amount)} outside DebtSync.</p>}<button className="btn btn-primary" disabled={busy} onClick={() => { if (confirm(receiverInitiated ? `Confirm that you sent ${formatTaka(payment.amount)} to ${payment.receiver.name}?` : `Accept this ${formatTaka(payment.amount)} payment?`)) void mutate(`/api/debts/payments/${payment.id}/respond`, { decision: "accept" }); }}>{receiverInitiated ? "Confirm money sent" : "Accept payment"}</button>{!showReject ? <button className="btn btn-danger" disabled={busy} onClick={() => setShowReject(true)}>{receiverInitiated ? "Reject record" : "Reject payment"}</button> : <div className="debt-reject"><label><span>Reason for rejection</span><textarea className="input" rows={3} maxLength={300} value={reason} onChange={(event) => setReason(event.target.value)} /><span className="text-muted" style={{ textAlign: "right", fontWeight: 400 }}>{reason.length}/300</span></label><button className="btn btn-danger" disabled={busy || reason.trim().length < 3} onClick={() => void mutate(`/api/debts/payments/${payment.id}/respond`, { decision: "reject", reason: reason.trim() })}>Confirm rejection</button><button className="btn btn-secondary" disabled={busy} onClick={() => setShowReject(false)}>Go back</button></div>}</div>}
 
-      {payment.status === "pending" && isSender && <div className="card debt-actions"><h2>Outgoing payment</h2><button className="btn btn-danger" disabled={busy} onClick={() => { if (confirm("Cancel this pending payment?")) void mutate(`/api/debts/payments/${payment.id}/cancel`); }}>Cancel payment</button></div>}
+      {payment.status === "pending" && isInitiator && <div className="card debt-actions"><h2>{receiverInitiated ? "Awaiting sender confirmation" : "Outgoing payment"}</h2>{receiverInitiated && <p className="text-secondary">This record has no balance effect until {payment.sender.name} confirms it.</p>}<button className="btn btn-danger" disabled={busy} onClick={() => { if (confirm("Cancel this pending payment record?")) void mutate(`/api/debts/payments/${payment.id}/cancel`); }}>Cancel record</button></div>}
 
       {payment.status === "accepted" && payment.source === "direct" && isReceiver && <div className="card debt-actions"><h2>Return this payment</h2><p className="text-secondary">Creates a new payment of the same amount for the original sender to confirm.</p><button className="btn btn-secondary" disabled={busy || !returnRequestId} onClick={() => { if (confirm(`Create a return payment for ${formatTaka(payment.amount)}?`)) void mutate(`/api/debts/payments/${payment.id}/reverse`, { clientRequestId: returnRequestId }); }}>Create return payment</button></div>}
     </div>
