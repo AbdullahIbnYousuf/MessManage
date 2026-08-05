@@ -3,7 +3,7 @@ import { getSessionUser } from "@/lib/session";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Admin Panel — MealSync",
+  title: "Admin Panel",
 };
 
 export default async function AdminPage() {

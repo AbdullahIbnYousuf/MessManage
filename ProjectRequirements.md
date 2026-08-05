@@ -1,10 +1,11 @@
-# Shared Meal & Expense Management System
+# MessManage
 ## Consolidated Requirements Document — Updated
 *Incorporates all design decisions, clarifications, and rule changes*
 
 | Field | Detail |
 |---|---|
-| Project Type | Household meal, bazar, and expense management |
+| Product | MessManage |
+| Project Type | Household meal, bazar, expense, and balance management |
 | Primary Purpose | Replace manual spreadsheet tracking with automated shared accounting |
 | Core Logic | Bazar = contribution \| Meal = consumption |
 | Scope | Single household group, fewer than 10 members |
@@ -22,6 +23,10 @@ The application is designed for a single household group — generally 5 to 6 me
 The system is not a generic accounting platform. It is a domain-specific household management tool built around the exact way the group operates: a maid cooks, members record meals, members go to bazar, and certain costs such as gas and rice are tracked across multiple months until the resource is finished.
 
 ### System Architecture
+
+**MessManage** is the single user-facing application and parent brand. The technical names
+**System 1** and **DebtSync/System 2** remain useful in code and accounting documentation,
+but members navigate one cohesive household product rather than separate applications.
 
 The application is split into two systems with a clear handoff point:
 
@@ -288,6 +293,17 @@ The settlement output becomes entries in System 2 where actual money movement is
 ---
 
 ## 10. Dashboard and Reporting
+
+### 10.0 Information Architecture
+
+- Desktop member navigation is grouped into **Main** (Home, Meals, Bazar) and **Household** (Expenses, Money, Members).
+- Admins receive a separate **Admin** destination.
+- Mobile navigation contains exactly Home, Meals, Bazar, Money, and More.
+- Expenses is a hub for Bulk Items, Maid Charges, and Fridge Bill.
+- Money is a hub for current-month balance, Monthly closing, confirmed balances, Record money, and the ledger.
+- Notifications are reached through a bell with unread count rather than a permanent navigation tab.
+- Current-month running balance and confirmed long-running balance are displayed as separate accounting stages and are never added together.
+- Existing feature URLs remain valid so bookmarks, notifications, and historical links are preserved.
 
 ### 10.1 Global Daily View
 

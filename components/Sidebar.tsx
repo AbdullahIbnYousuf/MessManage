@@ -1,131 +1,40 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import Image from "next/image";
 import type { SessionUser } from "@/types";
-
-const navItems = [
-  {
-    href: "/dashboard",
-    label: "Dashboard",
-    icon: (
-      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-      </svg>
-    ),
-  },
-  {
-    href: "/meals",
-    label: "Meals",
-    icon: (
-      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-      </svg>
-    ),
-  },
-  {
-    href: "/bazar",
-    label: "Bazar",
-    icon: (
-      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-      </svg>
-    ),
-  },
-  {
-    href: "/bulk-items",
-    label: "Bulk Items",
-    icon: (
-      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-      </svg>
-    ),
-  },
-  {
-    href: "/maid",
-    label: "Maid",
-    icon: (
-      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
-  },
-  {
-    href: "/fridge",
-    label: "Fridge Bill",
-    icon: (
-      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-      </svg>
-    ),
-  },
-  {
-    href: "/members",
-    label: "Members",
-    icon: (
-      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-      </svg>
-    ),
-  },
-  {
-    href: "/settlement",
-    label: "Settlement",
-    icon: (
-      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-      </svg>
-    ),
-  },
-];
-
-const adminItems = [
-  {
-    href: "/admin",
-    label: "Admin Panel",
-    icon: (
-      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
-  },
-];
-
-const debtNavItem = {
-  href: "/debts",
-  label: "DebtSync",
-  icon: (
-    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.7 0-3 .9-3 2s1.3 2 3 2 3 .9 3 2-1.3 2-3 2m0-8V6m0 10v2M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
-    </svg>
-  ),
-};
-
-const notificationNavItem = {
-  href: "/notifications",
-  label: "Notifications",
-  icon: (
-    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-    </svg>
-  ),
-};
+import {
+  activeNavigationId,
+  navigationItems,
+  navigationSections,
+  navigationVisibleTo,
+} from "@/components/navigation/config";
+import NavIcon from "@/components/navigation/NavIcon";
+import NavigationGroup from "@/components/navigation/NavigationGroup";
+import NotificationBell from "@/components/navigation/NotificationBell";
+import MobileHeader from "@/components/navigation/MobileHeader";
 
 export default function Sidebar({ user }: { user: SessionUser }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const debtSyncEnabled = process.env.NEXT_PUBLIC_DEBTSYNC_ENABLED === "true";
-  const visibleNavItems = debtSyncEnabled ? [...navItems, debtNavItem] : navItems;
-  const bottomNavItems = debtSyncEnabled
-    ? [navItems[0], navItems[1], navItems[2], debtNavItem]
-    : [navItems[0], navItems[1], navItems[2]];
+  const activeId = activeNavigationId(pathname, user.id);
+  const notificationsActive = pathname === "/notifications" || pathname.startsWith("/notifications/");
 
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(href + "/");
+  const visibleItems = useMemo(
+    () => navigationItems.filter((item) => navigationVisibleTo(item, user.role, debtSyncEnabled)),
+    [debtSyncEnabled, user.role]
+  );
+  const bottomItems = visibleItems.filter((item) => item.mobile === "bottom");
+  const moreItems = visibleItems.filter((item) => item.mobile === "more");
+  const moreHouseholdItems = moreItems.filter((item) => item.section !== "admin");
+  const moreAdminItems = moreItems.filter((item) => item.section === "admin");
+  const moreActive = pathname === "/profile"
+    || pathname.startsWith("/profile/")
+    || moreItems.some((item) => item.id === activeId);
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -139,367 +48,116 @@ export default function Sidebar({ user }: { user: SessionUser }) {
       .catch(() => undefined);
   }, [debtSyncEnabled, pathname]);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileMenuOpen(false);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [mobileMenuOpen]);
+
   return (
     <>
-      {/* ── DESKTOP SIDEBAR ── */}
       <aside className="layout-sidebar">
-        {/* Logo */}
-        <div style={{ padding: "0 0.375rem", marginBottom: "2rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <div
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: "10px",
-                background: "var(--color-primary)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                overflow: "hidden",
-              }}
-            >
-              <Image src="/logo.png" alt="MealSync Logo" width={38} height={38} style={{ objectFit: "cover" }} />
-            </div>
-            <span
-              style={{
-                fontWeight: 800,
-                fontSize: "1.0625rem",
-                letterSpacing: "-0.03em",
-                color: "var(--color-primary-light)",
-              }}
-            >
-              MealSync
-            </span>
-          </div>
+        <div className="desktop-brand-row">
+          <Link href="/dashboard" className="desktop-brand" aria-label="MessManage home">
+            <Image src="/logo.png" alt="MessManage logo" width={38} height={38} />
+            <span>MessManage</span>
+          </Link>
+          {debtSyncEnabled && <NotificationBell unreadCount={unreadCount} active={notificationsActive} />}
         </div>
 
-        {/* Nav Links */}
-        <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: "3px" }}>
-          {visibleNavItems.map((item) => (
-            <NavLink key={item.href} {...item} active={isActive(item.href)} />
+        <nav className="desktop-navigation" aria-label="Primary navigation">
+          {navigationSections.map((section) => (
+            <NavigationGroup
+              key={section.id}
+              label={section.label}
+              items={visibleItems.filter((item) => item.section === section.id)}
+              activeId={activeId}
+            />
           ))}
-          {debtSyncEnabled && (
-            <NavLink {...notificationNavItem} active={isActive(notificationNavItem.href)} badge={unreadCount} />
-          )}
-          {/* My Balance — dynamic link using current user's id */}
-          <NavLink
-            href={`/members/${user.id}`}
-            label="My Balance"
-            active={isActive(`/members/${user.id}`)}
-            icon={
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-              </svg>
-            }
-          />
-
-          {user.role === "admin" && (
-            <>
-              <div
-                style={{
-                  margin: "0.875rem 0.5rem 0.375rem",
-                  fontSize: "0.625rem",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.1em",
-                  color: "var(--color-text-muted)",
-                }}
-              >
-                Admin
-              </div>
-              {adminItems.map((item) => (
-                <NavLink key={item.href} {...item} active={isActive(item.href)} />
-              ))}
-            </>
-          )}
         </nav>
 
-        {/* User Footer */}
-        <div
-          style={{
-            marginTop: "auto",
-            paddingTop: "0.875rem",
-            borderTop: "1px solid var(--color-border)",
-          }}
-        >
-          <Link
-            href="/profile"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.75rem",
-              padding: "0.625rem 0.5rem",
-              borderRadius: "var(--radius-md)",
-              textDecoration: "none",
-              transition: "background 0.18s",
-            }}
-            className="hover:bg-bg-elevated"
-          >
-            {user.avatarUrl ? (
-              <Image
-                src={user.avatarUrl}
-                alt={user.nickname || user.name}
-                width={34}
-                height={34}
-                className="avatar"
-                style={{ width: 34, height: 34, border: "2px solid var(--color-border)" }}
-              />
-            ) : (
-              <div className="avatar-fallback" style={{ width: 34, height: 34, fontSize: "0.8125rem" }}>
-                {(user.nickname || user.name).charAt(0).toUpperCase()}
-              </div>
-            )}
-            <div style={{ flex: 1, overflow: "hidden" }}>
-              <div
-                style={{
-                  fontSize: "0.8125rem",
-                  fontWeight: 600,
-                  color: "var(--color-text-primary)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {user.nickname || user.name}
-              </div>
-              <div style={{ fontSize: "0.6875rem", color: "var(--color-text-muted)", textTransform: "capitalize" }}>
-                {user.role}
-              </div>
-            </div>
-          </Link>
-        </div>
+        <ProfileLink user={user} active={pathname === "/profile" || pathname.startsWith("/profile/")} />
       </aside>
 
-      {/* ── MOBILE BOTTOM NAV ── */}
-      <nav className="layout-mobile-nav">
-        {bottomNavItems.map((item) => item && (
+      <MobileHeader
+        unreadCount={unreadCount}
+        notificationsEnabled={debtSyncEnabled}
+        notificationsActive={notificationsActive}
+      />
+
+      <nav className="layout-mobile-nav" aria-label="Mobile navigation">
+        {bottomItems.map((item) => (
           <Link
-            key={item.href}
+            key={item.id}
             href={item.href}
-            className={`mobile-nav-link ${isActive(item.href) ? "active" : ""}`}
-            style={{ position: "relative" }}
+            className={`mobile-nav-link ${activeId === item.id ? "active" : ""}`}
+            aria-current={activeId === item.id ? "page" : undefined}
           >
-            {/* Active pill indicator */}
-            {isActive(item.href) && (
-              <div style={{
-                position: "absolute",
-                top: 0,
-                left: "50%",
-                transform: "translateX(-50%)",
-                width: 32,
-                height: 3,
-                borderRadius: "0 0 4px 4px",
-                background: "var(--color-primary)",
-              }} />
-            )}
-            <div style={{
-              color: isActive(item.href) ? "var(--color-primary)" : "var(--color-text-muted)",
-              transition: "color 0.18s",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 24,
-              height: 24,
-            }}>
-              {item.icon}
-            </div>
-            <span style={{
-              fontSize: "0.6rem",
-              marginTop: "2px",
-              fontWeight: isActive(item.href) ? 700 : 400,
-              color: isActive(item.href) ? "var(--color-primary)" : "var(--color-text-muted)",
-              transition: "color 0.18s, font-weight 0.18s",
-            }}>
-              {item.label}
-            </span>
+            <NavIcon name={item.icon} />
+            <span>{item.label}</span>
           </Link>
         ))}
-
-        {/* More button */}
         <button
+          type="button"
           onClick={() => setMobileMenuOpen(true)}
-          className="mobile-nav-link"
-          style={{ background: "transparent", border: "none", position: "relative" }}
+          className={`mobile-nav-link ${moreActive ? "active" : ""}`}
+          aria-label="Open more navigation"
+          aria-expanded={mobileMenuOpen}
         >
-          <div style={{
-            color: "var(--color-text-muted)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 24,
-            height: 24,
-          }}>
-            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </div>
-          <span style={{ fontSize: "0.6rem", marginTop: "2px", color: "var(--color-text-muted)" }}>More</span>
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+          <span>More</span>
         </button>
       </nav>
 
-      {/* ── FULL-SCREEN MOBILE MENU OVERLAY ── */}
       {mobileMenuOpen && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "var(--color-bg-base)",
-            zIndex: 100,
-            display: "flex",
-            flexDirection: "column",
-            animation: "slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) both",
-          }}
-        >
-          {/* Header */}
-          <div
-            style={{
-              padding: "1.5rem",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              borderBottom: "1px solid var(--color-border)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: "10px",
-                  background: "var(--color-primary)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  overflow: "hidden",
-                }}
-              >
-                <Image src="/logo.png" alt="MealSync Logo" width={38} height={38} style={{ objectFit: "cover" }} />
-              </div>
-              <span
-                style={{
-                  fontWeight: 800,
-                  fontSize: "1.125rem",
-                  color: "var(--color-primary-light)",
-                }}
-              >
-                MealSync
-              </span>
+        <div className="mobile-menu" role="dialog" aria-modal="true" aria-label="More navigation">
+          <div className="mobile-menu__header">
+            <div className="mobile-brand">
+              <Image src="/logo.png" alt="MessManage logo" width={38} height={38} />
+              <span>MessManage</span>
             </div>
-            <button
-              onClick={() => setMobileMenuOpen(false)}
-              style={{
-                background: "var(--color-bg-elevated)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "50%",
-                width: 36,
-                height: 36,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--color-text-secondary)",
-                cursor: "pointer",
-              }}
-            >
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <button type="button" className="mobile-menu__close" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu">
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
-          {/* Nav list */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "1.25rem" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <div
-                style={{
-                  fontSize: "0.625rem",
-                  fontWeight: 700,
-                  color: "var(--color-text-muted)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.1em",
-                  marginBottom: "0.5rem",
-                  paddingLeft: "0.5rem",
-                }}
-              >
-                Main Menu
-              </div>
-              {visibleNavItems.map((item) => (
-                <NavLink key={item.href} {...item} active={isActive(item.href)} />
-              ))}
-              {debtSyncEnabled && (
-                <NavLink {...notificationNavItem} active={isActive(notificationNavItem.href)} badge={unreadCount} />
-              )}
-              {/* My Balance — dynamic link */}
-              <NavLink
-                href={`/members/${user.id}`}
-                label="My Balance"
-                active={isActive(`/members/${user.id}`)}
-                icon={
-                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-                  </svg>
-                }
-              />
-
-              {user.role === "admin" && (
-                <>
-                  <div
-                    style={{
-                      fontSize: "0.625rem",
-                      fontWeight: 700,
-                      color: "var(--color-text-muted)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.1em",
-                      marginTop: "1rem",
-                      marginBottom: "0.5rem",
-                      paddingLeft: "0.5rem",
-                    }}
-                  >
-                    Admin
-                  </div>
-                  {adminItems.map((item) => (
-                    <NavLink key={item.href} {...item} active={isActive(item.href)} />
-                  ))}
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Profile footer */}
-          <div
-            style={{
-              padding: "1.25rem 1.5rem",
-              borderTop: "1px solid var(--color-border)",
-              background: "var(--color-bg-surface)",
-            }}
-          >
-            <Link href="/profile" style={{ display: "flex", alignItems: "center", gap: "1rem", textDecoration: "none" }}>
-              {user.avatarUrl ? (
-                <Image
-                  src={user.avatarUrl}
-                  alt={user.nickname || user.name}
-                  width={44}
-                  height={44}
-                  className="avatar"
-                  style={{ width: 44, height: 44, border: "2px solid var(--color-primary)" }}
-                />
-              ) : (
-                <div className="avatar-fallback" style={{ width: 44, height: 44, fontSize: "1.0625rem" }}>
-                  {(user.nickname || user.name).charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--color-text-primary)" }}>
-                  {user.nickname || user.name}
-                </div>
-                <div style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)", textTransform: "capitalize" }}>
-                  {user.role}
-                </div>
-              </div>
-              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} style={{ color: "var(--color-text-muted)" }}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
+          <nav className="mobile-menu__links" aria-label="More destinations">
+            {moreHouseholdItems.map((item) => {
+              const active = item.id === activeId;
+              return (
+                <Link key={item.id} href={item.href} className={`mobile-menu-link ${active ? "active" : ""}`} aria-current={active ? "page" : undefined}>
+                  <span className="navigation-link__icon"><NavIcon name={item.icon} /></span>
+                  <span>{item.label}</span>
+                  <span aria-hidden="true">→</span>
+                </Link>
+              );
+            })}
+            <Link href="/profile" className={`mobile-menu-link ${pathname.startsWith("/profile") ? "active" : ""}`}>
+              <span className="navigation-link__icon"><NavIcon name="profile" /></span>
+              <span>Profile</span>
+              <span aria-hidden="true">→</span>
             </Link>
+            {moreAdminItems.map((item) => {
+              const active = item.id === activeId;
+              return (
+                <Link key={item.id} href={item.href} className={`mobile-menu-link ${active ? "active" : ""}`} aria-current={active ? "page" : undefined}>
+                  <span className="navigation-link__icon"><NavIcon name={item.icon} /></span>
+                  <span>{item.label}</span>
+                  <span aria-hidden="true">→</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="mobile-menu__user">
+            <UserIdentity user={user} size={44} />
           </div>
         </div>
       )}
@@ -507,74 +165,31 @@ export default function Sidebar({ user }: { user: SessionUser }) {
   );
 }
 
-function NavLink({
-  href,
-  label,
-  icon,
-  active,
-  badge,
-}: {
-  href: string;
-  label: string;
-  icon: React.ReactNode;
-  active: boolean;
-  badge?: number;
-}) {
+function ProfileLink({ user, active }: { user: SessionUser; active: boolean }) {
   return (
-    <Link
-      href={href}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "0.75rem",
-        padding: "0.5rem 0.625rem",
-        borderRadius: "var(--radius-md)",
-        textDecoration: "none",
-        fontSize: "0.9rem",
-        fontWeight: active ? 700 : 500,
-        color: active ? "var(--color-primary-light)" : "var(--color-text-secondary)",
-        background: active ? "var(--color-primary-subtle)" : "transparent",
-        transition: "all 0.18s ease",
-      }}
-      onMouseEnter={(e) => {
-        if (!active) {
-          (e.currentTarget as HTMLAnchorElement).style.background = "var(--color-bg-elevated)";
-          (e.currentTarget as HTMLAnchorElement).style.color = "var(--color-text-primary)";
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!active) {
-          (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
-          (e.currentTarget as HTMLAnchorElement).style.color = "var(--color-text-secondary)";
-        }
-      }}
-    >
-      {/* Circular icon container — YumQuick style */}
-      <div
-        style={{
-          width: 34,
-          height: 34,
-          borderRadius: "50%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-          background: active
-            ? "var(--color-primary)"
-            : "var(--color-bg-elevated)",
-          border: `1px solid ${active ? "var(--color-primary)" : "var(--color-border)"}`,
-          transition: "all 0.18s ease",
-          color: active ? "#fff" : "var(--color-text-secondary)",
-        }}
-      >
-        {icon}
-      </div>
-      {label}
-      {badge !== undefined && badge > 0 && (
-        <span className="badge badge-danger" style={{ marginLeft: "auto", minWidth: 24, justifyContent: "center" }} aria-label={`${badge} unread`}>
-          {badge > 99 ? "99+" : badge}
+    <div className="sidebar-profile">
+      <Link href="/profile" className={`sidebar-profile__link ${active ? "active" : ""}`} aria-current={active ? "page" : undefined}>
+        <UserIdentity user={user} size={34} />
+      </Link>
+    </div>
+  );
+}
+
+function UserIdentity({ user, size }: { user: SessionUser; size: number }) {
+  const displayName = user.nickname || user.name;
+  return (
+    <>
+      {user.avatarUrl ? (
+        <Image src={user.avatarUrl} alt={displayName} width={size} height={size} className="avatar" style={{ width: size, height: size }} />
+      ) : (
+        <span className="avatar-fallback" style={{ width: size, height: size, fontSize: size >= 40 ? "1rem" : "0.8125rem" }}>
+          {displayName.charAt(0).toUpperCase()}
         </span>
       )}
-    </Link>
+      <span className="user-identity__copy">
+        <strong>{displayName}</strong>
+        <span>{user.role}</span>
+      </span>
+    </>
   );
 }

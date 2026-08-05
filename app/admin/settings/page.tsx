@@ -3,7 +3,7 @@ import { getSessionUser } from "@/lib/session";
 import SystemSettingsClient from "@/components/domain/admin/SystemSettingsClient";
 
 export const metadata = {
-  title: "System Settings — MealSync",
+  title: "System settings",
 };
 
 export default async function SystemSettingsPage() {

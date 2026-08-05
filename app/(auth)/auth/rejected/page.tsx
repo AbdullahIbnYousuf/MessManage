@@ -1,7 +1,7 @@
 import { signIn } from "@/lib/auth";
 
 export const metadata = {
-  title: "Request Rejected — MealSync",
+  title: "Request rejected",
 };
 
 export default function RejectedPage() {

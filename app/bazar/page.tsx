@@ -4,7 +4,7 @@ import { today } from "@/lib/utils/dates";
 import BazarClient from "@/components/domain/bazar/BazarClient";
 
 export const metadata = {
-  title: "Bazar — MealSync",
+  title: "Bazar",
   description: "Manage bazar trips and track contributions.",
 };
 

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import DebtRequestDetailClient from "@/components/domain/debts/DebtRequestDetailClient";
 
-export const metadata = { title: "Debt request — DebtSync" };
+export const metadata = { title: "Debt request" };
 
 export default async function DebtRequestPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getSessionUser();

@@ -3,8 +3,8 @@ import { getSessionUser } from "@/lib/session";
 import MonthlyReportClient from "@/components/domain/settlement/MonthlyReportClient";
 
 export const metadata = {
-  title: "Settlement Report — MealSync",
-  description: "Detailed monthly settlement report.",
+  title: "Monthly statement",
+  description: "Detailed statement for a closed month.",
 };
 
 export default async function MonthlyReportPage({

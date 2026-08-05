@@ -55,7 +55,7 @@ export default function DebtLedgerEntryCard({ entry, currentUserId }: { entry: D
             {entry.debtor.name} owes {entry.creditor.name}
           </div>
           <div className="text-muted" style={{ fontSize: "0.75rem", marginTop: 3 }}>
-            {entry.source === "member_request" ? "Accepted member debt request" : `Settlement obligation · ${entry.month}`}
+            {entry.source === "member_request" ? "Accepted member debt request" : `Monthly closing obligation · ${entry.month}`}
           </div>
         </div>
         <div style={{ fontWeight: 800, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>

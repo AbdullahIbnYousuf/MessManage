@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import DebtDashboardClient from "@/components/domain/debts/DebtDashboardClient";
 
-export const metadata = { title: "DebtSync — MealSync" };
+export const metadata = { title: "Balances & Payments" };
 
 export default async function DebtsPage() {
   const user = await getSessionUser();

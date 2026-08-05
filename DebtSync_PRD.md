@@ -1,6 +1,6 @@
 # DebtSync Product Requirements Document
 
-**Product:** DebtSync, the debt and payment module of MealSync
+**Product:** Money, the user-facing balance and payment area of MessManage (internal module: DebtSync)
 
 **Application:** Household Meal and Money Management System
 
@@ -16,9 +16,9 @@
 
 ## 1. Product Summary
 
-DebtSync is the long-running debt and payment ledger for the existing MealSync household application. MealSync calculates permanent month-end obligations from meals and shared household costs. DebtSync receives those obligations, records actual money sent or received between members, and derives the current debt position from the complete history.
+DebtSync is the internal long-running debt and payment ledger for MessManage. The household expense system calculates permanent month-end obligations from meals and shared household costs. DebtSync receives those obligations, records actual money sent or received between members, and derives the current debt position from the complete history.
 
-DebtSync will be built inside the existing MealSync web application. It will reuse the current Next.js App Router frontend and API routes, PostgreSQL database, Prisma ORM, Google OAuth membership, approved `User` records, member payment details, Vercel deployment, and browser push subscriptions.
+DebtSync is built inside the existing MessManage web application. It reuses the current Next.js App Router frontend and API routes, PostgreSQL database, Prisma ORM, Google OAuth membership, approved `User` records, member payment details, Vercel deployment, and browser push subscriptions. Members see **Money** and **Balances & Payments** in the interface; internal models, routes, flags, and engineering documents retain the DebtSync name.
 
 The production accounting model deliberately separates two different facts:
 
@@ -809,11 +809,14 @@ All authorization checks must occur on the server even when the interface hides 
 
 ### 13.1 Navigation
 
-- Add **DebtSync** as a primary authenticated navigation destination at `/debts`.
-- Add a notification bell with unread count to desktop and mobile authenticated layouts.
-- Keep the existing MealSync brand and visual tokens; DebtSync is a module, not a separate landing page.
+- Use **MessManage** as the single application brand.
+- Add **Money** as a primary authenticated navigation destination at `/money`, even when the DebtSync interface flag is disabled.
+- Group `/money`, `/debts`, `/settlement`, and the current member's own running-balance page under the Money navigation state.
+- Keep `/debts` as the stable route for the **Balances & Payments** screen and preserve all existing detail and ledger deep links.
+- Add a notification bell with unread count to desktop and mobile authenticated layouts when DebtSync is enabled.
+- Keep existing visual tokens; DebtSync remains an internal accounting module rather than a separate product.
 
-### 13.2 DebtSync Dashboard (`/debts`)
+### 13.2 Balances & Payments (`/debts`)
 
 Required sections in order:
 
@@ -848,7 +851,7 @@ Zero state: state that the household has no current debt and provide ledger acce
 - Return-payment control only for the original receiver of an eligible accepted direct payment.
 - Related original/reversal link when applicable.
 - Rejection reason when rejected.
-- Clear note that DebtSync records confirmation but does not send money.
+- Clear note that MessManage records confirmation but does not send money.
 
 ### 13.5 Ledger (`/debts/ledger`)
 

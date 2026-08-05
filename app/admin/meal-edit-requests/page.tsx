@@ -3,7 +3,7 @@ import { getSessionUser } from "@/lib/session";
 import MealEditRequestsClient from "@/components/domain/admin/MealEditRequestsClient";
 
 export const metadata = {
-  title: "Meal Edit Requests — MealSync",
+  title: "Meal edit requests",
 };
 
 export default async function MealEditRequestsPage() {

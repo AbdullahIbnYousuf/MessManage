@@ -6,7 +6,7 @@ import NicknameForm from "./nickname-form";
 import ContactForm from "./contact-form";
 
 export const metadata = {
-  title: "Profile — MealSync",
+  title: "Profile",
 };
 
 export default async function ProfilePage() {

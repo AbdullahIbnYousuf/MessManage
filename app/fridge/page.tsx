@@ -5,7 +5,7 @@ import FridgeClient from "@/components/domain/fridge/FridgeClient";
 import { previousMonthStart, previousMonthKey, today, formatMonthLabel } from "@/lib/utils/dates";
 
 export const metadata = {
-  title: "Fridge Bill — MealSync",
+  title: "Fridge bill",
   description: "Track shared fridge electricity bills and payments.",
 };
 

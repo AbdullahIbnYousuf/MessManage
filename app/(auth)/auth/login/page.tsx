@@ -2,7 +2,7 @@ import { signIn } from "@/lib/auth";
 import Image from "next/image";
 
 export const metadata = {
-  title: "Sign In — MealSync",
+  title: "Sign in",
 };
 
 export default function LoginPage() {
@@ -56,7 +56,7 @@ export default function LoginPage() {
             boxShadow: "0 0 24px var(--color-primary-glow)",
           }}
         >
-          <Image src="/logo.png" alt="MealSync Logo" width={64} height={64} style={{ objectFit: "cover" }} />
+          <Image src="/logo.png" alt="MessManage logo" width={64} height={64} style={{ objectFit: "cover" }} />
         </div>
 
         <h1
@@ -67,10 +67,10 @@ export default function LoginPage() {
             letterSpacing: "-0.02em",
           }}
         >
-          <span className="gradient-text">MealSync</span>
+          <span className="gradient-text">MessManage</span>
         </h1>
         <p className="text-secondary" style={{ fontSize: "0.875rem", marginBottom: "2rem" }}>
-          Household meal &amp; expense management
+          Meals, expenses, and balances for your household.
         </p>
 
         {/* Sign in form */}

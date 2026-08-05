@@ -3,7 +3,7 @@ import { getSessionUser } from "@/lib/session";
 import MembersDirectoryClient from "@/components/domain/members/MembersDirectoryClient";
 
 export const metadata = {
-  title: "Members — MealSync",
+  title: "Members",
   description: "Household member directory.",
 };
 

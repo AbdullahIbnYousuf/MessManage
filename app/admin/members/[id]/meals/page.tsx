@@ -4,7 +4,7 @@ import { getDhakaParts, getNow, today } from "@/lib/utils/dates";
 import AdminMemberMealsClient from "@/components/domain/admin/AdminMemberMealsClient";
 
 export const metadata = {
-  title: "Edit Member Meals — MealSync",
+  title: "Edit member meals",
 };
 
 export default async function AdminMemberMealsPage({

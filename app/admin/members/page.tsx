@@ -3,7 +3,7 @@ import { getSessionUser } from "@/lib/session";
 import MembersListClient from "@/components/domain/admin/MembersListClient";
 
 export const metadata = {
-  title: "Members — MealSync",
+  title: "Manage members",
 };
 
 export default async function MembersPage() {

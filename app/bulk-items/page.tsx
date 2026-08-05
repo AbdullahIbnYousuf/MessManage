@@ -4,7 +4,7 @@ import { today } from "@/lib/utils/dates";
 import BulkItemsClient from "@/components/domain/bulk/BulkItemsClient";
 
 export const metadata = {
-  title: "Bulk Items — MealSync",
+  title: "Bulk items",
   description: "Track gas, rice, and other bulk purchases.",
 };
 

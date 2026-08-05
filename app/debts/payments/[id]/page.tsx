@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import PaymentDetailClient from "@/components/domain/debts/PaymentDetailClient";
 
-export const metadata = { title: "Payment — DebtSync" };
+export const metadata = { title: "Payment record" };
 
 export default async function DebtPaymentPage({
   params,

@@ -112,7 +112,7 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
   };
 
   async function runSettlement() {
-    if (!confirm(`Run month-end settlement for ${formatMonthLabel(selectedMonth)}? This is permanent and cannot be undone.`)) return;
+    if (!confirm(`Run monthly closing for ${formatMonthLabel(selectedMonth)}? This is permanent and cannot be undone.`)) return;
     setRunning(true);
     setRunError(null);
     try {
@@ -123,7 +123,7 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
       });
       const json = await res.json() as { error?: string; data?: { month: string; transfers: HistoryMonth["transfers"] } };
       if (!res.ok) {
-        setRunError(json.error ?? "Failed to run settlement.");
+        setRunError(json.error ?? "Failed to run monthly closing.");
       } else {
         setRunResult({ month: json.data!.month, settledAt: new Date().toISOString(), transfers: json.data!.transfers });
         void load(selectedMonth);
@@ -139,7 +139,7 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
     <div className="page-container">
       <div className="section-header" style={{ marginBottom: "1.5rem" }}>
         <div>
-          <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>Settlement</h1>
+          <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>Monthly closing</h1>
           <p className="text-secondary" style={{ fontSize: "0.875rem" }}>
             {formatMonthLabel(selectedMonth || currentMonth || monthName)}
             {mealRate && <> · Meal rate: <strong>৳{parseFloat(mealRate).toFixed(2)}/meal</strong></>}
@@ -147,7 +147,7 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
         </div>
         {isAdmin && !isSettled && (
           <button className="btn btn-primary" onClick={() => void runSettlement()} disabled={running || validationErrors.length > 0} style={{ height: "44px", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}>
-            {running ? <><span className="spinner" /> Running...</> : "Run Settlement"}
+            {running ? <><span className="spinner" /> Running...</> : "Run monthly closing"}
           </button>
         )}
         {isSettled && (
@@ -178,7 +178,7 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
                 <span style={{ fontWeight: 600, color: "var(--color-danger)", fontSize: "0.9375rem" }}>Discrepancies Detected</span>
               </div>
               <p style={{ fontSize: "0.875rem", margin: 0, color: "var(--color-text-primary)", lineHeight: 1.4 }}>
-                Settlement cannot be run because the following transaction aggregates are unbalanced:
+                Monthly closing cannot run because the following transaction aggregates are unbalanced:
               </p>
               <ul style={{ margin: "0.25rem 0 0", paddingLeft: "1.25rem", fontSize: "0.8125rem", color: "var(--color-text-secondary)" }}>
                 {validationErrors.map((err, i) => (
@@ -208,15 +208,15 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
                 <span style={{ fontWeight: 600, color: "var(--color-warning)", fontSize: "0.9375rem" }}>Attention Required</span>
               </div>
               <p style={{ fontSize: "0.875rem", margin: 0, color: "var(--color-text-primary)", lineHeight: 1.4 }}>
-                The previous month (<strong>{formatMonthLabel(prevMonthKey)}</strong>) has passed but is not settled yet. 
-                You must settle it before settling the current month.
+                The previous month (<strong>{formatMonthLabel(prevMonthKey)}</strong>) has passed but is not closed yet.
+                You must close it before closing the current month.
               </p>
               <button 
                 onClick={() => handleMonthSwitch(prevMonthKey)} 
                 className="btn btn-secondary btn-sm"
                 style={{ alignSelf: "flex-start", marginTop: "0.25rem", height: "44px", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
               >
-                View & Settle {formatMonthLabel(prevMonthKey)} &rarr;
+                Review {formatMonthLabel(prevMonthKey)} &rarr;
               </button>
             </div>
           )}
@@ -237,7 +237,7 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
 
           {runResult && (
             <div style={{ background: "var(--color-success-glow)", border: "1px solid rgba(16,185,129,0.3)", borderRadius: "var(--radius-md)", padding: "1rem" }}>
-              <div style={{ fontWeight: 600, color: "var(--color-success)", marginBottom: "0.5rem" }}>Settlement complete for {runResult.month}!</div>
+              <div style={{ fontWeight: 600, color: "var(--color-success)", marginBottom: "0.5rem" }}>Monthly closing complete for {runResult.month}!</div>
               {runResult.transfers.map((t) => (
                 <div key={t.id} style={{ fontSize: "0.875rem", color: "var(--color-text-primary)" }}>
                   {t.fromUser.name} → {t.toUser.name}: ৳{parseFloat(t.amount).toLocaleString()}
@@ -293,10 +293,10 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
             </div>
           </div>
 
-          {/* Settlement history */}
+          {/* Closed months */}
           {history.length > 0 && (
             <div className="card">
-              <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "1rem" }}>Settlement History</div>
+              <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "1rem" }}>Closed months</div>
               {history.map((h) => (
                 <div key={h.month} style={{ marginBottom: "1rem", paddingBottom: "1rem", borderBottom: "1px solid var(--color-border-subtle)" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>

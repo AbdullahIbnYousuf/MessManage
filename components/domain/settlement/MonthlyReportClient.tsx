@@ -145,7 +145,7 @@ export default function MonthlyReportClient({ params }: Props) {
         <div style={{ color: "var(--color-danger)", fontWeight: 600, marginBottom: "1rem" }}>
           {error ?? "Report not found."}
         </div>
-        <Link href="/settlement" className="btn btn-secondary btn-sm">← Back to Settlements</Link>
+        <Link href="/settlement" className="btn btn-secondary btn-sm">← Back to monthly closing</Link>
       </div>
     </div>
   );
@@ -158,7 +158,7 @@ export default function MonthlyReportClient({ params }: Props) {
       {/* ── Header ── */}
       <div style={{ marginBottom: "2rem" }}>
         <Link href="/settlement" className="btn btn-ghost btn-sm" style={{ paddingLeft: 0, marginBottom: "1rem" }}>
-          ← Back to Settlements
+          ← Back to monthly closing
         </Link>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
           <div>
@@ -223,11 +223,11 @@ export default function MonthlyReportClient({ params }: Props) {
           </div>
         )}
 
-        {/* ── 2. Settlement Plan ── */}
+        {/* ── 2. Closing plan ── */}
         <div className="card" style={{ borderTop: "3px solid var(--color-primary)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.25rem" }}>
             <span style={{ fontSize: "1.1rem" }}>📋</span>
-            <span style={{ fontWeight: 700, fontSize: "1rem" }}>Settlement Plan</span>
+            <span style={{ fontWeight: 700, fontSize: "1rem" }}>Closing plan</span>
           </div>
           {data.settlementPlan.length === 0 ? (
             <p className="text-muted" style={{ fontSize: "0.875rem" }}>All balances were zero — no transfers needed.</p>

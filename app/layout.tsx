@@ -7,9 +7,13 @@ import Sidebar from "@/components/Sidebar";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "MealSync — Household Meal & Expense Manager",
+  title: {
+    default: "MessManage",
+    template: "%s — MessManage",
+  },
   description:
-    "Shared meal tracking, bazar management, and expense settlement for household groups",
+    "Meals, expenses, and balances for your household.",
+  applicationName: "MessManage",
   icons: {
     icon: "/logo.png",
   },
@@ -27,7 +31,6 @@ export default async function RootLayout({
     <html lang="en" className={inter.variable}>
       <body>
         {user ? (
-          // Authenticated layout — sidebar + main content
           <div className="layout-wrapper">
             <Sidebar user={user} />
             <main className="layout-main">
@@ -35,7 +38,6 @@ export default async function RootLayout({
             </main>
           </div>
         ) : (
-          // Unauthenticated layout — full page (login, pending, rejected screens)
           <div className="layout-wrapper" style={{ display: "block" }}>
             {children}
           </div>

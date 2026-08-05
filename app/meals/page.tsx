@@ -5,7 +5,7 @@ import { getNow, getDhakaParts, today } from "@/lib/utils/dates";
 import MealsClient from "@/components/domain/meal/MealsClient";
 
 export const metadata = {
-  title: "Meals — MealSync",
+  title: "Meals",
   description: "Track your daily meals and manage your meal pattern.",
 };
 

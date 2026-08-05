@@ -294,7 +294,7 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
           </div>
           <div className="card" style={{ padding: "0.875rem", boxShadow: "none" }}>
             <div style={{ fontWeight: 700, fontSize: "0.875rem", marginBottom: "0.625rem" }}>
-              DebtSync clearance
+              Money clearance
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.625rem" }}>
               <div><span className="text-muted" style={{ fontSize: "0.75rem" }}>Owes</span><div>{formatTaka(preview.debtClearance.youOwe)}</div></div>

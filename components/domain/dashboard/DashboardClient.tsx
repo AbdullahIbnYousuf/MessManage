@@ -198,7 +198,7 @@ export default function DashboardClient({
       {loading ? <DashboardSkeleton /> : data ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.125rem" }}>
 
-          {/* ── Alert Banner — Auto-settlement ── */}
+          {/* ── Alert Banner — automatic monthly closing ── */}
           {isAlertPeriod && !isPreviousMonthSettled && (
             <div
               className="slide-up"
@@ -215,12 +215,12 @@ export default function DashboardClient({
               <span style={{ fontSize: "1rem", lineHeight: 1.5 }}>⚠️</span>
               <div>
                 <div style={{ fontWeight: 700, fontSize: "0.875rem", color: "var(--color-warning)", marginBottom: "0.2rem" }}>
-                  {daysUntilSettle === 1 ? "Auto-settlement Tomorrow" : `Auto-settlement in ${daysUntilSettle} Days`}
+                  {daysUntilSettle === 1 ? "Monthly closing tomorrow" : `Monthly closing in ${daysUntilSettle} days`}
                 </div>
                 <div style={{ fontSize: "0.8125rem", color: "var(--color-text-secondary)" }}>
                   {daysUntilSettle === 1
-                    ? `Auto-settlement for ${previousMonthLabel} runs tomorrow.`
-                    : `Auto-settlement for ${previousMonthLabel} runs in ${daysUntilSettle} days on the 20th.`}
+                    ? `Automatic closing for ${previousMonthLabel} runs tomorrow.`
+                    : `Automatic closing for ${previousMonthLabel} runs in ${daysUntilSettle} days on the 20th.`}
                 </div>
               </div>
             </div>
@@ -362,10 +362,10 @@ export default function DashboardClient({
             >
               <div>
                 <div style={{ fontWeight: 700, fontSize: "0.9375rem", marginBottom: "0.25rem" }}>
-                  My Balance
+                  My current balance
                 </div>
                 <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
-                  Current month net settlement
+                  Current month running total
                 </div>
               </div>
               <div style={{
@@ -443,8 +443,8 @@ export default function DashboardClient({
             {[
               { href: "/meals",      label: "Meals",    icon: "🍽️" },
               { href: "/bazar",      label: "Bazar",    icon: "🛒" },
-              { href: "/settlement", label: "Balances", icon: "📊" },
-              { href: "/maid",       label: "Maid",     icon: "🧹" },
+              { href: "/money",      label: "Money",    icon: "📊" },
+              { href: "/expenses",   label: "Expenses", icon: "🧹" },
             ].map((link) => (
               <Link key={link.href} href={link.href} style={{ textDecoration: "none" }}>
                 <div

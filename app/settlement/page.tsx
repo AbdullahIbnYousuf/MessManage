@@ -4,8 +4,8 @@ import { getNow } from "@/lib/utils/dates";
 import SettlementClient from "@/components/domain/settlement/SettlementClient";
 
 export const metadata = {
-  title: "Settlement — MealSync",
-  description: "View current balances and run month-end settlement.",
+  title: "Monthly closing",
+  description: "View current balances and run the monthly closing.",
 };
 
 export default async function SettlementPage() {

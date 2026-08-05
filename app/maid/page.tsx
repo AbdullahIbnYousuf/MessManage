@@ -5,7 +5,7 @@ import { currentMonthKey, today } from "@/lib/utils/dates";
 import MaidClient from "@/components/domain/maid/MaidClient";
 
 export const metadata = {
-  title: "Maid — MealSync",
+  title: "Maid charges",
   description: "Track monthly maid charges and payments.",
 };
 

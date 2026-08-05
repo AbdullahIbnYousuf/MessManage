@@ -39,14 +39,14 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
           summaryJson.error
           ?? incomingJson.error
           ?? outgoingJson.error
-          ?? "Could not load DebtSync."
+          ?? "Could not load balances and payments."
         );
       }
       setSummary(summaryJson.data);
       setNeedsResponse((incomingJson.data?.entries ?? []).filter((item): item is DebtPaymentLedgerEntry => item.type === "payment"));
       setInitiatedByMe((outgoingJson.data?.entries ?? []).filter((item): item is DebtPaymentLedgerEntry => item.type === "payment"));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Could not load DebtSync.");
+      setError(loadError instanceof Error ? loadError.message : "Could not load balances and payments.");
     } finally {
       setLoading(false);
     }
@@ -58,7 +58,7 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
     <div className="page-container debt-page">
       <div className="section-header">
         <div>
-          <h1 className="debt-title">DebtSync</h1>
+          <h1 className="debt-title">Balances &amp; Payments</h1>
           <p className="text-secondary debt-subtitle">Track confirmed debts and payments between members.</p>
         </div>
         <div className="debt-command-grid"><Link href="/debts/payments/new" className="btn btn-primary debt-full-mobile">Record money</Link></div>
@@ -94,7 +94,7 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
 
           <section>
             <div className="debt-section-heading"><h2>Recent activity</h2><Link href="/debts/ledger">View all</Link></div>
-            {summary.recentActivity.length === 0 ? <div className="debt-empty">No DebtSync activity yet.</div> : <div className="debt-list">{summary.recentActivity.map((entry) => <DebtLedgerEntryCard key={`${entry.type}-${entry.id}`} entry={entry} currentUserId={currentUserId} />)}</div>}
+            {summary.recentActivity.length === 0 ? <div className="debt-empty">No confirmed money activity yet.</div> : <div className="debt-list">{summary.recentActivity.map((entry) => <DebtLedgerEntryCard key={`${entry.type}-${entry.id}`} entry={entry} currentUserId={currentUserId} />)}</div>}
           </section>
         </div>
       )}

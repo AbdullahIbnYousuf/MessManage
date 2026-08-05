@@ -1,7 +1,7 @@
 import { signOut } from "@/lib/auth";
 
 export const metadata = {
-  title: "Account Deactivated — MealSync",
+  title: "Account deactivated",
 };
 
 export default function DeactivatedPage() {

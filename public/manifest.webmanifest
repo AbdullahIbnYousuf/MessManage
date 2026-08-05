@@ -1,8 +1,8 @@
 {
-  "name": "MealSync",
-  "short_name": "MealSync",
-  "description": "Household meal and expense reminders",
-  "start_url": "/meals",
+  "name": "MessManage",
+  "short_name": "MessManage",
+  "description": "Meals, expenses, and balances for your household.",
+  "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
   "background_color": "#1C1714",

@@ -3,7 +3,7 @@ import { getSessionUser } from "@/lib/session";
 import DebtLedgerClient from "@/components/domain/debts/DebtLedgerClient";
 import { Suspense } from "react";
 
-export const metadata = { title: "Ledger — DebtSync" };
+export const metadata = { title: "Money ledger" };
 
 export default async function DebtLedgerPage() {
   const user = await getSessionUser();

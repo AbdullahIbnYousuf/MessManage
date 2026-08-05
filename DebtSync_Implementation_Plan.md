@@ -14,7 +14,7 @@
 
 ## 1. Purpose
 
-This document is the execution plan for adding DebtSync to the working MealSync application. It is ordered so database and accounting invariants are proven before financial mutations or user-facing pages are enabled.
+This document is the execution plan for the internal DebtSync accounting module inside MessManage. It is ordered so database and accounting invariants are proven before financial mutations or user-facing pages are enabled. The user-facing destination is named **Money**, while technical models, routes, flags, and service names retain **DebtSync**.
 
 The implementation must preserve the central distinction in `DebtSync_PRD.md`:
 
@@ -610,9 +610,13 @@ Use explicit labels and direction sentences. Never rely on color alone.
 
 ### 11.5 Navigation and Responsive Design
 
-- Add DebtSync to the authenticated desktop sidebar when the feature flag is enabled.
-- Add an accessible notification icon and unread count.
-- Ensure DebtSync is reachable from the mobile authenticated navigation without hiding it behind an unavailable hover interaction.
+- Use the single visible application brand **MessManage**.
+- Add an always-visible **Money** hub at `/money`; show confirmed-balance, Record money, and ledger cards inside it only when the DebtSync interface flag is enabled.
+- Group `/money`, `/debts`, `/settlement`, and the current member's own running-balance page under one Money navigation state while preserving every existing URL.
+- Add an accessible notification icon and unread count when DebtSync is enabled.
+- Keep Money in the five-item mobile navigation without relying on hover interactions.
+- Label `/debts` as **Balances & Payments** and `/settlement` as **Monthly closing** in user-facing copy.
+- During rollout, update the Google OAuth consent-screen application name to **MessManage** without changing client credentials or redirect URIs.
 - Convert desktop tabular ledger information into labeled mobile rows.
 - Keep summary amounts, status text, and action controls within stable responsive containers.
 - Follow existing CSS variables and visual language rather than creating a separate design system.

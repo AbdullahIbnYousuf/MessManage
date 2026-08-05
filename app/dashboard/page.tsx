@@ -5,7 +5,7 @@ import DashboardClient from "@/components/domain/dashboard/DashboardClient";
 import { previousMonthKey, previousMonthStart, getNow, getDhakaParts, firstDayOfMonth, formatMonthLabel } from "@/lib/utils/dates";
 
 export const metadata = {
-  title: "Dashboard — MealSync",
+  title: "Home",
   description: "Your household meal and expense overview.",
 };
 

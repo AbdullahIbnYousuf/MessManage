@@ -127,14 +127,14 @@ export default function PaymentFormClient({ currentUserId }: { currentUserId: st
       <h1>Sent for confirmation</h1>
       <p>{confirmer} must confirm {direction === "sent" ? "receiving" : "sending"} the money before this changes either member&apos;s balance.</p>
       <Link className="btn btn-primary" href={`/debts/payments/${created.id}`}>View record</Link>
-      <Link className="btn btn-secondary" href="/debts">Back to DebtSync</Link>
+      <Link className="btn btn-secondary" href="/debts">Back to balances</Link>
     </div></div>;
   }
 
   return <div className="page-container debt-page">
-    <div className="debt-back"><Link href="/debts">← DebtSync</Link></div>
+    <div className="debt-back"><Link href="/debts">← Balances &amp; Payments</Link></div>
     <h1 className="debt-title">Record money</h1>
-    <p className="text-secondary debt-subtitle">Record money that already moved outside DebtSync. The other member must confirm it.</p>
+    <p className="text-secondary debt-subtitle">Record money that already moved outside the app. The other member must confirm it.</p>
     <form className="card debt-form" onSubmit={startConfirmation}>
       <fieldset className="debt-money-direction">
         <legend>What happened?</legend>

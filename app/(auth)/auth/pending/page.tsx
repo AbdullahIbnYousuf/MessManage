@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Awaiting Approval — MealSync",
+  title: "Awaiting approval",
 };
 
 export default function PendingPage() {
