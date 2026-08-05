@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import type { DebtDashboardSummary, DebtLedgerPage, DebtPaymentLedgerEntry, DebtRequestItem, DebtRequestPage } from "@/types/debts";
+import type { DebtDashboardSummary, DebtLedgerPage, DebtPaymentLedgerEntry } from "@/types/debts";
 import { formatTaka } from "@/lib/utils/decimal";
 import DebtLedgerEntryCard from "@/components/domain/debts/DebtLedgerEntryCard";
-import DebtRequestCard from "@/components/domain/debts/DebtRequestCard";
 
 type ApiResult<T> = { data?: T; error?: string };
 
@@ -13,8 +12,6 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
   const [summary, setSummary] = useState<DebtDashboardSummary | null>(null);
   const [needsResponse, setNeedsResponse] = useState<DebtPaymentLedgerEntry[]>([]);
   const [initiatedByMe, setInitiatedByMe] = useState<DebtPaymentLedgerEntry[]>([]);
-  const [incomingRequests, setIncomingRequests] = useState<DebtRequestItem[]>([]);
-  const [outgoingRequests, setOutgoingRequests] = useState<DebtRequestItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,42 +19,32 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
     setLoading(true);
     setError(null);
     try {
-      const [summaryResponse, incomingResponse, outgoingResponse, incomingRequestResponse, outgoingRequestResponse] = await Promise.all([
+      const [summaryResponse, incomingResponse, outgoingResponse] = await Promise.all([
         fetch("/api/debts/summary"),
         fetch("/api/debts/payments?action=needs_response&status=pending&limit=50"),
         fetch("/api/debts/payments?action=initiated_by_me&status=pending&limit=50"),
-        fetch("/api/debts/requests?direction=incoming&status=pending&limit=50"),
-        fetch("/api/debts/requests?direction=outgoing&status=pending&limit=50"),
       ]);
-      const [summaryJson, incomingJson, outgoingJson, incomingRequestJson, outgoingRequestJson] = await Promise.all([
+      const [summaryJson, incomingJson, outgoingJson] = await Promise.all([
         summaryResponse.json() as Promise<ApiResult<DebtDashboardSummary>>,
         incomingResponse.json() as Promise<ApiResult<DebtLedgerPage>>,
         outgoingResponse.json() as Promise<ApiResult<DebtLedgerPage>>,
-        incomingRequestResponse.json() as Promise<ApiResult<DebtRequestPage>>,
-        outgoingRequestResponse.json() as Promise<ApiResult<DebtRequestPage>>,
       ]);
       if (
         !summaryResponse.ok
         || !incomingResponse.ok
         || !outgoingResponse.ok
-        || !incomingRequestResponse.ok
-        || !outgoingRequestResponse.ok
         || !summaryJson.data
       ) {
         throw new Error(
           summaryJson.error
           ?? incomingJson.error
           ?? outgoingJson.error
-          ?? incomingRequestJson.error
-          ?? outgoingRequestJson.error
           ?? "Could not load DebtSync."
         );
       }
       setSummary(summaryJson.data);
       setNeedsResponse((incomingJson.data?.entries ?? []).filter((item): item is DebtPaymentLedgerEntry => item.type === "payment"));
       setInitiatedByMe((outgoingJson.data?.entries ?? []).filter((item): item is DebtPaymentLedgerEntry => item.type === "payment"));
-      setIncomingRequests(incomingRequestJson.data?.requests ?? []);
-      setOutgoingRequests(outgoingRequestJson.data?.requests ?? []);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Could not load DebtSync.");
     } finally {
@@ -74,7 +61,7 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
           <h1 className="debt-title">DebtSync</h1>
           <p className="text-secondary debt-subtitle">Track confirmed debts and payments between members.</p>
         </div>
-        <div className="debt-command-grid"><Link href="/debts/requests/new" className="btn btn-secondary debt-full-mobile">Request debt</Link><Link href="/debts/payments/received/new" className="btn btn-secondary debt-full-mobile">Record money received</Link><Link href="/debts/payments/new" className="btn btn-primary debt-full-mobile">Record payment</Link></div>
+        <div className="debt-command-grid"><Link href="/debts/payments/new" className="btn btn-primary debt-full-mobile">Record money</Link></div>
       </div>
 
       {loading && <div className="debt-state"><span className="spinner" /> Loading balances…</div>}
@@ -102,8 +89,6 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
             )}
           </section>
 
-          <RequestSection title="Debt requests needing your response" count={summary.pendingDebtRequestIncomingCount} entries={incomingRequests} currentUserId={currentUserId} empty="No debt requests need your response." />
-          <RequestSection title="Pending debt requests sent by you" count={summary.pendingDebtRequestOutgoingCount} entries={outgoingRequests} currentUserId={currentUserId} empty="You have no pending debt requests." />
           <PaymentSection title="Payments needing your response" count={summary.pendingPaymentResponseCount} entries={needsResponse} empty="No payment records need your response." />
           <PaymentSection title="Pending payment records started by you" count={summary.pendingPaymentInitiatedCount} entries={initiatedByMe} empty="You have no pending payment records." />
 
@@ -119,8 +104,4 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
 
 function PaymentSection({ title, count, entries, empty }: { title: string; count: number; entries: DebtPaymentLedgerEntry[]; empty: string }) {
   return <section><div className="debt-section-heading"><h2>{title}</h2><span className="badge badge-warning">{count}</span></div>{entries.length === 0 ? <div className="debt-empty">{empty}</div> : <div className="debt-list">{entries.map((entry) => <DebtLedgerEntryCard key={entry.id} entry={entry} />)}</div>}</section>;
-}
-
-function RequestSection({ title, count, entries, currentUserId, empty }: { title: string; count: number; entries: DebtRequestItem[]; currentUserId: string; empty: string }) {
-  return <section><div className="debt-section-heading"><h2>{title}</h2><div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}><Link href="/debts/requests">View all</Link><span className="badge badge-warning">{count}</span></div></div>{entries.length === 0 ? <div className="debt-empty">{empty}</div> : <div className="debt-list">{entries.map((request) => <DebtRequestCard key={request.id} request={request} currentUserId={currentUserId} />)}</div>}</section>;
 }

@@ -568,7 +568,7 @@ Create authenticated pages:
 ```text
 app/debts/page.tsx
 app/debts/payments/new/page.tsx
-app/debts/payments/received/new/page.tsx
+app/debts/payments/received/new/page.tsx (compatibility redirect)
 app/debts/payments/[id]/page.tsx
 app/debts/ledger/page.tsx
 app/notifications/page.tsx
@@ -589,7 +589,7 @@ Build in this order:
 
 1. `You owe`, `Owed to you`, and `Net position`
 2. Pairwise member positions
-3. Payment and debt-request records needing the current member's response
+3. Payment records needing the current member's response
 4. Pending records initiated by the current member
 5. Recent mixed activity
 
@@ -599,9 +599,9 @@ Use explicit labels and direction sentences. Never rely on color alone.
 
 - Generate one `clientRequestId` when the form session begins and reuse it for network retries.
 - Show selected member's current pairwise position and available payment-reference details.
-- Warn but do not block an overpayment.
-- Provide a separate mobile-first **Record money received** form whose lender must confirm the existing money movement.
-- Warn the borrower that confirmation creates or increases debt to the selected lender.
+- Use one **Record money** form with **I sent money** and **I received money** choices.
+- Show the projected pairwise position so loans, repayments, and overpayments are explicit without blocking a valid transfer.
+- Dynamically identify whether the other member confirms receiving or sending the money.
 - Require a final confirmation before creating a payment.
 - Require a rejection reason before rejection.
 - Confirm cancellation and return-payment actions.
@@ -649,9 +649,11 @@ Do not allow admin override. Historical records remain linked to the deactivated
 
 ---
 
-## 12A. Phase 9: Member Debt Requests
+## 12A. Phase 9: Member Debt Requests (Implemented, Now Dormant)
 
-Add a participant-confirmed **Request Debt** workflow to Release 1:
+This workflow was implemented, but the product decision after validation was to remove it from the Release 1 interface because direct lending is already represented by recording money sent. Retain the schema, services, APIs, records, and safety checks without destructive rollback. Creation and history pages redirect to the dashboard, participant detail compatibility remains, and no active navigation or dashboard section exposes this workflow.
+
+Original implementation record:
 
 1. Add an additive `DebtRequest` model with requester, named debtor, exact amount, required description, terminal status timestamps, and a unique client request ID.
 2. Extend `DebtObligation` with a nullable unique request relation while preserving all existing settlement relations and rows.
@@ -680,7 +682,7 @@ Add the borrower-initiated workflow without changing accepted-transfer accountin
 2. Add `createReceivedMoney` and `POST /api/debts/payments/received` using the existing mutation flag, exact decimal validation, idempotency, serializable bounded retry, transactional notifications, and best-effort push delivery.
 3. Generalize pending response and cancellation ownership around the initiator while treating a null initiator as a legacy sender-initiated payment.
 4. Add `needs_response` and `initiated_by_me` payment filters while preserving incoming/outgoing as actual money-direction filters.
-5. Add the mobile-first form, contextual payment-detail actions and notification wording, and dashboard sections for both initiation directions.
+5. Add contextual payment-detail actions and notification wording for both initiation directions.
 6. Reuse the existing direct transfer row after acceptance; never create a duplicate obligation or accounting record.
 
 ### Exit Criteria
@@ -689,6 +691,23 @@ Add the borrower-initiated workflow without changing accepted-transfer accountin
 - Acceptance makes the receiver owe the sender by the exact amount using the existing transfer formula.
 - Sender-initiated and legacy-null behavior remains unchanged.
 - Participant permissions, idempotency, concurrency, notification, deactivation, mobile, and desktop cases pass.
+
+---
+
+## 12C. Phase 11: Unified Record Money Interface
+
+1. Replace separate **Record payment** and **Record money received** commands with one primary **Record money** action.
+2. Begin the form with mobile-first **I sent money** and **I received money** choices, followed by one dynamic member, amount, description, current-position, projected-position, and confirmation flow.
+3. Continue calling the separate tested sender-initiated and receiver-initiated APIs; make no accounting, schema, or historical-data change.
+4. Redirect the old received-money form URL to the unified form.
+5. Remove debt-request creation, history, buttons, and pending sections from the active interface while preserving its backend, records, deactivation checks, and participant detail compatibility.
+
+### Exit Criteria
+
+- One form clearly handles both money directions without ambiguous `from`/`to` wording.
+- Mobile controls are at least 44px, vertically stack at 390px, and never scroll horizontally.
+- Confirmation copy identifies the direction, member, amount, and who must confirm.
+- No database migration or live-data mutation is required.
 
 ---
 
@@ -771,16 +790,15 @@ Run the full existing test suite and specifically verify:
 
 Add Playwright for critical browser journeys if it is not already present:
 
-- Send payment, receiver accepts, both dashboards update
-- Record money received, lender confirms, both dashboards update
+- Use **I sent money**, receiver accepts, and both dashboards update
+- Use **I received money**, sender confirms, and both dashboards update
 - Lender rejects a received-money record and borrower cancels a pending record
 - Receiver rejects with reason
 - Sender cancels pending payment
 - Original receiver returns accepted payment and original sender accepts
 - Filter shared ledger
 - Read one and all notifications
-- Create, accept, reject, and cancel debt requests
-- Verify accepted request balance and shared-ledger effect
+- Confirm debt-request creation/history controls are absent while retained historical detail links remain safe
 - Mobile workflow at a 390 by 844 viewport
 - Desktop workflow at a 1440 by 900 viewport
 
@@ -797,11 +815,11 @@ Capture screenshots for dashboard, payment detail, ledger, notifications, and al
 3. Run the backfill once, then again to prove idempotency.
 4. Compare settlement-run, settlement-row, and obligation counts by month.
 5. Calculate fixture balances independently and compare them with the summary API.
-6. Enable DebtSync mutations in staging and exercise sender-initiated payments, receiver-initiated received-money records, and debt-request state transitions.
+6. Enable DebtSync mutations in staging and exercise both directions through the unified Record money form.
 7. Force a push failure and verify accounting remains committed.
 8. Run full automated and browser tests.
-9. Exercise debt-request creation, rejection, cancellation, and accepted-obligation creation using staging accounts.
-10. Exercise received-money creation, lender confirmation/rejection, borrower cancellation, and full reversal using two staging accounts.
+9. Confirm debt-request creation/history entry points redirect and no dashboard request controls remain.
+10. Exercise sent-money and received-money creation, confirmation/rejection, initiator cancellation, and full reversal using two staging accounts.
 
 ### 14.2 Production
 
@@ -844,9 +862,8 @@ The existing auto-settlement schedule remains the repository's actual `0 0 20 * 
 - [ ] Dashboard, payment, ledger, and notification pages complete
 - [ ] Mobile and desktop browser tests pass
 - [ ] Member deactivation respects DebtSync
-- [ ] Debt requests are participant-private and confirmation-based
-- [ ] Accepted debt requests create one immutable obligation
-- [ ] Pending debt requests block deactivation
+- [ ] One Record money form handles both directions clearly
+- [ ] Debt-request creation/history UI is dormant while retained data and safeguards remain intact
 - [ ] Existing MealSync tests pass
 - [ ] Production reconciliation reviewed
 - [ ] Controlled production workflow passed
@@ -862,7 +879,7 @@ DebtSync Release 1 is done when:
 - The production database contains one settlement run for every settled month, including zero-transfer months created after release.
 - New settlement obligations are created atomically and idempotently.
 - Members can record money sent or received, confirm, reject, cancel, and return payments under the exact permission rules.
-- Members can create, accept, reject, and cancel participant-private debt requests under the exact permission rules.
+- Debt-request creation and history are absent from the active interface while retained records and safeguards remain intact.
 - All balances are derived correctly from obligations and accepted transfers.
 - All financial actions retain an immutable, inspectable history.
 - In-app and push notifications behave according to the PRD.

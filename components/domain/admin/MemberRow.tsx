@@ -301,7 +301,7 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
               <div><span className="text-muted" style={{ fontSize: "0.75rem" }}>Is owed</span><div>{formatTaka(preview.debtClearance.owedToYou)}</div></div>
             </div>
             <div className="text-secondary" style={{ fontSize: "0.8125rem", marginTop: "0.625rem" }}>
-              Pending actions: {preview.debtClearance.pendingCount} ({preview.debtClearance.pendingPaymentCount} payments, {preview.debtClearance.pendingDebtRequestCount} debt requests)
+              Pending actions: {preview.debtClearance.pendingCount} ({preview.debtClearance.pendingPaymentCount} payments{preview.debtClearance.pendingDebtRequestCount > 0 ? `, ${preview.debtClearance.pendingDebtRequestCount} retained debt requests` : ""})
             </div>
             {!preview.debtClearance.canDeactivate && (
               <div className="text-negative" style={{ fontSize: "0.8125rem", marginTop: "0.625rem", lineHeight: 1.45 }}>

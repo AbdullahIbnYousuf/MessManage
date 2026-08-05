@@ -8,12 +8,14 @@ import { formatTaka } from "@/lib/utils/decimal";
 
 type Member = { id: string; name: string; nickname: string | null; status: string };
 type MemberDetail = { user: { bkashNumber: string | null; bankName: string | null; bankAccountNumber: string | null } };
+type MoneyDirection = "sent" | "received";
 
 export default function PaymentFormClient({ currentUserId }: { currentUserId: string }) {
   const [requestId, setRequestId] = useState("");
+  const [direction, setDirection] = useState<MoneyDirection>("sent");
   const [members, setMembers] = useState<Member[]>([]);
   const [summary, setSummary] = useState<DebtDashboardSummary | null>(null);
-  const [receiverId, setReceiverId] = useState("");
+  const [memberId, setMemberId] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [paymentReference, setPaymentReference] = useState<MemberDetail["user"] | null>(null);
@@ -28,37 +30,62 @@ export default function PaymentFormClient({ currentUserId }: { currentUserId: st
       .then(async ([memberResponse, summaryResponse]) => {
         const memberJson = await memberResponse.json() as { data?: Member[]; error?: string };
         const summaryJson = await summaryResponse.json() as { data?: DebtDashboardSummary; error?: string };
-        if (!memberResponse.ok || !summaryResponse.ok) throw new Error(memberJson.error ?? summaryJson.error ?? "Could not load payment form.");
-        setMembers((memberJson.data ?? []).filter((member) => member.status === "active" && member.id !== currentUserId));
+        if (!memberResponse.ok || !summaryResponse.ok) {
+          throw new Error(memberJson.error ?? summaryJson.error ?? "Could not load the form.");
+        }
+        setMembers((memberJson.data ?? []).filter(
+          (member) => member.status === "active" && member.id !== currentUserId
+        ));
         setSummary(summaryJson.data ?? null);
       })
-      .catch((loadError: unknown) => setError(loadError instanceof Error ? loadError.message : "Could not load payment form."));
+      .catch((loadError: unknown) => setError(
+        loadError instanceof Error ? loadError.message : "Could not load the form."
+      ));
   }, [currentUserId]);
 
   useEffect(() => {
     setConfirming(false);
     setPaymentReference(null);
-    if (!receiverId) return;
-    void fetch(`/api/members/${receiverId}`)
+    if (direction !== "sent" || !memberId) return;
+    void fetch(`/api/members/${memberId}`)
       .then(async (response) => {
         const json = await response.json() as { data?: MemberDetail };
         if (response.ok) setPaymentReference(json.data?.user ?? null);
       });
-  }, [receiverId]);
+  }, [direction, memberId]);
 
-  const receiver = members.find((member) => member.id === receiverId);
-  const pairwise = summary?.pairwise.find((position) => position.memberId === receiverId);
+  const member = members.find((candidate) => candidate.id === memberId);
+  const memberName = member?.nickname || member?.name;
+  const pairwise = summary?.pairwise.find((position) => position.memberId === memberId);
   const amountDecimal = useMemo(() => {
     try { return new Decimal(amount || 0); } catch { return null; }
   }, [amount]);
-  const owedAmount = pairwise?.direction === "you_owe" ? new Decimal(pairwise.position).abs() : new Decimal(0);
-  const overpayment = amountDecimal?.gt(0) === true && amountDecimal.gt(owedAmount);
-  const valid = Boolean(receiverId && requestId && amountDecimal?.gt(0) && amountDecimal.decimalPlaces() <= 2 && description.length <= 240);
+  const amountHasValidFormat = /^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(amount);
+  const valid = Boolean(
+    memberId
+    && requestId
+    && amountHasValidFormat
+    && amountDecimal?.gt(0)
+    && description.trim().length <= 300
+  );
+  const currentPosition = new Decimal(pairwise?.position ?? 0);
+  const projectedPosition = amountDecimal?.gt(0)
+    ? currentPosition.plus(direction === "sent" ? amountDecimal : amountDecimal.neg())
+    : null;
+
+  function chooseDirection(nextDirection: MoneyDirection) {
+    setDirection(nextDirection);
+    setConfirming(false);
+    setError(null);
+  }
 
   function startConfirmation(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    if (!valid) { setError("Choose a member and enter a positive amount with at most two decimal places."); return; }
+    if (!valid) {
+      setError("Select a member and enter a positive amount with at most two decimal places.");
+      return;
+    }
     setConfirming(true);
   }
 
@@ -66,40 +93,77 @@ export default function PaymentFormClient({ currentUserId }: { currentUserId: st
     setSubmitting(true);
     setError(null);
     try {
-      const response = await fetch("/api/debts/payments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ receiverUserId: receiverId, amount, description: description.trim() || undefined, clientRequestId: requestId }),
-      });
-      const json = await response.json() as { data?: DebtPaymentLedgerEntry; error?: string; code?: string };
-      if (!response.ok || !json.data) throw new Error(json.error ?? "Payment could not be recorded.");
+      const received = direction === "received";
+      const response = await fetch(
+        received ? "/api/debts/payments/received" : "/api/debts/payments",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...(received ? { senderUserId: memberId } : { receiverUserId: memberId }),
+            amount,
+            description: description.trim() || undefined,
+            clientRequestId: requestId,
+          }),
+        }
+      );
+      const json = await response.json() as { data?: DebtPaymentLedgerEntry; error?: string };
+      if (!response.ok || !json.data) {
+        throw new Error(json.error ?? "Money record could not be created.");
+      }
       setCreated(json.data);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Payment could not be recorded.");
+      setError(submitError instanceof Error
+        ? submitError.message
+        : "Money record could not be created.");
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (created) return <div className="page-container debt-page"><div className="debt-success"><h1>Payment sent for confirmation</h1><p>{created.receiver.name} must accept it before the payment changes anyone’s debt.</p><Link className="btn btn-primary" href={`/debts/payments/${created.id}`}>View payment</Link><Link className="btn btn-secondary" href="/debts">Back to DebtSync</Link></div></div>;
+  if (created) {
+    const confirmer = direction === "sent" ? created.receiver.name : created.sender.name;
+    return <div className="page-container debt-page"><div className="debt-success">
+      <h1>Sent for confirmation</h1>
+      <p>{confirmer} must confirm {direction === "sent" ? "receiving" : "sending"} the money before this changes either member&apos;s balance.</p>
+      <Link className="btn btn-primary" href={`/debts/payments/${created.id}`}>View record</Link>
+      <Link className="btn btn-secondary" href="/debts">Back to DebtSync</Link>
+    </div></div>;
+  }
 
-  return (
-    <div className="page-container debt-page">
-      <div className="debt-back"><Link href="/debts">← DebtSync</Link></div>
-      <h1 className="debt-title">Record a payment</h1>
-      <p className="text-secondary debt-subtitle">This records a confirmation between members. DebtSync does not move money.</p>
-      <form className="card debt-form" onSubmit={startConfirmation}>
-        <label><span>Paid to</span><select className="input" value={receiverId} onChange={(event) => setReceiverId(event.target.value)} required><option value="">Select a member</option>{members.map((member) => <option key={member.id} value={member.id}>{member.nickname || member.name}</option>)}</select></label>
+  return <div className="page-container debt-page">
+    <div className="debt-back"><Link href="/debts">← DebtSync</Link></div>
+    <h1 className="debt-title">Record money</h1>
+    <p className="text-secondary debt-subtitle">Record money that already moved outside DebtSync. The other member must confirm it.</p>
+    <form className="card debt-form" onSubmit={startConfirmation}>
+      <fieldset className="debt-money-direction">
+        <legend>What happened?</legend>
+        <div className="debt-money-direction__options">
+          <button type="button" className={direction === "sent" ? "active" : ""} aria-pressed={direction === "sent"} disabled={submitting} onClick={() => chooseDirection("sent")}>
+            <strong>I sent money</strong>
+            <span>They confirm receiving it</span>
+          </button>
+          <button type="button" className={direction === "received" ? "active" : ""} aria-pressed={direction === "received"} disabled={submitting} onClick={() => chooseDirection("received")}>
+            <strong>I received money</strong>
+            <span>They confirm sending it</span>
+          </button>
+        </div>
+      </fieldset>
 
-        {receiverId && <div className="debt-context"><strong>Current position</strong><span>{pairwise?.direction === "you_owe" ? `You owe ${receiver?.nickname || receiver?.name} ${formatTaka(owedAmount)}` : pairwise?.direction === "owes_you" ? `${receiver?.nickname || receiver?.name} owes you ${formatTaka(pairwise.position)}` : "No current debt between you."}</span>{paymentReference && (paymentReference.bkashNumber || paymentReference.bankAccountNumber) && <span className="text-secondary">Payment reference: {paymentReference.bkashNumber ? `bKash ${paymentReference.bkashNumber}` : `${paymentReference.bankName ?? "Bank"} ${paymentReference.bankAccountNumber}`}</span>}</div>}
+      <label><span>{direction === "sent" ? "Paid to" : "Received from"}</span><select className="input" required value={memberId} onChange={(event) => { setMemberId(event.target.value); setConfirming(false); }}><option value="">Select a member</option>{members.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.nickname || candidate.name}</option>)}</select></label>
 
-        <label><span>Amount (BDT)</span><input className="input" inputMode="decimal" placeholder="0.00" value={amount} onChange={(event) => { setAmount(event.target.value); setConfirming(false); }} required /></label>
-        {overpayment && <div className="debt-warning" role="status">This is more than your current debt to this member. It is allowed, but acceptance will reverse the remaining direction.</div>}
-        <label><span>Description <span className="text-muted">(optional)</span></span><textarea className="input" rows={3} maxLength={240} value={description} onChange={(event) => { setDescription(event.target.value); setConfirming(false); }} placeholder="Cash, bKash transaction, bank transfer…" /></label>
-        {error && <div className="debt-error" role="alert">{error}</div>}
+      {memberId && <div className="debt-context"><strong>Current position</strong><span>{pairwise?.direction === "you_owe" ? `You currently owe ${memberName} ${formatTaka(currentPosition.abs())}.` : pairwise?.direction === "owes_you" ? `${memberName} currently owes you ${formatTaka(currentPosition)}.` : "There is currently no confirmed debt between you."}</span>{paymentReference && (paymentReference.bkashNumber || paymentReference.bankAccountNumber) && <span className="text-secondary">Payment reference: {paymentReference.bkashNumber ? `bKash ${paymentReference.bkashNumber}` : `${paymentReference.bankName ?? "Bank"} ${paymentReference.bankAccountNumber}`}</span>}</div>}
 
-        {!confirming ? <button className="btn btn-primary" type="submit" disabled={!valid}>Review payment</button> : <div className="debt-confirm"><h2>Confirm payment record</h2><p>You are recording that you paid <strong>{receiver?.nickname || receiver?.name}</strong> <strong>{formatTaka(amount)}</strong>. They must accept it.</p><button className="btn btn-primary" type="button" disabled={submitting} onClick={() => void submit()}>{submitting ? <><span className="spinner" /> Recording…</> : "Confirm and send"}</button><button className="btn btn-secondary" type="button" disabled={submitting} onClick={() => setConfirming(false)}>Go back</button></div>}
-      </form>
-    </div>
-  );
+      <label><span>Amount (BDT)</span><input className="input" inputMode="decimal" placeholder="0.00" required value={amount} onChange={(event) => { setAmount(event.target.value); setConfirming(false); }} /></label>
+
+      {memberId && projectedPosition && <div className="debt-warning" role="status"><strong>{direction === "sent" ? "You receive credit for sending this money." : `${memberName} receives credit for sending this money.`}</strong><br />Based on the current confirmed balance, {projectedPosition.gt(0) ? `${memberName} would owe you ${formatTaka(projectedPosition)}.` : projectedPosition.lt(0) ? `you would owe ${memberName} ${formatTaka(projectedPosition.abs())}.` : "your position would be settled."}</div>}
+
+      <label><span>Description <span className="text-muted">(optional)</span></span><textarea className="input" rows={3} maxLength={300} value={description} onChange={(event) => { setDescription(event.target.value); setConfirming(false); }} placeholder="Cash, bKash transaction, bank transfer…" /><span className="text-muted" style={{ textAlign: "right", fontWeight: 400 }}>{description.length}/300</span></label>
+      {error && <div className="debt-error" role="alert">{error}</div>}
+
+      {!confirming
+        ? <button className="btn btn-primary" disabled={!valid} type="submit">Review record</button>
+        : <div className="debt-confirm"><h2>Confirm money record</h2><p>You are recording that you <strong>{direction === "sent" ? "sent" : "received"} {formatTaka(amount)}</strong> {direction === "sent" ? "to" : "from"} <strong>{memberName}</strong>.</p><p className="text-secondary">{memberName} must confirm {direction === "sent" ? "receiving" : "sending"} it before balances change.</p><button className="btn btn-primary" type="button" disabled={submitting} onClick={() => void submit()}>{submitting ? <><span className="spinner" /> Recording…</> : "Send for confirmation"}</button><button className="btn btn-secondary" type="button" disabled={submitting} onClick={() => setConfirming(false)}>Go back</button></div>}
+    </form>
+  </div>;
 }

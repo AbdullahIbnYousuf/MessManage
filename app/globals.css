@@ -571,6 +571,14 @@
   .debt-form label, .debt-filters label, .debt-reject label { display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.8125rem; font-weight: 700; }
   .debt-form .input, .debt-filters .input, .debt-reject .input { min-height: 44px; }
   .debt-form textarea.input, .debt-reject textarea.input { min-height: 88px; resize: vertical; }
+  .debt-money-direction { min-width: 0; margin: 0; padding: 0; border: 0; }
+  .debt-money-direction legend { margin-bottom: 0.5rem; padding: 0; font-size: 0.8125rem; font-weight: 700; }
+  .debt-money-direction__options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.625rem; }
+  .debt-money-direction__options button { display: flex; min-width: 0; min-height: 68px; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0.25rem; padding: 0.75rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-elevated); color: var(--color-text-primary); text-align: left; touch-action: manipulation; cursor: pointer; }
+  .debt-money-direction__options button:hover { border-color: var(--color-primary-light); }
+  .debt-money-direction__options button.active { border-color: var(--color-primary); background: var(--color-primary-subtle); box-shadow: 0 0 0 1px var(--color-primary); }
+  .debt-money-direction__options button strong { font-size: 0.875rem; }
+  .debt-money-direction__options button span { color: var(--color-text-secondary); font-size: 0.75rem; line-height: 1.35; }
   .debt-context, .debt-confirm { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.875rem; border-radius: var(--radius-md); background: var(--color-bg-elevated); border: 1px solid var(--color-border); font-size: 0.875rem; }
   .debt-confirm p { margin: 0; line-height: 1.5; }
   .debt-detail { margin-top: 1rem; }
@@ -602,6 +610,7 @@
     .debt-filters { grid-template-columns: 1fr; }
     .debt-full-mobile { width: 100%; min-height: 44px; }
     .debt-command-grid { width: 100%; display: grid; grid-template-columns: 1fr; }
+    .debt-money-direction__options { grid-template-columns: 1fr; }
     .debt-ledger-row__top { align-items: flex-start; }
   }
 }
