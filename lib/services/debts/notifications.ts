@@ -1,8 +1,25 @@
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import {
   hasWebPushConfig,
   sendPushNotification,
 } from "@/lib/utils/push";
+import type { DebtNotificationDraft } from "@/types/debts";
+
+export async function persistDebtNotifications(
+  tx: Prisma.TransactionClient,
+  drafts: DebtNotificationDraft[]
+): Promise<string[]> {
+  const ids: string[] = [];
+  for (const draft of drafts) {
+    const notification = await tx.debtNotification.create({
+      data: draft,
+      select: { id: true },
+    });
+    ids.push(notification.id);
+  }
+  return ids;
+}
 
 export async function deliverDebtNotifications(
   notificationIds: string[]
@@ -48,7 +65,9 @@ export async function deliverDebtNotifications(
         const result = await sendPushNotification(subscription, {
           title: notification.title,
           body: notification.body,
-          url: "/debts",
+          url: notification.entityType === "transfer"
+            ? `/debts/payments/${notification.entityId}`
+            : "/debts/ledger",
           tag: `debt-${notification.type}-${notification.entityId}`,
         });
         if (result.invalidSubscription) {

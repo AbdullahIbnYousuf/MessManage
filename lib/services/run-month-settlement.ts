@@ -4,9 +4,13 @@ import {
   computeSettlement,
   type SettlementTransfer,
 } from "@/lib/domain/settlement";
+import { buildObligationNotifications } from "@/lib/domain/debts/notifications";
 import { fetchMonthBalances } from "@/lib/queries/balance";
 import { fetchSettlementReadiness } from "@/lib/queries/settlement-readiness";
-import { deliverDebtNotifications } from "@/lib/services/debts/notifications";
+import {
+  deliverDebtNotifications,
+  persistDebtNotifications,
+} from "@/lib/services/debts/notifications";
 import {
   currentMonthKey,
   firstDayOfMonth,
@@ -54,29 +58,6 @@ function isUniqueConstraintError(error: unknown): boolean {
     error instanceof Prisma.PrismaClientKnownRequestError
     && error.code === "P2002"
   );
-}
-
-function obligationNotificationCopy(
-  direction: "debtor" | "creditor",
-  transfer: SettlementTransfer,
-  monthKey: string
-): { title: string; body: string } {
-  const month = new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(monthKey));
-  const amount = transfer.amount.toFixed(2);
-
-  return direction === "debtor"
-    ? {
-        title: "New settlement amount due",
-        body: `You owe ${transfer.toUserName} Tk ${amount} for ${month}.`,
-      }
-    : {
-        title: "New settlement amount receivable",
-        body: `${transfer.fromUserName} owes you Tk ${amount} for ${month}.`,
-      };
 }
 
 export async function runMonthSettlement(
@@ -165,39 +146,11 @@ export async function runMonthSettlement(
             createdAt: settledAt,
           },
         });
-        const debtorCopy = obligationNotificationCopy(
-          "debtor",
-          transfer,
-          input.monthKey
+        const notificationIds = await persistDebtNotifications(
+          tx,
+          buildObligationNotifications(obligation.id, transfer, input.monthKey)
         );
-        const creditorCopy = obligationNotificationCopy(
-          "creditor",
-          transfer,
-          input.monthKey
-        );
-        const notifications = await Promise.all([
-          tx.debtNotification.create({
-            data: {
-              userId: transfer.fromUserId,
-              type: "obligation_created",
-              entityType: "obligation",
-              entityId: obligation.id,
-              ...debtorCopy,
-            },
-            select: { id: true },
-          }),
-          tx.debtNotification.create({
-            data: {
-              userId: transfer.toUserId,
-              type: "obligation_created",
-              entityType: "obligation",
-              entityId: obligation.id,
-              ...creditorCopy,
-            },
-            select: { id: true },
-          }),
-        ]);
-        createdNotificationIds.push(...notifications.map(({ id }) => id));
+        createdNotificationIds.push(...notificationIds);
       }
 
       return createdNotificationIds;

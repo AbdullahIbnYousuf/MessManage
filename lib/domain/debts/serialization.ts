@@ -1,7 +1,8 @@
 import type {
-  DebtLedgerEntry,
   DebtMember,
   DebtObligationBalanceRecord,
+  DebtObligationLedgerEntry,
+  DebtPaymentLedgerEntry,
   DebtTransferBalanceRecord,
 } from "@/types/debts";
 
@@ -9,7 +10,7 @@ export function serializeObligationLedgerEntry(
   obligation: DebtObligationBalanceRecord,
   debtor: DebtMember,
   creditor: DebtMember
-): DebtLedgerEntry {
+): DebtObligationLedgerEntry {
   return {
     type: "obligation",
     id: obligation.id,
@@ -27,7 +28,7 @@ export function serializeTransferLedgerEntry(
   transfer: DebtTransferBalanceRecord,
   sender: DebtMember,
   receiver: DebtMember
-): DebtLedgerEntry {
+): DebtPaymentLedgerEntry {
   return {
     type: "payment",
     id: transfer.id,

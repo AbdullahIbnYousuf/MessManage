@@ -538,6 +538,19 @@ All reads and writes are scoped to the authenticated `userId`. Mark-one and mark
 - Notification ownership tests prevent cross-user access.
 - Forced push failure leaves the financial transaction committed.
 
+### Phase 5-6 Execution Record — 2026-08-05
+
+- Added authenticated DebtSync summary, ledger, obligation, and payment read routes.
+- Added direct payment creation, receiver response, sender cancellation, and full return-payment commands and routes.
+- Payment creation and return-payment creation use serializable transactions with bounded retry; accept, reject, and cancel use conditional `status = pending` updates.
+- Client request IDs are database-backed idempotency keys; exact retries return the existing payment and conflicting payloads return `DUPLICATE_REQUEST_CONFLICT`.
+- The server derives every sender and transition actor from the authenticated session and never accepts actor IDs or status from request data.
+- All user-initiated payment mutations are gated by `DEBTSYNC_MUTATIONS_ENABLED`; read APIs and the settlement handoff remain available.
+- Added pure event-specific notification builders, transactional persistence, after-commit push delivery, invalid-subscription deactivation, and notification inbox/read APIs scoped to their owner.
+- Added stable error-code-to-HTTP mapping for all DebtSync routes.
+- Automated validation: `173` tests passed, TypeScript and production build passed, and lint reported zero errors with two pre-existing warnings.
+- No live database mutation or live DebtSync API mutation was performed while implementing or testing Phases 5-6.
+
 ---
 
 ## 11. Phase 7: DebtSync Interface

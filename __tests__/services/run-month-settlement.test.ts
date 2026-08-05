@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => {
     fetchBalances: vi.fn(),
     fetchReadiness: vi.fn(),
     deliverNotifications: vi.fn(),
+    persistNotifications: vi.fn(),
   };
 });
 
@@ -36,6 +37,7 @@ vi.mock("@/lib/queries/settlement-readiness", () => ({
 
 vi.mock("@/lib/services/debts/notifications", () => ({
   deliverDebtNotifications: mocks.deliverNotifications,
+  persistDebtNotifications: mocks.persistNotifications,
 }));
 
 import { runMonthSettlement } from "@/lib/services/run-month-settlement";
@@ -88,9 +90,10 @@ describe("runMonthSettlement", () => {
     mocks.transactionClient.monthlySettlementRun.create.mockResolvedValue({ id: "run" });
     mocks.transactionClient.monthlySettlement.create.mockResolvedValue({ id: "settlement" });
     mocks.transactionClient.debtObligation.create.mockResolvedValue({ id: "obligation" });
-    mocks.transactionClient.debtNotification.create
-      .mockResolvedValueOnce({ id: "notification-debtor" })
-      .mockResolvedValueOnce({ id: "notification-creditor" });
+    mocks.persistNotifications.mockResolvedValue([
+      "notification-debtor",
+      "notification-creditor",
+    ]);
     mocks.transaction.mockImplementation(
       async (callback: (client: typeof mocks.transactionClient) => Promise<unknown>) =>
         callback(mocks.transactionClient)
@@ -110,7 +113,7 @@ describe("runMonthSettlement", () => {
     expect(mocks.transactionClient.monthlySettlementRun.create).toHaveBeenCalledTimes(1);
     expect(mocks.transactionClient.monthlySettlement.create).toHaveBeenCalledTimes(1);
     expect(mocks.transactionClient.debtObligation.create).toHaveBeenCalledTimes(1);
-    expect(mocks.transactionClient.debtNotification.create).toHaveBeenCalledTimes(2);
+    expect(mocks.persistNotifications).toHaveBeenCalledTimes(1);
     expect(mocks.deliverNotifications).toHaveBeenCalledWith([
       "notification-debtor",
       "notification-creditor",
@@ -129,7 +132,7 @@ describe("runMonthSettlement", () => {
     expect(mocks.transactionClient.monthlySettlementRun.create).toHaveBeenCalledTimes(1);
     expect(mocks.transactionClient.monthlySettlement.create).not.toHaveBeenCalled();
     expect(mocks.transactionClient.debtObligation.create).not.toHaveBeenCalled();
-    expect(mocks.transactionClient.debtNotification.create).not.toHaveBeenCalled();
+    expect(mocks.persistNotifications).not.toHaveBeenCalled();
   });
 
   it("returns already_settled without recalculating an existing month", async () => {

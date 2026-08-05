@@ -1,5 +1,8 @@
 import type {
+  DebtNotificationEntity,
+  DebtNotificationType,
   DebtObligationSource,
+  PushDeliveryStatus,
   TransferSource,
   TransferStatus,
 } from "@prisma/client";
@@ -132,4 +135,32 @@ export type DebtPaymentFilters = {
   status?: TransferStatus;
   cursor?: string;
   limit?: number;
+};
+
+export type DebtNotificationItem = {
+  id: string;
+  type: DebtNotificationType;
+  entityType: DebtNotificationEntity;
+  entityId: string;
+  title: string;
+  body: string;
+  readAt: string | null;
+  pushStatus: PushDeliveryStatus;
+  pushAttemptedAt: string | null;
+  createdAt: string;
+};
+
+export type DebtNotificationPage = {
+  notifications: DebtNotificationItem[];
+  unreadCount: number;
+  nextCursor: string | null;
+};
+
+export type DebtNotificationDraft = {
+  userId: string;
+  type: DebtNotificationType;
+  entityType: DebtNotificationEntity;
+  entityId: string;
+  title: string;
+  body: string;
 };
