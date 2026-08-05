@@ -1,46 +1,35 @@
-// GET  /api/admin/members/[id]/deactivate — preview the deactivation date before committing
-// POST /api/admin/members/[id]/deactivate — deactivate a member account
+// GET  /api/admin/members/[id]/deactivate — preview date and debt clearance
+// POST /api/admin/members/[id]/deactivate — atomically verify and deactivate
 
+import type { Prisma } from "@prisma/client";
 import { requireAdmin } from "@/lib/session";
 import { db } from "@/lib/db";
+import { DebtError } from "@/lib/domain/debts/errors";
+import { fetchDebtClearance } from "@/lib/queries/debt-clearance";
+import { withSerializableRetry } from "@/lib/services/debts/transactions";
+import { debtErrorResponse } from "@/lib/utils/debts-api";
 import { today } from "@/lib/utils/dates";
 
-/**
- * Computes the deactivation date for a member:
- * - If they have meals: the date of their last meal where mealCount > 0
- * - If no meals ever: their joinedAt date
- *
- * This date represents "the last day they were financially active in the system."
- * Setting deactivatedAt = this date (not the day after) ensures they are
- * excluded from the NEXT month's fridge bill and maid charges automatically.
- */
-async function computeDeactivationDate(userId: string): Promise<{
+type DeactivationReadClient = Pick<Prisma.TransactionClient, "mealRecord">;
+
+async function computeDeactivationDate(
+  client: DeactivationReadClient,
+  userId: string,
+  joinedAt: Date
+): Promise<{
   deactivatedAt: Date;
   reason: "last_meal" | "joined_date";
 }> {
-  const lastMealRecord = await db.mealRecord.findFirst({
+  const lastMealRecord = await client.mealRecord.findFirst({
     where: { userId, mealCount: { gt: 0 } },
     orderBy: { date: "desc" },
     select: { date: true },
   });
 
-  if (lastMealRecord) {
-    return { deactivatedAt: lastMealRecord.date, reason: "last_meal" };
-  }
-
-  // No meals ever — use joinedAt
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: { joinedAt: true },
-  });
-
-  return {
-    deactivatedAt: user!.joinedAt,
-    reason: "joined_date",
-  };
+  return lastMealRecord
+    ? { deactivatedAt: lastMealRecord.date, reason: "last_meal" }
+    : { deactivatedAt: joinedAt, reason: "joined_date" };
 }
-
-// ─── GET: Preview deactivation date ──────────────────────────────────────────
 
 export async function GET(
   _request: Request,
@@ -49,36 +38,33 @@ export async function GET(
   try {
     await requireAdmin();
     const { id } = await params;
-
     const user = await db.user.findUnique({
       where: { id },
-      select: { status: true, name: true },
+      select: { status: true, joinedAt: true },
     });
 
-    if (!user) {
-      return Response.json({ error: "Member not found." }, { status: 404 });
-    }
-
+    if (!user) throw new DebtError("MEMBER_NOT_FOUND", "Member not found.");
     if (user.status === "deactivated") {
-      return Response.json({ error: "This member is already deactivated." }, { status: 400 });
+      throw new DebtError("VALIDATION_ERROR", "This member is already deactivated.");
     }
 
-    const { deactivatedAt, reason } = await computeDeactivationDate(id);
+    const [dateResult, debtClearance] = await Promise.all([
+      computeDeactivationDate(db, id, user.joinedAt),
+      fetchDebtClearance(db, id),
+    ]);
 
     return Response.json({
       data: {
-        deactivatedAt: deactivatedAt.toISOString(),
-        reason,
+        deactivatedAt: dateResult.deactivatedAt.toISOString(),
+        reason: dateResult.reason,
+        debtClearance,
       },
     });
-  } catch (err) {
-    if (err instanceof Response) return err;
-    console.error(err);
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+  } catch (error) {
+    if (error instanceof Response) return error;
+    return debtErrorResponse(error, "Deactivation preview");
   }
 }
-
-// ─── POST: Commit deactivation ────────────────────────────────────────────────
 
 export async function POST(
   _request: Request,
@@ -87,54 +73,62 @@ export async function POST(
   try {
     const admin = await requireAdmin();
     const { id } = await params;
-
     if (id === admin.id) {
-      return Response.json({ error: "You cannot deactivate your own account." }, { status: 400 });
+      throw new DebtError("VALIDATION_ERROR", "You cannot deactivate your own account.");
     }
 
-    const user = await db.user.findUnique({ where: { id } });
+    const result = await withSerializableRetry(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id },
+        select: { status: true, joinedAt: true },
+      });
+      if (!user) throw new DebtError("MEMBER_NOT_FOUND", "Member not found.");
+      if (user.status === "deactivated") {
+        throw new DebtError("VALIDATION_ERROR", "This member is already deactivated.");
+      }
 
-    if (!user) {
-      return Response.json({ error: "Member not found." }, { status: 404 });
-    }
+      const debtClearance = await fetchDebtClearance(tx, id);
+      if (!debtClearance.canDeactivate) {
+        throw new DebtError(
+          "DEACTIVATION_BLOCKED_BY_DEBT",
+          "Resolve this member's debts and pending payments before deactivation.",
+          {
+            youOwe: debtClearance.youOwe,
+            owedToYou: debtClearance.owedToYou,
+            pendingCount: debtClearance.pendingCount,
+          }
+        );
+      }
 
-    if (user.status === "deactivated") {
-      return Response.json({ error: "This member is already deactivated." }, { status: 400 });
-    }
-
-    const todayStr = today();
-    const { deactivatedAt } = await computeDeactivationDate(id);
-
-    // Deactivate user + zero out all future meal records from tomorrow onwards
-    await db.$transaction(async (tx) => {
+      const { deactivatedAt } = await computeDeactivationDate(
+        tx,
+        id,
+        user.joinedAt
+      );
       await tx.user.update({
         where: { id },
-        data: {
-          status: "deactivated",
-          deactivatedAt,
-        },
+        data: { status: "deactivated", deactivatedAt },
       });
-
-      // Set all future MealRecord rows (from tomorrow) to 0
       await tx.mealRecord.updateMany({
         where: {
           userId: id,
-          date: { gt: new Date(todayStr) },
+          date: { gt: new Date(today()) },
           isLocked: false,
         },
         data: { mealCount: 0 },
       });
+
+      return { deactivatedAt };
     });
 
     return Response.json({
       data: {
         status: "deactivated",
-        deactivatedAt: deactivatedAt.toISOString(),
+        deactivatedAt: result.deactivatedAt.toISOString(),
       },
     });
-  } catch (err) {
-    if (err instanceof Response) return err;
-    console.error(err);
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+  } catch (error) {
+    if (error instanceof Response) return error;
+    return debtErrorResponse(error, "Member deactivation");
   }
 }

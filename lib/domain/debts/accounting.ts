@@ -50,8 +50,8 @@ function applyPairwiseAmount(
 }
 
 export function calculatePairwisePositions(
-  obligations: DebtObligationBalanceRecord[],
-  transfers: DebtTransferBalanceRecord[]
+  obligations: Array<Pick<DebtObligationBalanceRecord, "debtorId" | "creditorId" | "amount">>,
+  transfers: Array<Pick<DebtTransferBalanceRecord, "senderId" | "receiverId" | "amount" | "status">>
 ): DebtPairwisePosition[] {
   const positions = new Map<string, PairAccumulator>();
 

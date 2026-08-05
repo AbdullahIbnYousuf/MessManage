@@ -94,11 +94,35 @@ const adminItems = [
   },
 ];
 
-const bottomNavItems = [navItems[0], navItems[1], navItems[2]];
+const debtNavItem = {
+  href: "/debts",
+  label: "DebtSync",
+  icon: (
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.7 0-3 .9-3 2s1.3 2 3 2 3 .9 3 2-1.3 2-3 2m0-8V6m0 10v2M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
+    </svg>
+  ),
+};
+
+const notificationNavItem = {
+  href: "/notifications",
+  label: "Notifications",
+  icon: (
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+    </svg>
+  ),
+};
 
 export default function Sidebar({ user }: { user: SessionUser }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const debtSyncEnabled = process.env.NEXT_PUBLIC_DEBTSYNC_ENABLED === "true";
+  const visibleNavItems = debtSyncEnabled ? [...navItems, debtNavItem] : navItems;
+  const bottomNavItems = debtSyncEnabled
+    ? [navItems[0], navItems[1], navItems[2], debtNavItem]
+    : [navItems[0], navItems[1], navItems[2]];
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -106,6 +130,14 @@ export default function Sidebar({ user }: { user: SessionUser }) {
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!debtSyncEnabled) return;
+    void fetch("/api/notifications/inbox?unreadOnly=true&limit=1")
+      .then((response) => response.json())
+      .then((json: { data?: { unreadCount: number } }) => setUnreadCount(json.data?.unreadCount ?? 0))
+      .catch(() => undefined);
+  }, [debtSyncEnabled, pathname]);
 
   return (
     <>
@@ -144,9 +176,12 @@ export default function Sidebar({ user }: { user: SessionUser }) {
 
         {/* Nav Links */}
         <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: "3px" }}>
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink key={item.href} {...item} active={isActive(item.href)} />
           ))}
+          {debtSyncEnabled && (
+            <NavLink {...notificationNavItem} active={isActive(notificationNavItem.href)} badge={unreadCount} />
+          )}
           {/* My Balance — dynamic link using current user's id */}
           <NavLink
             href={`/members/${user.id}`}
@@ -388,9 +423,12 @@ export default function Sidebar({ user }: { user: SessionUser }) {
               >
                 Main Menu
               </div>
-              {navItems.map((item) => (
+              {visibleNavItems.map((item) => (
                 <NavLink key={item.href} {...item} active={isActive(item.href)} />
               ))}
+              {debtSyncEnabled && (
+                <NavLink {...notificationNavItem} active={isActive(notificationNavItem.href)} badge={unreadCount} />
+              )}
               {/* My Balance — dynamic link */}
               <NavLink
                 href={`/members/${user.id}`}
@@ -474,11 +512,13 @@ function NavLink({
   label,
   icon,
   active,
+  badge,
 }: {
   href: string;
   label: string;
   icon: React.ReactNode;
   active: boolean;
+  badge?: number;
 }) {
   return (
     <Link
@@ -530,6 +570,11 @@ function NavLink({
         {icon}
       </div>
       {label}
+      {badge !== undefined && badge > 0 && (
+        <span className="badge badge-danger" style={{ marginLeft: "auto", minWidth: 24, justifyContent: "center" }} aria-label={`${badge} unread`}>
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </Link>
   );
 }

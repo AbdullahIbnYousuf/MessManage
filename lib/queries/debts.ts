@@ -18,6 +18,8 @@ import type {
   DebtMember,
   DebtObligationBalanceRecord,
   DebtObligationFilters,
+  DebtPaymentDetail,
+  DebtPaymentLedgerEntry,
   DebtPaymentFilters,
   DebtTransferBalanceRecord,
 } from "@/types/debts";
@@ -102,12 +104,34 @@ function normalizeObligation(
   );
 }
 
-function normalizeTransfer(transfer: TransferWithRelations): DebtLedgerEntry {
+function normalizeTransfer(transfer: TransferWithRelations): DebtPaymentLedgerEntry {
   return serializeTransferLedgerEntry(
     transferBalanceRecord(transfer),
     displayMember(transfer.sender),
     displayMember(transfer.receiver)
   );
+}
+
+export async function fetchDebtPaymentDetail(
+  paymentId: string
+): Promise<DebtPaymentDetail | null> {
+  const [transfer, reversedPayments] = await Promise.all([
+    db.transfer.findUnique({
+      where: { id: paymentId },
+      include: transferInclude,
+    }),
+    db.transfer.findMany({
+      where: { reversesTransferId: paymentId },
+      select: { id: true },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  if (!transfer) return null;
+  return {
+    ...normalizeTransfer(transfer),
+    reversedPaymentIds: reversedPayments.map((payment) => payment.id),
+  };
 }
 
 function normalizeLimit(limit: number | undefined): number {

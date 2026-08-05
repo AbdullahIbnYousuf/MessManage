@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { formatTaka } from "@/lib/utils/decimal";
 
 interface Member {
   id: string;
@@ -22,6 +23,13 @@ interface Props {
 interface DeactivatePreview {
   deactivatedAt: string;
   reason: "last_meal" | "joined_date";
+  debtClearance: {
+    youOwe: string;
+    owedToYou: string;
+    net: string;
+    pendingCount: number;
+    canDeactivate: boolean;
+  };
 }
 
 export default function MemberRow({ member, currentUserId, onDeactivated }: Props) {
@@ -61,7 +69,18 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
       const res = await fetch(`/api/admin/members/${member.id}/deactivate`, { method: "POST" });
       const json = await res.json() as { error?: string };
       if (!res.ok) {
-        setError(json.error ?? "Something went wrong.");
+        const conflict = json as {
+          error?: string;
+          code?: string;
+          youOwe?: string;
+          owedToYou?: string;
+          pendingCount?: number;
+        };
+        setError(
+          conflict.code === "DEACTIVATION_BLOCKED_BY_DEBT"
+            ? `${conflict.error} You owe ${formatTaka(conflict.youOwe ?? "0")}, are owed ${formatTaka(conflict.owedToYou ?? "0")}, with ${conflict.pendingCount ?? 0} pending.`
+            : conflict.error ?? "Something went wrong."
+        );
       } else {
         setDeactivated(true);
         setPreview(null);
@@ -271,14 +290,33 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
               </div>
             </div>
           </div>
-          <button
-            className="btn"
-            onClick={() => void handleDeactivateConfirm()}
-            disabled={confirming}
-            style={{ minHeight: 44, background: "var(--color-danger)", color: "#fff" }}
-          >
-            {confirming ? <span className="spinner" /> : "Confirm Deactivation"}
-          </button>
+          <div className="card" style={{ padding: "0.875rem", boxShadow: "none" }}>
+            <div style={{ fontWeight: 700, fontSize: "0.875rem", marginBottom: "0.625rem" }}>
+              DebtSync clearance
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.625rem" }}>
+              <div><span className="text-muted" style={{ fontSize: "0.75rem" }}>Owes</span><div>{formatTaka(preview.debtClearance.youOwe)}</div></div>
+              <div><span className="text-muted" style={{ fontSize: "0.75rem" }}>Is owed</span><div>{formatTaka(preview.debtClearance.owedToYou)}</div></div>
+            </div>
+            <div className="text-secondary" style={{ fontSize: "0.8125rem", marginTop: "0.625rem" }}>
+              Pending payments: {preview.debtClearance.pendingCount}
+            </div>
+            {!preview.debtClearance.canDeactivate && (
+              <div className="text-negative" style={{ fontSize: "0.8125rem", marginTop: "0.625rem", lineHeight: 1.45 }}>
+                Deactivation is blocked until every debt is cleared and every pending payment is resolved.
+              </div>
+            )}
+          </div>
+          {preview.debtClearance.canDeactivate && (
+            <button
+              className="btn"
+              onClick={() => void handleDeactivateConfirm()}
+              disabled={confirming}
+              style={{ minHeight: 44, background: "var(--color-danger)", color: "#fff" }}
+            >
+              {confirming ? <span className="spinner" /> : "Confirm Deactivation"}
+            </button>
+          )}
           <button
             className="btn btn-ghost"
             onClick={handleDeactivateCancel}

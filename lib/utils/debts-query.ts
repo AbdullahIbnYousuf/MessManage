@@ -10,6 +10,14 @@ const TRANSFER_STATUSES: TransferStatus[] = [
   "cancelled",
 ];
 
+export function parseUuidParam(value: string, fieldName: string): string {
+  try {
+    return validateUuid(value, fieldName);
+  } catch {
+    throw new DebtError("VALIDATION_ERROR", `${fieldName} must be a valid UUID.`);
+  }
+}
+
 export function parseOptionalUuidParam(
   value: string | null,
   fieldName: string

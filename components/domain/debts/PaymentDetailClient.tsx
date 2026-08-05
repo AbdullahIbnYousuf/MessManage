@@ -1,0 +1,91 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import type { DebtPaymentDetail } from "@/types/debts";
+import { formatTaka } from "@/lib/utils/decimal";
+import { DebtStatusBadge } from "@/components/domain/debts/DebtLedgerEntryCard";
+
+export default function PaymentDetailClient({ paymentId, currentUserId }: { paymentId: string; currentUserId: string }) {
+  const [payment, setPayment] = useState<DebtPaymentDetail | null>(null);
+  const [returnRequestId, setReturnRequestId] = useState("");
+  const [reason, setReason] = useState("");
+  const [showReject, setShowReject] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => { setReturnRequestId(crypto.randomUUID()); }, []);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/debts/payments/${paymentId}`);
+      const json = await response.json() as { data?: DebtPaymentDetail; error?: string };
+      if (!response.ok || !json.data) throw new Error(json.error ?? "Could not load payment.");
+      setPayment(json.data);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Could not load payment.");
+    } finally { setLoading(false); }
+  }, [paymentId]);
+  useEffect(() => { void load(); }, [load]);
+
+  async function mutate(path: string, body?: Record<string, string>) {
+    setBusy(true); setError(null);
+    try {
+      const response = await fetch(path, { method: "POST", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
+      const json = await response.json() as { error?: string; code?: string; currentStatus?: string };
+      if (!response.ok) {
+        if (response.status === 409) {
+          await load();
+          throw new Error(`${json.error ?? "Payment changed."}${json.currentStatus ? ` Current status: ${json.currentStatus}.` : ""}`);
+        }
+        throw new Error(json.error ?? "Payment could not be updated.");
+      }
+      setReason(""); setShowReject(false); await load();
+    } catch (mutationError) {
+      setError(mutationError instanceof Error ? mutationError.message : "Payment could not be updated.");
+    } finally { setBusy(false); }
+  }
+
+  if (loading && !payment) return <div className="page-container debt-state"><span className="spinner" /> Loading payment…</div>;
+  if (!payment) return <div className="page-container debt-page"><div className="debt-error">{error ?? "Payment not found."}<button className="btn btn-secondary" onClick={() => void load()}>Retry</button></div></div>;
+
+  const isSender = payment.sender.id === currentUserId;
+  const isReceiver = payment.receiver.id === currentUserId;
+  const created = formatDate(payment.createdAt);
+
+  return (
+    <div className="page-container debt-page">
+      <div className="debt-back"><Link href="/debts">← DebtSync</Link></div>
+      <div className="section-header"><div><h1 className="debt-title">Payment details</h1><p className="text-secondary debt-subtitle">{payment.source === "reversal" ? "Return payment" : "Direct payment"}</p></div><DebtStatusBadge status={payment.status} /></div>
+      <div className="card debt-detail">
+        <div className="debt-detail-amount">{formatTaka(payment.amount)}</div>
+        <p className="debt-direction">{payment.sender.name} recorded a payment to {payment.receiver.name}.</p>
+        <dl className="debt-detail-list">
+          <div><dt>From</dt><dd>{payment.sender.name}{isSender ? " (you)" : ""}</dd></div>
+          <div><dt>To</dt><dd>{payment.receiver.name}{isReceiver ? " (you)" : ""}</dd></div>
+          <div><dt>Recorded</dt><dd>{created}</dd></div>
+          {payment.respondedAt && <div><dt>Responded</dt><dd>{formatDate(payment.respondedAt)}</dd></div>}
+          {payment.cancelledAt && <div><dt>Cancelled</dt><dd>{formatDate(payment.cancelledAt)}</dd></div>}
+          {payment.description && <div><dt>Description</dt><dd>{payment.description}</dd></div>}
+          {payment.rejectionReason && <div><dt>Rejection reason</dt><dd>{payment.rejectionReason}</dd></div>}
+        </dl>
+        {payment.reversesTransferId && <Link className="debt-related-link" href={`/debts/payments/${payment.reversesTransferId}`}>View original payment →</Link>}
+        {payment.reversedPaymentIds.map((id, index) => <Link className="debt-related-link" href={`/debts/payments/${id}`} key={id}>View return payment {index + 1} →</Link>)}
+      </div>
+
+      <div className="debt-note">DebtSync records member confirmation; it does not transfer money through the app.</div>
+      {error && <div className="debt-error" role="alert">{error}</div>}
+
+      {payment.status === "pending" && isReceiver && <div className="card debt-actions"><h2>Confirm this payment</h2><button className="btn btn-primary" disabled={busy} onClick={() => void mutate(`/api/debts/payments/${payment.id}/respond`, { decision: "accept" })}>Accept payment</button>{!showReject ? <button className="btn btn-danger" disabled={busy} onClick={() => setShowReject(true)}>Reject payment</button> : <div className="debt-reject"><label><span>Reason for rejection</span><textarea className="input" rows={3} maxLength={240} value={reason} onChange={(event) => setReason(event.target.value)} /></label><button className="btn btn-danger" disabled={busy || !reason.trim()} onClick={() => void mutate(`/api/debts/payments/${payment.id}/respond`, { decision: "reject", reason: reason.trim() })}>Confirm rejection</button><button className="btn btn-secondary" disabled={busy} onClick={() => setShowReject(false)}>Go back</button></div>}</div>}
+
+      {payment.status === "pending" && isSender && <div className="card debt-actions"><h2>Outgoing payment</h2><button className="btn btn-danger" disabled={busy} onClick={() => { if (confirm("Cancel this pending payment?")) void mutate(`/api/debts/payments/${payment.id}/cancel`); }}>Cancel payment</button></div>}
+
+      {payment.status === "accepted" && payment.source === "direct" && isReceiver && <div className="card debt-actions"><h2>Return this payment</h2><p className="text-secondary">Creates a new payment of the same amount for the original sender to confirm.</p><button className="btn btn-secondary" disabled={busy || !returnRequestId} onClick={() => { if (confirm(`Create a return payment for ${formatTaka(payment.amount)}?`)) void mutate(`/api/debts/payments/${payment.id}/reverse`, { clientRequestId: returnRequestId }); }}>Create return payment</button></div>}
+    </div>
+  );
+}
+
+function formatDate(value: string): string {
+  return new Date(value).toLocaleString("en-BD", { day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Dhaka" });
+}

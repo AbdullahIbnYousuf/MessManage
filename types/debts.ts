@@ -40,6 +40,15 @@ export type DebtTransferBalanceRecord = {
   cancelledAt: Date | null;
 };
 
+export type DebtPaymentDetail = DebtPaymentLedgerEntry & {
+  reversedPaymentIds: string[];
+};
+
+export type DebtClearance = DebtMemberTotals & {
+  pendingCount: number;
+  canDeactivate: boolean;
+};
+
 export type DebtPairwisePosition = {
   memberAId: string;
   memberBId: string;
