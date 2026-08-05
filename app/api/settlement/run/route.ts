@@ -1,126 +1,75 @@
 // POST /api/settlement/run — run month-end settlement (admin only)
 
 import { requireAdmin } from "@/lib/session";
-import { db } from "@/lib/db";
-import { computeSettlement } from "@/lib/domain/settlement";
-import { currentMonthKey, getNow, firstDayOfMonth, lastDayOfMonth } from "@/lib/utils/dates";
-import { fetchMonthBalances } from "@/lib/queries/balance";
-import { fetchFridgeMonthTotals } from "@/lib/queries/fridge";
-import Decimal from "decimal.js";
+import { runMonthSettlement } from "@/lib/services/run-month-settlement";
+import { currentMonthKey } from "@/lib/utils/dates";
 
 export async function POST(request: Request) {
   try {
-    await requireAdmin();
+    const admin = await requireAdmin();
+    let monthKey = currentMonthKey();
 
-    let monthKey = currentMonthKey(); // default to current month's YYYY-MM-01
     try {
-      const body = await request.json() as { month?: string };
-      if (body.month && /^\d{4}-\d{2}$/.test(body.month)) {
+      const body = await request.json() as { month?: unknown };
+      if (body.month !== undefined) {
+        if (
+          typeof body.month !== "string"
+          || !/^\d{4}-(0[1-9]|1[0-2])$/.test(body.month)
+        ) {
+          return Response.json(
+            { error: "Invalid month format. Use YYYY-MM." },
+            { status: 400 }
+          );
+        }
         monthKey = `${body.month}-01`;
       }
     } catch {
-      // Ignore if body is empty/invalid
+      // An empty body keeps the current-month default.
     }
 
-    const monthDate = new Date(monthKey);
-
-    // Block duplicate settlement
-    const existing = await db.monthlySettlement.findFirst({
-      where: { month: monthDate },
-    });
-    if (existing) {
-      return Response.json({ error: "This month has already been settled." }, { status: 400 });
-    }
-
-    const [yearStr, monthStr] = monthKey.split("-");
-    const year = parseInt(yearStr!);
-    const month = parseInt(monthStr!);
-
-    const monthStart = firstDayOfMonth(year, month);
-    const monthEnd = lastDayOfMonth(year, month);
-    const isCurrent = monthKey === currentMonthKey();
-
-    // Validate matching aggregates before running settlement
-    const [
-      actualMaidCharges,
-      actualMaidPayments,
-      fridgeTotals,
-      actualBulkCycles,
-      actualBulkAllocations,
-    ] = await Promise.all([
-      db.maidCharge.aggregate({ where: { month: monthDate }, _sum: { amount: true } }),
-      db.maidPayment.aggregate({ where: { month: monthDate }, _sum: { amount: true } }),
-      fetchFridgeMonthTotals(monthDate),
-      db.bulkCycle.aggregate({ where: { finishedAt: { gte: monthStart, lte: monthEnd } }, _sum: { cost: true } }),
-      db.bulkAllocation.aggregate({ where: { allocatedAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } }),
-    ]);
-
-    const maidChargesSum = new Decimal(actualMaidCharges._sum.amount?.toString() ?? "0");
-    const maidPaymentsSum = new Decimal(actualMaidPayments._sum.amount?.toString() ?? "0");
-    const fridgeBillsSum = fridgeTotals.billTotal;
-    const fridgeAllocationsSum = fridgeTotals.allocationTotal;
-    const fridgePaymentsSum = fridgeTotals.paymentTotal;
-    const bulkCyclesSum = new Decimal(actualBulkCycles._sum.cost?.toString() ?? "0");
-    const bulkAllocationsSum = new Decimal(actualBulkAllocations._sum.amount?.toString() ?? "0");
-
-    const validationErrors = [];
-    if (!maidChargesSum.equals(maidPaymentsSum)) {
-      validationErrors.push(`Maid charges (৳${maidChargesSum.toFixed(2)}) do not match maid payments (৳${maidPaymentsSum.toFixed(2)}).`);
-    }
-    if (!fridgeBillsSum.equals(fridgeAllocationsSum)) {
-      validationErrors.push(`Fridge bills (৳${fridgeBillsSum.toFixed(2)}) do not match frozen allocations (৳${fridgeAllocationsSum.toFixed(2)}).`);
-    }
-    if (!fridgeBillsSum.equals(fridgePaymentsSum)) {
-      validationErrors.push(`Fridge bills (৳${fridgeBillsSum.toFixed(2)}) do not match fridge payments (৳${fridgePaymentsSum.toFixed(2)}).`);
-    }
-    if (!bulkCyclesSum.equals(bulkAllocationsSum)) {
-      validationErrors.push(`Bulk purchases (৳${bulkCyclesSum.toFixed(2)}) do not match bulk allocations (৳${bulkAllocationsSum.toFixed(2)}).`);
-    }
-
-    if (validationErrors.length > 0) {
-      return Response.json({
-        error: "Settlement blocked: " + validationErrors.join(" "),
-      }, { status: 400 });
-    }
-
-    const result = await fetchMonthBalances({
-      monthStart,
-      monthEnd,
-      monthDate,
-      isCurrentMonth: isCurrent,
+    const result = await runMonthSettlement({
+      monthKey,
+      trigger: "manual",
+      actorId: admin.id,
     });
 
-    const transfers = computeSettlement(result.members);
-    const now = getNow();
-
-    // Write all settlement rows atomically
-    await db.$transaction(async (tx) => {
-      await tx.monthlySettlement.createMany({
-        data: transfers.map((t) => ({
-          month: monthDate,
-          fromUserId: t.fromUserId,
-          toUserId: t.toUserId,
-          amount: t.amount,
-          settledAt: now,
-        })),
-      });
-    });
+    if (result.status === "already_settled") {
+      return Response.json(
+        { error: "This month has already been settled." },
+        { status: 409 }
+      );
+    }
+    if (result.status === "no_data") {
+      return Response.json(
+        { error: "There is no data to settle for this month." },
+        { status: 400 }
+      );
+    }
+    if (result.status === "blocked") {
+      return Response.json(
+        { error: `Settlement blocked: ${result.reasons.join(" ")}` },
+        { status: 400 }
+      );
+    }
 
     return Response.json({
       data: {
-        month: monthKey.slice(0, 7), // "YYYY-MM"
-        transfers: transfers.map((t) => ({
-          fromUserId: t.fromUserId,
-          fromUserName: t.fromUserName,
-          toUserId: t.toUserId,
-          toUserName: t.toUserName,
-          amount: t.amount.toFixed(2),
+        month: result.month.slice(0, 7),
+        transfers: result.transfers.map((transfer) => ({
+          fromUserId: transfer.fromUserId,
+          fromUserName: transfer.fromUserName,
+          toUserId: transfer.toUserId,
+          toUserName: transfer.toUserName,
+          amount: transfer.amount.toFixed(2),
         })),
       },
     });
-  } catch (err) {
-    if (err instanceof Response) return err;
-    console.error(err);
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+  } catch (error) {
+    if (error instanceof Response) return error;
+    console.error("Manual settlement failed.", error);
+    return Response.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 }
+    );
   }
 }

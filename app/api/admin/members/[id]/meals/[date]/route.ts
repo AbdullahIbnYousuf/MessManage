@@ -92,7 +92,7 @@ export async function PUT(
         tx.mealRecord.findUnique({
           where: { userId_date: { userId: id, date: targetDate } },
         }),
-        tx.monthlySettlement.findFirst({
+        tx.monthlySettlementRun.findUnique({
           where: { month: monthDate },
           select: { id: true },
         }),

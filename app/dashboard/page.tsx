@@ -31,7 +31,7 @@ export default async function DashboardPage() {
 
   if (isAlertPeriod) {
     const prevKey = previousMonthKey();
-    const settlementExists = await db.monthlySettlement.findFirst({
+    const settlementExists = await db.monthlySettlementRun.findUnique({
       where: { month: new Date(prevKey) },
       select: { id: true },
     });

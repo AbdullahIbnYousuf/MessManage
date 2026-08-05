@@ -27,12 +27,13 @@ export async function GET() {
 
     // Check which months have been settled
     const billMonths = bills.map((b) => b.month);
-    const settlements = await db.monthlySettlement.findMany({
+    const settlementRuns = await db.monthlySettlementRun.findMany({
       where: { month: { in: billMonths } },
       select: { month: true },
-      distinct: ["month"],
     });
-    const settledMonths = new Set(settlements.map((s) => s.month.toISOString()));
+    const settledMonths = new Set(
+      settlementRuns.map((run) => run.month.toISOString())
+    );
 
     return Response.json({
       data: bills.map((b) => {

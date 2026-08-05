@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     }
 
     // Block payment if this bill's month has already been settled
-    const settled = await db.monthlySettlement.findFirst({
+    const settled = await db.monthlySettlementRun.findUnique({
       where: { month: bill.month },
       select: { id: true },
     });

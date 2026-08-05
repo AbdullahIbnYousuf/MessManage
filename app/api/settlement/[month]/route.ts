@@ -27,16 +27,20 @@ export async function GET(
     const monthEnd   = lastDayOfMonth(year, month);
 
     // ── 1. Verify the month is settled ──────────────────────────────────────
-    const settlements = await db.monthlySettlement.findMany({
+    const settlementRun = await db.monthlySettlementRun.findUnique({
       where: { month: monthDate },
       include: {
-        fromUser: { select: { name: true, nickname: true, avatarUrl: true } },
-        toUser:   { select: { name: true, nickname: true, avatarUrl: true } },
+        settlements: {
+          include: {
+            fromUser: { select: { name: true, nickname: true, avatarUrl: true } },
+            toUser: { select: { name: true, nickname: true, avatarUrl: true } },
+          },
+          orderBy: { amount: "desc" },
+        },
       },
-      orderBy: { amount: "desc" },
     });
 
-    if (settlements.length === 0) {
+    if (!settlementRun) {
       return Response.json(
         { error: "This month has not been settled yet." },
         { status: 404 }
@@ -193,7 +197,7 @@ export async function GET(
     return Response.json({
       data: {
         month:     monthKey,
-        settledAt: settlements[0]?.settledAt,
+        settledAt: settlementRun.settledAt,
         stats: {
           totalBazar:           totalBazar.toString(),
           totalMeals,
@@ -204,7 +208,7 @@ export async function GET(
           closedCycles,
           totalFridgeBillAmount: totalFridgeBillAmount.toString(),
         },
-        settlementPlan: settlements.map((s) => ({
+        settlementPlan: settlementRun.settlements.map((s) => ({
           id:     s.id,
           from:   s.fromUser.nickname ?? s.fromUser.name,
           fromAvatar: s.fromUser.avatarUrl,

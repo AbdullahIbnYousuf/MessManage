@@ -52,7 +52,7 @@ export async function GET(request: Request) {
         monthDate,
         isCurrentMonth: isCurrent,
       }),
-      db.monthlySettlement.findFirst({
+      db.monthlySettlementRun.findUnique({
         where: { month: monthDate },
       }),
       db.maidCharge.aggregate({ where: { month: monthDate }, _sum: { amount: true } }),

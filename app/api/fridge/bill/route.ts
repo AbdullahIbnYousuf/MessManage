@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "A fridge bill for this month has already been posted." }, { status: 400 });
     }
 
-    const settled = await db.monthlySettlement.findFirst({
+    const settled = await db.monthlySettlementRun.findUnique({
       where: { month: monthDate },
       select: { id: true },
     });

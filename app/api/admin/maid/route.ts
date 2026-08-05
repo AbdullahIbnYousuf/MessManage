@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     }
 
     const monthDate = new Date(monthKey);
-    const settled = await db.monthlySettlement.findFirst({
+    const settled = await db.monthlySettlementRun.findUnique({
       where: { month: monthDate },
       select: { id: true },
     });

@@ -25,7 +25,7 @@ export async function GET(request: Request) {
         },
         orderBy: { user: { name: "asc" } },
       }),
-      db.monthlySettlement.findFirst({
+      db.monthlySettlementRun.findUnique({
         where: { month: monthDate },
         select: { id: true },
       }),

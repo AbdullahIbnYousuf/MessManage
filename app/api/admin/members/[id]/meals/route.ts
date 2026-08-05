@@ -68,7 +68,7 @@ export async function GET(
     const monthEnd = lastDayOfMonth(year, month);
     const [records, settlement, finishedCycles] = await Promise.all([
       fetchOrCreateMealRecordsForMonth(id, year, month),
-      db.monthlySettlement.findFirst({
+      db.monthlySettlementRun.findUnique({
         where: { month: monthStart },
         select: { id: true },
       }),

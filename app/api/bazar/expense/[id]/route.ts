@@ -46,7 +46,7 @@ export async function PATCH(
     if (isAdmin) {
       const { y, m } = getDhakaParts(expense.date);
       const expenseMonth = firstDayOfMonth(y, m);
-      const settled = await db.monthlySettlement.findFirst({
+      const settled = await db.monthlySettlementRun.findUnique({
         where: { month: expenseMonth },
         select: { id: true },
       });

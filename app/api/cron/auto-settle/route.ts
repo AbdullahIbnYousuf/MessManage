@@ -1,12 +1,7 @@
-// GET /api/cron/auto-settle — cron job to automatically run month-end settlement
-// Runs on the 20th of every month. Settles the *previous* calendar month.
+// GET /api/cron/auto-settle — settle the previous calendar month.
 
-import { db } from "@/lib/db";
-import { computeSettlement } from "@/lib/domain/settlement";
-import { previousMonthKey, previousMonthStart, previousMonthEnd, getNow } from "@/lib/utils/dates";
-import { fetchMonthBalances } from "@/lib/queries/balance";
-import { fetchFridgeMonthTotals } from "@/lib/queries/fridge";
-import Decimal from "decimal.js";
+import { runMonthSettlement } from "@/lib/services/run-month-settlement";
+import { previousMonthKey } from "@/lib/utils/dates";
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -15,93 +10,39 @@ export async function GET(request: Request) {
   }
 
   try {
-    const monthKey = previousMonthKey();
-    const monthDate = new Date(monthKey);
-
-    // Block duplicate settlement — skip silently if already settled (idempotent)
-    const existing = await db.monthlySettlement.findFirst({
-      where: { month: monthDate },
+    const result = await runMonthSettlement({
+      monthKey: previousMonthKey(),
+      trigger: "cron",
     });
-    if (existing) {
+
+    if (result.status === "already_settled") {
       return Response.json({ message: "Already settled for the previous month." });
     }
-
-    const result = await fetchMonthBalances({
-      monthStart: previousMonthStart(),
-      monthEnd: previousMonthEnd(),
-      monthDate,
-      isCurrentMonth: false, // past month — all meals are locked, no deadline logic
-    });
-
-    // Block if no data to settle (e.g., app just deployed, or system inactive)
-    if (!result.hasData) {
+    if (result.status === "no_data") {
       return Response.json({ message: "No data to settle for the previous month." });
     }
-
-    const monthStart = previousMonthStart();
-    const monthEnd = previousMonthEnd();
-
-    // Validate matching aggregates before running settlement
-    const [
-      actualMaidCharges,
-      actualMaidPayments,
-      fridgeTotals,
-      actualBulkCycles,
-      actualBulkAllocations,
-    ] = await Promise.all([
-      db.maidCharge.aggregate({ where: { month: monthDate }, _sum: { amount: true } }),
-      db.maidPayment.aggregate({ where: { month: monthDate }, _sum: { amount: true } }),
-      fetchFridgeMonthTotals(monthDate),
-      db.bulkCycle.aggregate({ where: { finishedAt: { gte: monthStart, lte: monthEnd } }, _sum: { cost: true } }),
-      db.bulkAllocation.aggregate({ where: { allocatedAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } }),
-    ]);
-
-    const maidChargesSum = new Decimal(actualMaidCharges._sum.amount?.toString() ?? "0");
-    const maidPaymentsSum = new Decimal(actualMaidPayments._sum.amount?.toString() ?? "0");
-    const fridgeBillsSum = fridgeTotals.billTotal;
-    const fridgeAllocationsSum = fridgeTotals.allocationTotal;
-    const fridgePaymentsSum = fridgeTotals.paymentTotal;
-    const bulkCyclesSum = new Decimal(actualBulkCycles._sum.cost?.toString() ?? "0");
-    const bulkAllocationsSum = new Decimal(actualBulkAllocations._sum.amount?.toString() ?? "0");
-
-    const validationErrors = [];
-    if (!maidChargesSum.equals(maidPaymentsSum)) {
-      validationErrors.push(`Maid charges (৳${maidChargesSum.toFixed(2)}) do not match maid payments (৳${maidPaymentsSum.toFixed(2)}).`);
-    }
-    if (!fridgeBillsSum.equals(fridgeAllocationsSum)) {
-      validationErrors.push(`Fridge bills (৳${fridgeBillsSum.toFixed(2)}) do not match frozen allocations (৳${fridgeAllocationsSum.toFixed(2)}).`);
-    }
-    if (!fridgeBillsSum.equals(fridgePaymentsSum)) {
-      validationErrors.push(`Fridge bills (৳${fridgeBillsSum.toFixed(2)}) do not match fridge payments (৳${fridgePaymentsSum.toFixed(2)}).`);
-    }
-    if (!bulkCyclesSum.equals(bulkAllocationsSum)) {
-      validationErrors.push(`Bulk purchases (৳${bulkCyclesSum.toFixed(2)}) do not match bulk allocations (৳${bulkAllocationsSum.toFixed(2)}).`);
-    }
-
-    if (validationErrors.length > 0) {
-      console.warn("Auto-settlement skipped due to unbalanced aggregates:", validationErrors.join(" "));
-      return Response.json({ message: "Auto-settlement skipped: " + validationErrors.join(" ") });
-    }
-
-    const transfers = computeSettlement(result.members);
-    const now = getNow();
-
-    // Write all settlement rows atomically
-    await db.$transaction(async (tx) => {
-      await tx.monthlySettlement.createMany({
-        data: transfers.map((t) => ({
-          month: monthDate,
-          fromUserId: t.fromUserId,
-          toUserId: t.toUserId,
-          amount: t.amount,
-          settledAt: now,
-        })),
+    if (result.status === "blocked") {
+      console.warn(
+        "Auto-settlement skipped due to unbalanced aggregates:",
+        result.reasons.join(" ")
+      );
+      return Response.json({
+        message: `Auto-settlement skipped: ${result.reasons.join(" ")}`,
       });
-    });
+    }
 
-    return Response.json({ message: "Auto-settlement completed successfully.", transfers });
-  } catch (err) {
-    console.error(err);
+    return Response.json({
+      message: "Auto-settlement completed successfully.",
+      transfers: result.transfers.map((transfer) => ({
+        fromUserId: transfer.fromUserId,
+        fromUserName: transfer.fromUserName,
+        toUserId: transfer.toUserId,
+        toUserName: transfer.toUserName,
+        amount: transfer.amount.toFixed(2),
+      })),
+    });
+  } catch (error) {
+    console.error("Auto-settlement failed.", error);
     return Response.json({ error: "Something went wrong." }, { status: 500 });
   }
 }

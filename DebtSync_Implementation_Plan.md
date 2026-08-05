@@ -405,6 +405,17 @@ Reject malformed cursors with `VALIDATION_ERROR` rather than silently restarting
 - Fixture balances independently match expected values.
 - No domain API accepts or returns floating-point money.
 
+### Phase 3-4 Execution Record — 2026-08-05
+
+- Manual and cron settlement routes now call one shared `runMonthSettlement` service.
+- A settlement run, settlement pairs, linked obligations, and two persistent notifications per obligation are committed in one transaction.
+- Best-effort push delivery runs only after commit and cannot roll back the financial transaction.
+- Unique settlement-run races are classified as `already_settled`; a data-bearing zero-transfer month still creates one permanent run.
+- All existing settled-month guards, history queries, and monthly reports now use `MonthlySettlementRun`, including zero-transfer months.
+- Added Decimal-only pairwise, member-total, ledger normalization, transfer-predicate, validation, serialization, cursor, dashboard-summary, and query functions.
+- Automated validation: `141` tests passed, TypeScript and production build passed, and lint reported zero errors with two pre-existing warnings.
+- No live database mutation was performed while implementing or testing Phases 3-4.
+
 ---
 
 ## 9. Phase 5: Payment Commands and APIs

@@ -33,7 +33,7 @@ export async function PATCH(
     }
 
     // Block edit if already settled
-    const settled = await db.monthlySettlement.findFirst({
+    const settled = await db.monthlySettlementRun.findUnique({
       where: { month: monthDate },
       select: { id: true },
     });

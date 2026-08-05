@@ -44,7 +44,7 @@ export async function PATCH(
 
     // Admin rule: month must not be settled
     if (isAdmin) {
-      const settled = await db.monthlySettlement.findFirst({
+      const settled = await db.monthlySettlementRun.findUnique({
         where: { month: payment.month },
         select: { id: true },
       });
