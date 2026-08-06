@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { formatMonthLabel } from "@/lib/utils/dates";
+import ExpensesBackLink from "@/components/domain/expenses/ExpensesBackLink";
 
 interface FridgePayment {
   id: string;
@@ -471,9 +472,10 @@ export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCur
 
   return (
     <div className="page-container">
+      <ExpensesBackLink />
       <div className="section-header" style={{ marginBottom: "1.5rem" }}>
         <div>
-          <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>Fridge Bill</h1>
+          <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>Fridge bill</h1>
           <p className="text-secondary" style={{ fontSize: "0.875rem" }}>
             Shared fridge electricity bill — split equally among all members active during the bill month
           </p>

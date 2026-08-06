@@ -627,6 +627,12 @@ Use explicit labels and direction sentences. Never rely on color alone.
 - Long member names, large amounts, errors, and empty states do not overlap or shift controls.
 - Keyboard navigation and visible focus work across all financial actions.
 
+### MessManage UX rollout record
+
+- UX Phase 1 established the MessManage brand, grouped desktop/mobile navigation, and stable `/expenses` and `/money` hubs.
+- UX Phase 2 upgrades `/expenses` to a read-only operational summary of active Bulk cycles, current-month Maid records, and the previous-month Fridge bill. Full entry workflows and all existing routes remain unchanged.
+- The Expenses summary introduces no schema migration, financial mutation, historical recalculation, or change to DebtSync accounting.
+
 ---
 
 ## 12. Phase 8: Debt-Aware Member Deactivation

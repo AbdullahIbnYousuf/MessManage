@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { parseDateString, toDateString } from "@/lib/utils/dates";
 
 interface Cycle {
   id: string;
@@ -53,7 +54,7 @@ export default function BulkCycleCard({ item, isAdmin, currentUserId, onCycleSta
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  const [nowMs] = useState(() => new Date(todayStr + "T00:00:00").getTime());
+  const [nowMs] = useState(() => parseDateString(todayStr).getTime());
 
   // Can the current user edit this active cycle?
   const purchaseDateStr = item.activeCycle?.purchaseDate.slice(0, 10);
@@ -142,11 +143,14 @@ export default function BulkCycleCard({ item, isAdmin, currentUserId, onCycleSta
     }
   }
 
-  const purchaseMidnight = purchaseDateStr
-    ? new Date(purchaseDateStr + "T00:00:00").getTime()
+  const cycleStartDate = item.activeCycle
+    ? toDateString(new Date(item.activeCycle.startedAt))
+    : null;
+  const cycleStartMidnight = cycleStartDate
+    ? parseDateString(cycleStartDate).getTime()
     : 0;
   const daysActive = item.activeCycle
-    ? Math.max(0, Math.round((nowMs - purchaseMidnight) / 86400000))
+    ? Math.max(0, Math.floor((nowMs - cycleStartMidnight) / 86400000))
     : null;
 
   return (

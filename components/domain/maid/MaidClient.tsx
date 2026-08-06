@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { formatMonthLabel, previousMonthKey } from "@/lib/utils/dates";
+import ExpensesBackLink from "@/components/domain/expenses/ExpensesBackLink";
 
 interface ChargeEntry {
   id: string;
@@ -284,9 +285,10 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
 
   return (
     <div className="page-container">
+      <ExpensesBackLink />
       <div className="section-header" style={{ marginBottom: "1.5rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
         <div>
-          <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>Maid</h1>
+          <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>Maid charges</h1>
           <p className="text-secondary" style={{ fontSize: "0.875rem" }}>
             Monthly maid charges and payments — {monthLabel}
           </p>

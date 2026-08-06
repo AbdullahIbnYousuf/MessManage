@@ -300,10 +300,19 @@ The settlement output becomes entries in System 2 where actual money movement is
 - Admins receive a separate **Admin** destination.
 - Mobile navigation contains exactly Home, Meals, Bazar, Money, and More.
 - Expenses is a hub for Bulk Items, Maid Charges, and Fridge Bill.
+- The Expenses hub is an operational overview rather than a second set of entry forms. It shows active bulk cycles, current-month maid charges and payments, and the previous-month fridge bill and payments, then links to the existing feature pages for complete workflows.
+- Missing maid charges or a missing fridge bill are neutral review states, not automatically overdue errors. A month already settled with zero charges or no fridge bill is shown as closed and does not prompt new entry.
+- Expense summary amounts are exact decimal strings from month-scoped read queries; payment totals are not limited by recent-history pagination.
 - Money is a hub for current-month balance, Monthly closing, confirmed balances, Record money, and the ledger.
 - Notifications are reached through a bell with unread count rather than a permanent navigation tab.
 - Current-month running balance and confirmed long-running balance are displayed as separate accounting stages and are never added together.
 - Existing feature URLs remain valid so bookmarks, notifications, and historical links are preserved.
+
+#### MessManage UX delivery status
+
+- Phase 1: MessManage branding, grouped navigation, mobile navigation, and lightweight Expenses and Money hubs — complete.
+- Phase 2: Smart Expenses overview with read-only Bulk, Maid, and Fridge status summaries — complete.
+- Later phases: data-rich Money and Home redesigns — not part of Phase 2.
 
 ### 10.1 Global Daily View
 

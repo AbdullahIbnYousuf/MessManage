@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import BulkCycleCard from "@/components/domain/bulk/BulkCycleCard";
+import ExpensesBackLink from "@/components/domain/expenses/ExpensesBackLink";
 
 interface Cycle {
   id: string;
@@ -81,9 +82,10 @@ export default function BulkItemsClient({ isAdmin, currentUserId, todayStr }: Pr
 
   return (
     <div className="page-container">
+      <ExpensesBackLink />
       <div className="section-header" style={{ marginBottom: "1.5rem" }}>
         <div>
-          <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>Bulk Items</h1>
+          <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>Bulk items</h1>
           <p className="text-secondary" style={{ fontSize: "0.875rem" }}>
             Track gas, rice, and other bulk purchases across their full usage cycle.
           </p>
