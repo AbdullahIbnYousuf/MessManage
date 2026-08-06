@@ -312,7 +312,16 @@ The settlement output becomes entries in System 2 where actual money movement is
 
 - Phase 1: MessManage branding, grouped navigation, mobile navigation, and lightweight Expenses and Money hubs — complete.
 - Phase 2: Smart Expenses overview with read-only Bulk, Maid, and Fridge status summaries — complete.
-- Later phases: data-rich Money and Home redesigns — not part of Phase 2.
+- Phase 3: Smart Money overview separating provisional monthly balance, previous-month closing readiness, and confirmed long-running money — complete.
+- Later phases: data-rich Home redesign — not part of Phase 3.
+
+#### Smart Money overview
+
+- `/money` is the read-only operational overview for the financial lifecycle; detailed calculations and mutations remain on their established pages.
+- Current-month balance, credits, and costs are provisional until closing. They are displayed separately from confirmed DebtSync totals and are never added together.
+- Previous-month closing is shown as closed, ready, blocked, or having no activity, using the same canonical readiness checks as the settlement service.
+- Payment records needing the current member's response are previewed before informational confirmed-money activity, but acceptance and rejection remain on payment detail pages.
+- When DebtSync is disabled, the Money overview remains available for current balance and monthly closing without querying or exposing confirmed-money data.
 
 ### 10.1 Global Daily View
 

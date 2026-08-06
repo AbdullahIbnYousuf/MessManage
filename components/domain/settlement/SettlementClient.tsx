@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatTaka } from "@/lib/utils/decimal";
 import { formatNumericDate, formatMonthLabel } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
+import MoneyBackLink from "@/components/domain/money/MoneyBackLink";
 
 interface BalanceEntry {
   userId: string;
@@ -38,9 +39,10 @@ interface HistoryMonth {
 interface Props {
   isAdmin: boolean;
   monthName: string;
+  initialMonth?: string;
 }
 
-export default function SettlementClient({ isAdmin, monthName }: Props) {
+export default function SettlementClient({ isAdmin, monthName, initialMonth }: Props) {
   const [balances, setBalances] = useState<BalanceEntry[]>([]);
   const [mealRate, setMealRate] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryMonth[]>([]);
@@ -90,7 +92,7 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
     setLoading(false);
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(initialMonth); }, [initialMonth, load]);
 
   function getPreviousMonthKey(monthKey: string): string {
     const [yearStr, monthStr] = monthKey.split("-");
@@ -137,6 +139,7 @@ export default function SettlementClient({ isAdmin, monthName }: Props) {
 
   return (
     <div className="page-container">
+      <MoneyBackLink />
       <div className="section-header" style={{ marginBottom: "1.5rem" }}>
         <div>
           <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>Monthly closing</h1>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { DebtDashboardSummary, DebtLedgerPage, DebtPaymentLedgerEntry } from "@/types/debts";
 import { formatTaka } from "@/lib/utils/decimal";
 import DebtLedgerEntryCard from "@/components/domain/debts/DebtLedgerEntryCard";
+import MoneyBackLink from "@/components/domain/money/MoneyBackLink";
 
 type ApiResult<T> = { data?: T; error?: string };
 
@@ -56,6 +57,7 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
 
   return (
     <div className="page-container debt-page">
+      <MoneyBackLink />
       <div className="section-header">
         <div>
           <h1 className="debt-title">Balances &amp; Payments</h1>

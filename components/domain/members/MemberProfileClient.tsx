@@ -146,11 +146,11 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
       {/* Navigation & Month Selector */}
       <div className="slide-up" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
         <button 
-          onClick={() => router.push("/members")} 
+          onClick={() => router.push(isOwner ? "/money" : "/members")}
           className="btn btn-ghost btn-sm"
-          style={{ paddingLeft: 0, color: "var(--color-text-secondary)" }}
+          style={{ minHeight: 44, paddingLeft: 0, color: "var(--color-text-secondary)" }}
         >
-          ← Back to Directory
+          ← {isOwner ? "Money" : "Members"}
         </button>
 
         {/* Month Selector Toggle */}
