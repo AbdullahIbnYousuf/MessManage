@@ -10,9 +10,17 @@ type Member = { id: string; name: string; nickname: string | null; status: strin
 type MemberDetail = { user: { bkashNumber: string | null; bankName: string | null; bankAccountNumber: string | null } };
 type MoneyDirection = "sent" | "received";
 
-export default function PaymentFormClient({ currentUserId }: { currentUserId: string }) {
+export default function PaymentFormClient({
+  currentUserId,
+  initialMemberId,
+  initialDirection,
+}: {
+  currentUserId: string;
+  initialMemberId?: string;
+  initialDirection?: MoneyDirection;
+}) {
   const [requestId, setRequestId] = useState("");
-  const [direction, setDirection] = useState<MoneyDirection>("sent");
+  const [direction, setDirection] = useState<MoneyDirection>(initialDirection ?? "sent");
   const [members, setMembers] = useState<Member[]>([]);
   const [summary, setSummary] = useState<DebtDashboardSummary | null>(null);
   const [memberId, setMemberId] = useState("");
@@ -33,15 +41,19 @@ export default function PaymentFormClient({ currentUserId }: { currentUserId: st
         if (!memberResponse.ok || !summaryResponse.ok) {
           throw new Error(memberJson.error ?? summaryJson.error ?? "Could not load the form.");
         }
-        setMembers((memberJson.data ?? []).filter(
+        const activeMembers = (memberJson.data ?? []).filter(
           (member) => member.status === "active" && member.id !== currentUserId
-        ));
+        );
+        setMembers(activeMembers);
+        if (initialMemberId && activeMembers.some((member) => member.id === initialMemberId)) {
+          setMemberId(initialMemberId);
+        }
         setSummary(summaryJson.data ?? null);
       })
       .catch((loadError: unknown) => setError(
         loadError instanceof Error ? loadError.message : "Could not load the form."
       ));
-  }, [currentUserId]);
+  }, [currentUserId, initialMemberId]);
 
   useEffect(() => {
     setConfirming(false);
@@ -72,6 +84,11 @@ export default function PaymentFormClient({ currentUserId }: { currentUserId: st
   const projectedPosition = amountDecimal?.gt(0)
     ? currentPosition.plus(direction === "sent" ? amountDecimal : amountDecimal.neg())
     : null;
+  const fullBalanceAmount = direction === "sent" && currentPosition.lt(0)
+    ? currentPosition.abs().toFixed(2)
+    : direction === "received" && currentPosition.gt(0)
+      ? currentPosition.toFixed(2)
+      : null;
 
   function chooseDirection(nextDirection: MoneyDirection) {
     setDirection(nextDirection);
@@ -127,12 +144,12 @@ export default function PaymentFormClient({ currentUserId }: { currentUserId: st
       <h1>Sent for confirmation</h1>
       <p>{confirmer} must confirm {direction === "sent" ? "receiving" : "sending"} the money before this changes either member&apos;s balance.</p>
       <Link className="btn btn-primary" href={`/debts/payments/${created.id}`}>View record</Link>
-      <Link className="btn btn-secondary" href="/debts">Back to balances</Link>
+      <Link className="btn btn-secondary" href="/money">Back to debts</Link>
     </div></div>;
   }
 
   return <div className="page-container debt-page">
-    <div className="debt-back"><Link href="/debts">← Balances &amp; Payments</Link></div>
+    <div className="debt-back"><Link href="/money">← Debts &amp; payments</Link></div>
     <h1 className="debt-title">Record money</h1>
     <p className="text-secondary debt-subtitle">Record money that already moved outside the app. The other member must confirm it.</p>
     <form className="card debt-form" onSubmit={startConfirmation}>
@@ -140,19 +157,19 @@ export default function PaymentFormClient({ currentUserId }: { currentUserId: st
         <legend>What happened?</legend>
         <div className="debt-money-direction__options">
           <button type="button" className={direction === "sent" ? "active" : ""} aria-pressed={direction === "sent"} disabled={submitting} onClick={() => chooseDirection("sent")}>
-            <strong>I sent money</strong>
-            <span>They confirm receiving it</span>
+            <strong><span className="debt-cash-sign" aria-hidden="true">−</span> Money sent</strong>
+            <span>I sent money to another member.</span>
           </button>
           <button type="button" className={direction === "received" ? "active" : ""} aria-pressed={direction === "received"} disabled={submitting} onClick={() => chooseDirection("received")}>
-            <strong>I received money</strong>
-            <span>They confirm sending it</span>
+            <strong><span className="debt-cash-sign" aria-hidden="true">+</span> Money received</strong>
+            <span>I received money from another member.</span>
           </button>
         </div>
       </fieldset>
 
       <label><span>{direction === "sent" ? "Paid to" : "Received from"}</span><select className="input" required value={memberId} onChange={(event) => { setMemberId(event.target.value); setConfirming(false); }}><option value="">Select a member</option>{members.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.nickname || candidate.name}</option>)}</select></label>
 
-      {memberId && <div className="debt-context"><strong>Current position</strong><span>{pairwise?.direction === "you_owe" ? `You currently owe ${memberName} ${formatTaka(currentPosition.abs())}.` : pairwise?.direction === "owes_you" ? `${memberName} currently owes you ${formatTaka(currentPosition)}.` : "There is currently no confirmed debt between you."}</span>{paymentReference && (paymentReference.bkashNumber || paymentReference.bankAccountNumber) && <span className="text-secondary">Payment reference: {paymentReference.bkashNumber ? `bKash ${paymentReference.bkashNumber}` : `${paymentReference.bankName ?? "Bank"} ${paymentReference.bankAccountNumber}`}</span>}</div>}
+      {memberId && <div className="debt-context"><strong>Current position</strong><span>{pairwise?.direction === "you_owe" ? `You currently owe ${memberName} ${formatTaka(currentPosition.abs())}.` : pairwise?.direction === "owes_you" ? `${memberName} currently owes you ${formatTaka(currentPosition)}.` : "There is currently no confirmed debt between you."}</span>{paymentReference && (paymentReference.bkashNumber || paymentReference.bankAccountNumber) && <span className="text-secondary">Payment reference: {paymentReference.bkashNumber ? `bKash ${paymentReference.bkashNumber}` : `${paymentReference.bankName ?? "Bank"} ${paymentReference.bankAccountNumber}`}</span>}{fullBalanceAmount && <button type="button" className="debt-use-balance" onClick={() => { setAmount(fullBalanceAmount); setConfirming(false); }}>Use full balance · {formatTaka(fullBalanceAmount)}</button>}</div>}
 
       <label><span>Amount (BDT)</span><input className="input" inputMode="decimal" placeholder="0.00" required value={amount} onChange={(event) => { setAmount(event.target.value); setConfirming(false); }} /></label>
 

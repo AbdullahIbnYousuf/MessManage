@@ -812,18 +812,18 @@ All authorization checks must occur on the server even when the interface hides 
 - Use **MessManage** as the single application brand.
 - Add **Money** as a primary authenticated navigation destination at `/money`, even when the DebtSync interface flag is disabled.
 - Group `/money`, `/debts`, `/settlement`, and the current member's own running-balance page under the Money navigation state.
-- Keep `/debts` as the stable route for the **Balances & Payments** screen and preserve all existing detail and ledger deep links.
+- Use `/money` as the **Debts & payments** command center, redirect the legacy `/debts` index to it, and preserve all existing detail and ledger deep links.
 - Add a notification bell with unread count to desktop and mobile authenticated layouts when DebtSync is enabled.
 - Keep existing visual tokens; DebtSync remains an internal accounting module rather than a separate product.
 
-### 13.2 Balances & Payments (`/debts`)
+### 13.2 Debts & Payments (`/money`)
 
 Required sections in order:
 
-1. Compact summary strip: `You owe`, `Owed to you`, and `Net position`.
-2. Pairwise balances with member identity and explicit text direction.
-3. Payment records needing the current member's response, followed by records initiated by the current member.
-4. Recent activity combining obligations and payments.
+1. Payment records requiring the current member's response, when present.
+2. Primary `You owe` and `Owed to you` totals with `Net position` secondary.
+3. Clickable pairwise balances linking to exact two-member statements.
+4. Records waiting for confirmation, followed by recent confirmed activity.
 
 Primary command: **Record money**.
 
@@ -831,7 +831,7 @@ Zero state: state that the household has no current debt and provide ledger acce
 
 ### 13.3 Record Money (`/debts/payments/new`)
 
-- Begin with two large choices: **I sent money** and **I received money**.
+- Begin with two large cash-flow choices: **− Money sent** and **+ Money received**.
 - Dynamically label the member selector **Paid to** or **Received from**.
 - Member selector with active members only and no self-option.
 - Current pairwise position beside the selected member.
@@ -884,7 +884,7 @@ Zero state: state that the household has no current debt and provide ledger acce
 - Use semantic headings, labels, buttons, and status text.
 - Maintain visible keyboard focus and full keyboard operation.
 - Do not communicate positive/negative balances by red/green alone.
-- Use precise copy: `Record money`, `I sent money`, `I received money`, `Accept payment`, `Reject payment`, `You owe`, and `Owed to you`.
+- Use precise copy: `Record money`, `Money sent`, `Money received`, `Accept payment`, `Reject payment`, `You owe`, and `Owed to you`. Plus and minus signs describe cash flow only, never debt direction.
 - Never use `Paid` for a pending claim.
 - Dates and amounts must use the same formatting utilities throughout the module.
 

@@ -47,7 +47,7 @@ export default function DebtRequestDetailClient({ requestId, currentUserId }: { 
   const isRequester = request.requester.id === currentUserId;
   const isDebtor = request.debtor.id === currentUserId;
   return <div className="page-container debt-page">
-    <div className="debt-back"><Link href="/debts/requests">← Debt requests</Link></div>
+    <div className="debt-back"><Link href="/money">← Debts &amp; payments</Link></div>
     <div className="section-header"><div><h1 className="debt-title">Debt request</h1><p className="text-secondary debt-subtitle">Private to both participants</p></div><DebtStatusBadge status={request.status} /></div>
     <div className="card debt-detail"><div className="debt-detail-amount">{formatTaka(request.amount)}</div><p className="debt-direction">{request.requester.name} asked {request.debtor.name} to confirm this debt.</p><dl className="debt-detail-list"><div><dt>Proposed creditor</dt><dd>{request.requester.name}{isRequester ? " (you)" : ""}</dd></div><div><dt>Proposed debtor</dt><dd>{request.debtor.name}{isDebtor ? " (you)" : ""}</dd></div><div><dt>Created</dt><dd>{formatDate(request.createdAt)}</dd></div>{request.respondedAt && <div><dt>Responded</dt><dd>{formatDate(request.respondedAt)}</dd></div>}{request.cancelledAt && <div><dt>Cancelled</dt><dd>{formatDate(request.cancelledAt)}</dd></div>}<div><dt>Description</dt><dd>{request.description}</dd></div>{request.rejectionReason && <div><dt>Rejection reason</dt><dd>{request.rejectionReason}</dd></div>}</dl>{request.obligationId && <Link className="debt-related-link" href="/debts/ledger?type=obligation">View accepted obligation →</Link>}</div>
     <div className="debt-note">Accepting this request adds a permanent debt obligation. MessManage does not move money.</div>

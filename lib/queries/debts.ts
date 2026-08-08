@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import {
   calculateMemberTotals,
   calculatePairwisePositions,
+  DebtError,
   DebtValidationError,
   paginateLedgerEntries,
   positionForMember,
@@ -18,6 +19,7 @@ import type {
   DebtLedgerFilters,
   DebtLedgerPage,
   DebtMember,
+  DebtMemberStatement,
   DebtObligationBalanceRecord,
   DebtObligationFilters,
   DebtPaymentDetail,
@@ -154,6 +156,30 @@ function transferMemberWhere(memberId: string): Prisma.TransferWhereInput {
   };
 }
 
+function obligationPairWhere(
+  firstMemberId: string,
+  secondMemberId: string
+): Prisma.DebtObligationWhereInput {
+  return {
+    OR: [
+      { debtorId: firstMemberId, creditorId: secondMemberId },
+      { debtorId: secondMemberId, creditorId: firstMemberId },
+    ],
+  };
+}
+
+function transferPairWhere(
+  firstMemberId: string,
+  secondMemberId: string
+): Prisma.TransferWhereInput {
+  return {
+    OR: [
+      { senderId: firstMemberId, receiverId: secondMemberId },
+      { senderId: secondMemberId, receiverId: firstMemberId },
+    ],
+  };
+}
+
 const obligationInclude = {
   debtor: { select: memberSelect },
   creditor: { select: memberSelect },
@@ -168,119 +194,258 @@ const transferInclude = {
 export async function fetchDebtSummary(
   currentUserId: string
 ): Promise<DebtDashboardSummary> {
-  const involvement = transferMemberWhere(currentUserId);
-  const [obligations, transfers, pendingDebtRequests, members, unreadNotificationCount] = await Promise.all([
-    db.debtObligation.findMany({
-      where: obligationMemberWhere(currentUserId),
-      include: obligationInclude,
-    }),
-    db.transfer.findMany({
-      where: involvement,
-      include: transferInclude,
-    }),
-    db.debtRequest.findMany({
-      where: {
-        status: "pending",
-        OR: [{ requesterId: currentUserId }, { debtorId: currentUserId }],
-      },
-      select: { requesterId: true, debtorId: true },
-    }),
-    db.user.findMany({
-      where: { id: { not: currentUserId } },
-      select: memberSelect,
-    }),
-    db.debtNotification.count({
-      where: { userId: currentUserId, readAt: null },
-    }),
-  ]);
+  return db.$transaction(async (tx) => {
+    const involvement = transferMemberWhere(currentUserId);
+    const [
+      obligations,
+      transfers,
+      pendingDebtRequests,
+      members,
+      unreadNotificationCount,
+    ] = await Promise.all([
+      tx.debtObligation.findMany({
+        where: obligationMemberWhere(currentUserId),
+        include: obligationInclude,
+      }),
+      tx.transfer.findMany({
+        where: involvement,
+        include: transferInclude,
+      }),
+      tx.debtRequest.findMany({
+        where: {
+          status: "pending",
+          OR: [{ requesterId: currentUserId }, { debtorId: currentUserId }],
+        },
+        select: { requesterId: true, debtorId: true },
+      }),
+      tx.user.findMany({
+        where: { id: { not: currentUserId } },
+        select: memberSelect,
+      }),
+      tx.debtNotification.count({
+        where: { userId: currentUserId, readAt: null },
+      }),
+    ]);
 
-  const obligationRecords = obligations.map(obligationBalanceRecord);
-  const transferRecords = transfers.map(transferBalanceRecord);
-  const positions = calculatePairwisePositions(obligationRecords, transferRecords);
-  const totals = calculateMemberTotals(currentUserId, positions);
-  const pendingIncoming = transfers.filter(
-    (transfer) => transfer.receiverId === currentUserId && transfer.status === "pending"
-  );
-  const pendingOutgoing = transfers.filter(
-    (transfer) => transfer.senderId === currentUserId && transfer.status === "pending"
-  );
-  const pendingPaymentResponseCount = transfers.filter(
-    (transfer) => transfer.status === "pending"
-      && transferConfirmerId(transfer) === currentUserId
-  ).length;
-  const pendingPaymentInitiatedCount = transfers.filter(
-    (transfer) => transfer.status === "pending"
-      && transferInitiatorId(transfer) === currentUserId
-  ).length;
-  const pendingDebtRequestIncomingCount = pendingDebtRequests.filter(
-    (request) => request.debtorId === currentUserId
-  ).length;
-  const pendingDebtRequestOutgoingCount = pendingDebtRequests.filter(
-    (request) => request.requesterId === currentUserId
-  ).length;
-  const pendingMemberIds = new Set(
-    [
-      ...[...pendingIncoming, ...pendingOutgoing].map((transfer) =>
+    const obligationRecords = obligations.map(obligationBalanceRecord);
+    const transferRecords = transfers.map(transferBalanceRecord);
+    const positions = calculatePairwisePositions(
+      obligationRecords,
+      transferRecords
+    );
+    const totals = calculateMemberTotals(currentUserId, positions);
+    const pendingTransfers = transfers.filter(
+      (transfer) => transfer.status === "pending"
+    );
+    const pendingIncoming = pendingTransfers.filter(
+      (transfer) => transfer.receiverId === currentUserId
+    );
+    const pendingOutgoing = pendingTransfers.filter(
+      (transfer) => transfer.senderId === currentUserId
+    );
+    const responseTransfers = pendingTransfers.filter(
+      (transfer) => transferConfirmerId(transfer) === currentUserId
+    );
+    const initiatedTransfers = pendingTransfers.filter(
+      (transfer) => transferInitiatorId(transfer) === currentUserId
+    );
+    const pendingPaymentResponseCount = responseTransfers.length;
+    const pendingPaymentInitiatedCount = initiatedTransfers.length;
+    const pendingDebtRequestIncomingCount = pendingDebtRequests.filter(
+      (request) => request.debtorId === currentUserId
+    ).length;
+    const pendingDebtRequestOutgoingCount = pendingDebtRequests.filter(
+      (request) => request.requesterId === currentUserId
+    ).length;
+    const pendingMemberIds = new Set(
+      [...pendingIncoming, ...pendingOutgoing].map((transfer) =>
         transfer.senderId === currentUserId ? transfer.receiverId : transfer.senderId
-      ),
-      ...pendingDebtRequests.map((request) =>
-        request.requesterId === currentUserId ? request.debtorId : request.requesterId
-      ),
-    ]
-  );
+      )
+    );
 
-  const pairwise = members
-    .map((member) => {
-      const pair = positions.find((position) =>
-        (position.memberAId === currentUserId && position.memberBId === member.id)
-        || (position.memberAId === member.id && position.memberBId === currentUserId)
-      );
-      const value = pair ? positionForMember(pair, currentUserId) : new Decimal(0);
-      return {
-        memberId: member.id,
-        memberName: member.nickname || member.name,
-        avatarUrl: member.avatarUrl,
-        position: value.toFixed(2),
-        direction: value.lt(0)
-          ? "you_owe" as const
-          : value.gt(0)
-            ? "owes_you" as const
-            : "settled" as const,
-        hasPending: pendingMemberIds.has(member.id),
-      };
-    })
-    .filter((position) => position.position !== "0.00" || position.hasPending)
-    .sort((left, right) =>
-      new Decimal(right.position).abs().cmp(new Decimal(left.position).abs())
-    )
-    .map((position) => ({
-      memberId: position.memberId,
-      memberName: position.memberName,
-      avatarUrl: position.avatarUrl,
-      position: position.position,
-      direction: position.direction,
-    }));
+    const pairwise = members
+      .map((member) => {
+        const pair = positions.find(
+          (position) =>
+            (position.memberAId === currentUserId &&
+              position.memberBId === member.id) ||
+            (position.memberAId === member.id &&
+              position.memberBId === currentUserId)
+        );
+        const value = pair
+          ? positionForMember(pair, currentUserId)
+          : new Decimal(0);
+        return {
+          memberId: member.id,
+          memberName: member.nickname || member.name,
+          avatarUrl: member.avatarUrl,
+          position: value.toFixed(2),
+          direction: value.lt(0)
+            ? ("you_owe" as const)
+            : value.gt(0)
+              ? ("owes_you" as const)
+              : ("settled" as const),
+          hasPending: pendingMemberIds.has(member.id),
+        };
+      })
+      .filter((position) => position.position !== "0.00" || position.hasPending)
+      .sort((left, right) =>
+        new Decimal(right.position).abs().cmp(new Decimal(left.position).abs())
+      )
+      .map((position) => ({
+        memberId: position.memberId,
+        memberName: position.memberName,
+        avatarUrl: position.avatarUrl,
+        position: position.position,
+        direction: position.direction,
+      }));
 
-  const recentActivity = paginateLedgerEntries(
-    [
-      ...obligations.map(normalizeObligation),
-      ...transfers.map(normalizeTransfer),
-    ],
-    5
-  ).entries;
+    const paymentsNeedingResponse = paginateLedgerEntries(
+      responseTransfers.map(normalizeTransfer),
+      50
+    ).entries as DebtPaymentLedgerEntry[];
+    const paymentsInitiatedByMe = paginateLedgerEntries(
+      initiatedTransfers.map(normalizeTransfer),
+      50
+    ).entries as DebtPaymentLedgerEntry[];
+    const recentActivity = paginateLedgerEntries(
+      [
+        ...obligations.map(normalizeObligation),
+        ...transfers
+          .filter((transfer) => transfer.status === "accepted")
+          .map(normalizeTransfer),
+      ],
+      5
+    ).entries;
 
-  return {
-    ...totals,
-    pendingIncomingCount: pendingIncoming.length,
-    pendingOutgoingCount: pendingOutgoing.length,
-    pendingPaymentResponseCount,
-    pendingPaymentInitiatedCount,
-    pendingDebtRequestIncomingCount,
-    pendingDebtRequestOutgoingCount,
-    unreadNotificationCount,
-    pairwise,
-    recentActivity,
-  };
+    return {
+      ...totals,
+      generatedAt: new Date().toISOString(),
+      pendingIncomingCount: pendingIncoming.length,
+      pendingOutgoingCount: pendingOutgoing.length,
+      pendingPaymentResponseCount,
+      pendingPaymentInitiatedCount,
+      pendingDebtRequestIncomingCount,
+      pendingDebtRequestOutgoingCount,
+      unreadNotificationCount,
+      pairwise,
+      paymentsNeedingResponse,
+      paymentsInitiatedByMe,
+      recentActivity,
+    };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+}
+
+export async function fetchDebtMemberStatement({
+  currentUserId,
+  memberId,
+  cursor,
+  limit,
+}: {
+  currentUserId: string;
+  memberId: string;
+  cursor?: string;
+  limit?: number;
+}): Promise<DebtMemberStatement> {
+  if (currentUserId === memberId) {
+    throw new DebtError(
+      "SELF_PAYMENT_NOT_ALLOWED",
+      "Choose another member to view a money statement."
+    );
+  }
+
+  return db.$transaction(async (tx) => {
+    const [member, obligations, transfers] = await Promise.all([
+      tx.user.findUnique({
+        where: { id: memberId },
+        select: {
+          ...memberSelect,
+          status: true,
+          bkashNumber: true,
+          bankName: true,
+          bankAccountNumber: true,
+        },
+      }),
+      tx.debtObligation.findMany({
+        where: obligationPairWhere(currentUserId, memberId),
+        include: obligationInclude,
+      }),
+      tx.transfer.findMany({
+        where: transferPairWhere(currentUserId, memberId),
+        include: transferInclude,
+      }),
+    ]);
+
+    if (!member) {
+      throw new DebtError("MEMBER_NOT_FOUND", "Member not found.");
+    }
+
+    const obligationsYouOwe = obligations
+      .filter((item) => item.debtorId === currentUserId)
+      .reduce((total, item) => total.add(item.amount), new Decimal(0));
+    const obligationsOwedToYou = obligations
+      .filter((item) => item.creditorId === currentUserId)
+      .reduce((total, item) => total.add(item.amount), new Decimal(0));
+    const acceptedTransfers = transfers.filter((item) => item.status === "accepted");
+    const moneyYouSent = acceptedTransfers
+      .filter((item) => item.senderId === currentUserId)
+      .reduce((total, item) => total.add(item.amount), new Decimal(0));
+    const moneyYouReceived = acceptedTransfers
+      .filter((item) => item.receiverId === currentUserId)
+      .reduce((total, item) => total.add(item.amount), new Decimal(0));
+    const position = obligationsOwedToYou
+      .sub(obligationsYouOwe)
+      .add(moneyYouSent)
+      .sub(moneyYouReceived);
+    const pendingTransfers = transfers.filter((item) => item.status === "pending");
+    const paymentsNeedingResponse = paginateLedgerEntries(
+      pendingTransfers
+        .filter((item) => transferConfirmerId(item) === currentUserId)
+        .map(normalizeTransfer),
+      50
+    ).entries as DebtPaymentLedgerEntry[];
+    const paymentsInitiatedByMe = paginateLedgerEntries(
+      pendingTransfers
+        .filter((item) => transferInitiatorId(item) === currentUserId)
+        .map(normalizeTransfer),
+      50
+    ).entries as DebtPaymentLedgerEntry[];
+    const history = paginateLedgerEntries(
+      [
+        ...obligations.map(normalizeObligation),
+        ...transfers.map(normalizeTransfer),
+      ],
+      normalizeLimit(limit),
+      cursor
+    );
+
+    return {
+      generatedAt: new Date().toISOString(),
+      member: {
+        ...displayMember(member),
+        status: member.status,
+        bkashNumber: member.bkashNumber,
+        bankName: member.bankName,
+        bankAccountNumber: member.bankAccountNumber,
+      },
+      position: position.toFixed(2),
+      direction: position.lt(0)
+        ? "you_owe"
+        : position.gt(0)
+          ? "owes_you"
+          : "settled",
+      components: {
+        obligationsYouOwe: obligationsYouOwe.toFixed(2),
+        obligationsOwedToYou: obligationsOwedToYou.toFixed(2),
+        moneyYouSent: moneyYouSent.toFixed(2),
+        moneyYouReceived: moneyYouReceived.toFixed(2),
+      },
+      paymentsNeedingResponse,
+      paymentsInitiatedByMe,
+      history: history.entries,
+      nextCursor: history.nextCursor,
+    };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
 }
 
 export async function fetchDebtLedger(
@@ -400,21 +565,13 @@ export async function fetchPairwiseDebtPosition(
 ): Promise<string> {
   const [obligations, transfers] = await Promise.all([
     db.debtObligation.findMany({
-      where: {
-        OR: [
-          { debtorId: firstMemberId, creditorId: secondMemberId },
-          { debtorId: secondMemberId, creditorId: firstMemberId },
-        ],
-      },
+      where: obligationPairWhere(firstMemberId, secondMemberId),
       include: obligationInclude,
     }),
     db.transfer.findMany({
       where: {
         status: "accepted",
-        OR: [
-          { senderId: firstMemberId, receiverId: secondMemberId },
-          { senderId: secondMemberId, receiverId: firstMemberId },
-        ],
+        ...transferPairWhere(firstMemberId, secondMemberId),
       },
       include: transferInclude,
     }),

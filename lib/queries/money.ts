@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { fetchMonthBalances } from "@/lib/queries/balance";
-import { fetchDebtPayments, fetchDebtSummary } from "@/lib/queries/debts";
+import { fetchDebtSummary } from "@/lib/queries/debts";
 import { fetchSettlementReadiness } from "@/lib/queries/settlement-readiness";
 import {
   firstDayOfMonth,
@@ -9,26 +9,30 @@ import {
   lastDayOfMonth,
 } from "@/lib/utils/dates";
 import { sum } from "@/lib/utils/decimal";
-import type { DebtPaymentLedgerEntry } from "@/types/debts";
-import type { MoneySummary } from "@/types/money";
+import type { HouseholdMoneySummary, MoneySummary } from "@/types/money";
 
-type MoneySummaryDependencies = {
+type HouseholdMoneySummaryDependencies = {
   fetchMonthBalances: typeof fetchMonthBalances;
   fetchSettlementReadiness: typeof fetchSettlementReadiness;
-  fetchDebtSummary: typeof fetchDebtSummary;
-  fetchDebtPayments: typeof fetchDebtPayments;
   findSettlement: (month: Date) => Promise<{ settledAt: Date } | null>;
 };
 
-const defaultDependencies: MoneySummaryDependencies = {
+type MoneySummaryDependencies = HouseholdMoneySummaryDependencies & {
+  fetchDebtSummary: typeof fetchDebtSummary;
+};
+
+const defaultHouseholdDependencies: HouseholdMoneySummaryDependencies = {
   fetchMonthBalances,
   fetchSettlementReadiness,
-  fetchDebtSummary,
-  fetchDebtPayments,
   findSettlement: (month) => db.monthlySettlementRun.findUnique({
     where: { month },
     select: { settledAt: true },
   }),
+};
+
+const defaultDependencies: MoneySummaryDependencies = {
+  ...defaultHouseholdDependencies,
+  fetchDebtSummary,
 };
 
 function getMonthContext(now: Date) {
@@ -54,29 +58,16 @@ function getMonthContext(now: Date) {
   };
 }
 
-export async function fetchMoneySummary({
+export async function fetchHouseholdMoneySummary({
   currentUserId,
-  confirmedMoneyEnabled,
   now = getNow(),
-  dependencies = defaultDependencies,
+  dependencies = defaultHouseholdDependencies,
 }: {
   currentUserId: string;
-  confirmedMoneyEnabled: boolean;
   now?: Date;
-  dependencies?: MoneySummaryDependencies;
-}): Promise<MoneySummary> {
+  dependencies?: HouseholdMoneySummaryDependencies;
+}): Promise<HouseholdMoneySummary> {
   const months = getMonthContext(now);
-  const confirmedPromise = confirmedMoneyEnabled
-    ? Promise.all([
-        dependencies.fetchDebtSummary(currentUserId),
-        dependencies.fetchDebtPayments({
-          currentUserId,
-          action: "needs_response",
-          status: "pending",
-          limit: 3,
-        }),
-      ])
-    : Promise.resolve(null);
 
   const [currentResult, previousSettlement] = await Promise.all([
     dependencies.fetchMonthBalances({
@@ -108,7 +99,7 @@ export async function fetchMoneySummary({
     currentMember.breakdown.bulkAllocations,
   ]);
 
-  let previousClosing: MoneySummary["previousClosing"];
+  let previousClosing: HouseholdMoneySummary["previousClosing"];
   if (previousSettlement) {
     previousClosing = {
       month: months.previous.key,
@@ -142,27 +133,6 @@ export async function fetchMoneySummary({
     };
   }
 
-  const confirmedResult = await confirmedPromise;
-  const confirmedMoney = confirmedResult
-    ? (() => {
-        const [summary, pendingPage] = confirmedResult;
-        const pendingResponses = pendingPage.entries.filter(
-          (entry): entry is DebtPaymentLedgerEntry => entry.type === "payment"
-        );
-        return {
-          youOwe: summary.youOwe,
-          owedToYou: summary.owedToYou,
-          net: summary.net,
-          pairwiseCount: summary.pairwise.length,
-          pairwise: summary.pairwise.slice(0, 3),
-          pendingResponseCount: summary.pendingPaymentResponseCount,
-          pendingInitiatedCount: summary.pendingPaymentInitiatedCount,
-          pendingResponses,
-          recentActivity: summary.recentActivity.slice(0, 3),
-        };
-      })()
-    : null;
-
   const balance = currentMember.balance;
   return {
     generatedAt: now.toISOString(),
@@ -189,7 +159,44 @@ export async function fetchMoneySummary({
       },
     },
     previousClosing,
+  };
+}
+
+export async function fetchMoneySummary({
+  currentUserId,
+  confirmedMoneyEnabled,
+  now = getNow(),
+  dependencies = defaultDependencies,
+}: {
+  currentUserId: string;
+  confirmedMoneyEnabled: boolean;
+  now?: Date;
+  dependencies?: MoneySummaryDependencies;
+}): Promise<MoneySummary> {
+  const household = await fetchHouseholdMoneySummary({
+    currentUserId,
+    now,
+    dependencies,
+  });
+  const summary = confirmedMoneyEnabled
+    ? await dependencies.fetchDebtSummary(currentUserId)
+    : null;
+
+  return {
+    ...household,
     confirmedMoneyEnabled,
-    confirmedMoney,
+    confirmedMoney: summary
+      ? {
+          youOwe: summary.youOwe,
+          owedToYou: summary.owedToYou,
+          net: summary.net,
+          pairwiseCount: summary.pairwise.length,
+          pairwise: summary.pairwise.slice(0, 3),
+          pendingResponseCount: summary.pendingPaymentResponseCount,
+          pendingInitiatedCount: summary.pendingPaymentInitiatedCount,
+          pendingResponses: summary.paymentsNeedingResponse.slice(0, 3),
+          recentActivity: summary.recentActivity.slice(0, 3),
+        }
+      : null,
   };
 }

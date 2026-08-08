@@ -6,6 +6,7 @@ import type {
   PushDeliveryStatus,
   TransferSource,
   TransferStatus,
+  UserStatus,
 } from "@prisma/client";
 
 export type DebtMember = {
@@ -120,6 +121,7 @@ export type DebtLedgerPage = {
 };
 
 export type DebtDashboardSummary = DebtMemberTotals & {
+  generatedAt: string;
   pendingIncomingCount: number;
   pendingOutgoingCount: number;
   pendingPaymentResponseCount: number;
@@ -128,7 +130,31 @@ export type DebtDashboardSummary = DebtMemberTotals & {
   pendingDebtRequestOutgoingCount: number;
   unreadNotificationCount: number;
   pairwise: DebtSummaryPairwise[];
+  paymentsNeedingResponse: DebtPaymentLedgerEntry[];
+  paymentsInitiatedByMe: DebtPaymentLedgerEntry[];
   recentActivity: DebtLedgerEntry[];
+};
+
+export type DebtMemberStatement = {
+  generatedAt: string;
+  member: DebtMember & {
+    status: UserStatus;
+    bkashNumber: string | null;
+    bankName: string | null;
+    bankAccountNumber: string | null;
+  };
+  position: string;
+  direction: DebtSummaryPairwise["direction"];
+  components: {
+    obligationsYouOwe: string;
+    obligationsOwedToYou: string;
+    moneyYouSent: string;
+    moneyYouReceived: string;
+  };
+  paymentsNeedingResponse: DebtPaymentLedgerEntry[];
+  paymentsInitiatedByMe: DebtPaymentLedgerEntry[];
+  history: DebtLedgerEntry[];
+  nextCursor: string | null;
 };
 
 export type DebtRequestItem = {

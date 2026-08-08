@@ -314,11 +314,14 @@ The settlement output becomes entries in System 2 where actual money movement is
 - Phase 2: Smart Expenses overview with read-only Bulk, Maid, and Fridge status summaries — complete.
 - Phase 3: Smart Money overview separating provisional monthly balance, previous-month closing readiness, and confirmed long-running money — complete.
 - Phase 4: Smart Home daily command center for today’s meals, active bazar work, role-scoped attention, and a compact provisional monthly snapshot — complete.
+- Phase 5: Money command center with separate confirmed-debt and provisional monthly-balance views plus pairwise member statements — complete.
 
-#### Smart Money overview
+#### Money system command center
 
-- `/money` is the read-only operational overview for the financial lifecycle; detailed calculations and mutations remain on their established pages.
-- Current-month balance, credits, and costs are provisional until closing. They are displayed separately from confirmed DebtSync totals and are never added together.
+- `/money` is the confirmed Debts & payments command center; `/money/household` contains provisional monthly household accounting and closing readiness.
+- Current-month balance, credits, and costs are provisional until closing. They are never added to the confirmed long-running debt position.
+- Pairwise member statements reconcile obligations owed in both directions with accepted money sent and received; pending records remain outside confirmed totals.
+- Record Money uses **− Money sent** and **+ Money received**, where signs describe physical cash flow rather than debt direction.
 - Previous-month closing is shown as closed, ready, blocked, or having no activity, using the same canonical readiness checks as the settlement service.
 - Payment records needing the current member's response are previewed before informational confirmed-money activity, but acceptance and rejection remain on payment detail pages.
 - When DebtSync is disabled, the Money overview remains available for current balance and monthly closing without querying or exposing confirmed-money data.

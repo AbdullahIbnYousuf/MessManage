@@ -7,7 +7,7 @@ import type {
 export type CurrentMoneyDirection = "owed" | "owes" | "balanced";
 export type PreviousClosingStatus = "closed" | "ready" | "blocked" | "no_activity";
 
-export type MoneySummary = {
+export type HouseholdMoneySummary = {
   generatedAt: string;
   currentMonth: {
     month: string;
@@ -37,6 +37,9 @@ export type MoneySummary = {
     settledAt: string | null;
     issues: string[];
   };
+};
+
+export type MoneySummary = HouseholdMoneySummary & {
   confirmedMoneyEnabled: boolean;
   confirmedMoney: {
     youOwe: string;

@@ -53,7 +53,7 @@ export function buildHomeAttention({
     items.push({
       kind: "payment_response",
       count: paymentResponseCount,
-      href: "/debts",
+      href: "/money",
     });
   }
 

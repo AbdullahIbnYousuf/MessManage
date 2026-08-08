@@ -58,10 +58,7 @@ function dependencies(options?: {
         { memberId: "a", memberName: "A", avatarUrl: null, position: "25.00", direction: "owes_you" },
         { memberId: "b", memberName: "B", avatarUrl: null, position: "-10.00", direction: "you_owe" },
       ],
-      recentActivity: [],
-    }),
-    fetchDebtPayments: vi.fn().mockResolvedValue({
-      entries: [{
+      paymentsNeedingResponse: [{
         type: "payment",
         id: "payment",
         createdAt: "2026-08-01T00:00:00.000Z",
@@ -77,7 +74,8 @@ function dependencies(options?: {
         sender: { id: "a", name: "A", avatarUrl: null },
         receiver: { id: "member", name: "Member", avatarUrl: null },
       }],
-      nextCursor: null,
+      paymentsInitiatedByMe: [],
+      recentActivity: [],
     }),
   };
 }
@@ -115,12 +113,7 @@ describe("fetchMoneySummary", () => {
       pendingInitiatedCount: 2,
       pairwiseCount: 2,
     });
-    expect(deps.fetchDebtPayments).toHaveBeenCalledWith({
-      currentUserId: "member",
-      action: "needs_response",
-      status: "pending",
-      limit: 3,
-    });
+    expect(summary.confirmedMoney?.pendingResponses).toHaveLength(1);
   });
 
   it("does not query confirmed-money records when DebtSync is disabled", async () => {
@@ -137,7 +130,6 @@ describe("fetchMoneySummary", () => {
     expect(summary.confirmedMoneyEnabled).toBe(false);
     expect(summary.confirmedMoney).toBeNull();
     expect(deps.fetchDebtSummary).not.toHaveBeenCalled();
-    expect(deps.fetchDebtPayments).not.toHaveBeenCalled();
   });
 
   it("reports readiness issues without changing the current balance", async () => {

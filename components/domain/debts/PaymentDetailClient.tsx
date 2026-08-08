@@ -59,7 +59,7 @@ export default function PaymentDetailClient({ paymentId, currentUserId }: { paym
 
   return (
     <div className="page-container debt-page">
-      <div className="debt-back"><Link href="/debts">← Balances &amp; Payments</Link></div>
+      <div className="debt-back"><Link href="/money">← Debts &amp; payments</Link></div>
       <div className="section-header"><div><h1 className="debt-title">Payment details</h1><p className="text-secondary debt-subtitle">{payment.source === "reversal" ? "Return payment" : receiverInitiated ? "Money received record" : "Direct payment"}</p></div><DebtStatusBadge status={payment.status} /></div>
       <div className="card debt-detail">
         <div className="debt-detail-amount">{formatTaka(payment.amount)}</div>

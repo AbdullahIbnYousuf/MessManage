@@ -94,6 +94,7 @@ describe("DebtSync API routes", () => {
       notificationIds: ["notification"],
     });
     mocks.summary.mockResolvedValue({
+      generatedAt: "2026-08-01T00:00:00.000Z",
       youOwe: "0.00",
       owedToYou: "0.00",
       net: "0.00",
@@ -105,6 +106,8 @@ describe("DebtSync API routes", () => {
       pendingDebtRequestOutgoingCount: 0,
       unreadNotificationCount: 0,
       pairwise: [],
+      paymentsNeedingResponse: [],
+      paymentsInitiatedByMe: [],
       recentActivity: [],
     });
     mocks.ledger.mockResolvedValue({ entries: [], nextCursor: null });

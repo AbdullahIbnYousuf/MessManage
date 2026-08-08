@@ -27,7 +27,7 @@ describe("Home presentation", () => {
     expect(attentionPresentation({
       kind: "payment_response",
       count: 2,
-      href: "/debts",
+      href: "/money",
     }).title).toBe("2 payment records need your response");
   });
 });

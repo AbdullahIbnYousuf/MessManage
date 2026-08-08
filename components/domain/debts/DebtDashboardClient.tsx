@@ -2,17 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import type { DebtDashboardSummary, DebtLedgerPage, DebtPaymentLedgerEntry } from "@/types/debts";
+import type { DebtDashboardSummary, DebtPaymentLedgerEntry } from "@/types/debts";
 import { formatTaka } from "@/lib/utils/decimal";
 import DebtLedgerEntryCard from "@/components/domain/debts/DebtLedgerEntryCard";
-import MoneyBackLink from "@/components/domain/money/MoneyBackLink";
 
 type ApiResult<T> = { data?: T; error?: string };
 
 export default function DebtDashboardClient({ currentUserId }: { currentUserId: string }) {
   const [summary, setSummary] = useState<DebtDashboardSummary | null>(null);
-  const [needsResponse, setNeedsResponse] = useState<DebtPaymentLedgerEntry[]>([]);
-  const [initiatedByMe, setInitiatedByMe] = useState<DebtPaymentLedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,34 +17,14 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
     setLoading(true);
     setError(null);
     try {
-      const [summaryResponse, incomingResponse, outgoingResponse] = await Promise.all([
-        fetch("/api/debts/summary"),
-        fetch("/api/debts/payments?action=needs_response&status=pending&limit=50"),
-        fetch("/api/debts/payments?action=initiated_by_me&status=pending&limit=50"),
-      ]);
-      const [summaryJson, incomingJson, outgoingJson] = await Promise.all([
-        summaryResponse.json() as Promise<ApiResult<DebtDashboardSummary>>,
-        incomingResponse.json() as Promise<ApiResult<DebtLedgerPage>>,
-        outgoingResponse.json() as Promise<ApiResult<DebtLedgerPage>>,
-      ]);
-      if (
-        !summaryResponse.ok
-        || !incomingResponse.ok
-        || !outgoingResponse.ok
-        || !summaryJson.data
-      ) {
-        throw new Error(
-          summaryJson.error
-          ?? incomingJson.error
-          ?? outgoingJson.error
-          ?? "Could not load balances and payments."
-        );
+      const response = await fetch("/api/debts/summary", { cache: "no-store" });
+      const json = await response.json() as ApiResult<DebtDashboardSummary>;
+      if (!response.ok || !json.data) {
+        throw new Error(json.error ?? "Could not load debts and payments.");
       }
-      setSummary(summaryJson.data);
-      setNeedsResponse((incomingJson.data?.entries ?? []).filter((item): item is DebtPaymentLedgerEntry => item.type === "payment"));
-      setInitiatedByMe((outgoingJson.data?.entries ?? []).filter((item): item is DebtPaymentLedgerEntry => item.type === "payment"));
+      setSummary(json.data);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Could not load balances and payments.");
+      setError(loadError instanceof Error ? loadError.message : "Could not load debts and payments.");
     } finally {
       setLoading(false);
     }
@@ -56,54 +33,97 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
   useEffect(() => { void load(); }, [load]);
 
   return (
-    <div className="page-container debt-page">
-      <MoneyBackLink />
+    <section className="debt-page money-command-center" aria-labelledby="money-debts-title">
       <div className="section-header">
         <div>
-          <h1 className="debt-title">Balances &amp; Payments</h1>
-          <p className="text-secondary debt-subtitle">Track confirmed debts and payments between members.</p>
+          <h1 className="debt-title" id="money-debts-title">Debts &amp; payments</h1>
+          <p className="text-secondary debt-subtitle">Permanent household obligations and confirmed money between members.</p>
         </div>
-        <div className="debt-command-grid"><Link href="/debts/payments/new" className="btn btn-primary debt-full-mobile">Record money</Link></div>
+        <div className="debt-command-grid">
+          <Link href="/debts/payments/new" className="btn btn-primary debt-full-mobile">Record money</Link>
+          <Link href="/debts/ledger" className="btn btn-secondary debt-full-mobile">Open ledger</Link>
+        </div>
       </div>
 
-      {loading && <div className="debt-state"><span className="spinner" /> Loading balances…</div>}
+      {loading && <div className="debt-state"><span className="spinner" /> Loading confirmed positions…</div>}
       {error && <div className="debt-error" role="alert">{error}<button className="btn btn-secondary" onClick={() => void load()}>Retry</button></div>}
 
       {summary && !loading && (
         <div className="debt-stack">
-          <section className="debt-summary-grid" aria-label="Debt totals">
-            <div className="stat-card"><span className="stat-label">You owe</span><span className="stat-value text-negative">{formatTaka(summary.youOwe)}</span><span className="stat-sub">Total you need to pay</span></div>
-            <div className="stat-card"><span className="stat-label">Owed to you</span><span className="stat-value text-positive">{formatTaka(summary.owedToYou)}</span><span className="stat-sub">Total others need to pay</span></div>
-            <div className="stat-card"><span className="stat-label">Net position</span><span className="stat-value">{formatTaka(summary.net)}</span><span className="stat-sub">Owed to you minus what you owe</span></div>
+          {summary.paymentsNeedingResponse.length > 0 && (
+            <PaymentSection
+              title="Response required"
+              description="These records have no balance effect until you confirm or reject them."
+              count={summary.pendingPaymentResponseCount}
+              entries={summary.paymentsNeedingResponse}
+              currentUserId={currentUserId}
+            />
+          )}
+
+          <section aria-labelledby="confirmed-position-title">
+            <div className="debt-section-heading debt-heading-with-note">
+              <div><h2 id="confirmed-position-title">Confirmed position</h2><p>Pending records are excluded.</p></div>
+            </div>
+            <div className="debt-summary-grid debt-summary-grid--command">
+              <div className="stat-card"><span className="stat-label">You owe</span><span className="stat-value text-negative">{formatTaka(summary.youOwe)}</span><span className="stat-sub">Total you need to pay</span></div>
+              <div className="stat-card"><span className="stat-label">Owed to you</span><span className="stat-value text-positive">{formatTaka(summary.owedToYou)}</span><span className="stat-sub">Total others need to pay</span></div>
+            </div>
+            <div className="debt-net-position"><span>Net position</span><strong>{formatTaka(summary.net)}</strong><small>Owed to you minus what you owe</small></div>
           </section>
 
-          <section>
-            <div className="debt-section-heading"><h2>Member positions</h2><Link href="/debts/ledger">Full ledger</Link></div>
-            {summary.pairwise.length === 0 ? <div className="debt-empty">All member positions are settled.</div> : (
+          <section aria-labelledby="member-positions-title">
+            <div className="debt-section-heading"><h2 id="member-positions-title">Member positions</h2><Link href="/debts/ledger">Full ledger</Link></div>
+            {summary.pairwise.length === 0 ? (
+              <div className="debt-zero-state"><strong>All confirmed positions are settled</strong><span>You can still record money that moved outside the app or review the complete ledger.</span><div><Link href="/debts/payments/new" className="btn btn-primary">Record money</Link><Link href="/debts/ledger" className="btn btn-secondary">Open ledger</Link></div></div>
+            ) : (
               <div className="debt-list">
                 {summary.pairwise.map((position) => (
-                  <div className="debt-position-row" key={position.memberId}>
-                    <div style={{ minWidth: 0 }}><div style={{ fontWeight: 700, overflowWrap: "anywhere" }}>{position.memberName}</div><div className="text-secondary" style={{ fontSize: "0.8125rem" }}>{position.direction === "you_owe" ? "You owe this member" : position.direction === "owes_you" ? "This member owes you" : "Settled"}</div></div>
-                    <strong className={position.direction === "you_owe" ? "text-negative" : position.direction === "owes_you" ? "text-positive" : "text-muted"}>{formatTaka(position.position)}</strong>
-                  </div>
+                  <Link className="debt-position-row debt-position-link" href={`/money/members/${position.memberId}`} key={position.memberId}>
+                    <div className="debt-position-person"><strong>{position.memberName}</strong><span>{position.direction === "you_owe" ? "You owe this member" : position.direction === "owes_you" ? "This member owes you" : "A payment is pending"}</span></div>
+                    <span className="debt-position-amount"><strong className={position.direction === "you_owe" ? "text-negative" : position.direction === "owes_you" ? "text-positive" : "text-muted"}>{formatTaka(position.position)}</strong><span aria-hidden="true">→</span></span>
+                  </Link>
                 ))}
               </div>
             )}
           </section>
 
-          <PaymentSection title="Payments needing your response" count={summary.pendingPaymentResponseCount} entries={needsResponse} empty="No payment records need your response." />
-          <PaymentSection title="Pending payment records started by you" count={summary.pendingPaymentInitiatedCount} entries={initiatedByMe} empty="You have no pending payment records." />
+          {summary.paymentsInitiatedByMe.length > 0 && (
+            <PaymentSection
+              title="Waiting for confirmation"
+              description="These records were started by you and do not affect balances yet."
+              count={summary.pendingPaymentInitiatedCount}
+              entries={summary.paymentsInitiatedByMe}
+              currentUserId={currentUserId}
+            />
+          )}
 
           <section>
-            <div className="debt-section-heading"><h2>Recent activity</h2><Link href="/debts/ledger">View all</Link></div>
+            <div className="debt-section-heading"><h2>Recent confirmed activity</h2><Link href="/debts/ledger">View all</Link></div>
             {summary.recentActivity.length === 0 ? <div className="debt-empty">No confirmed money activity yet.</div> : <div className="debt-list">{summary.recentActivity.map((entry) => <DebtLedgerEntryCard key={`${entry.type}-${entry.id}`} entry={entry} currentUserId={currentUserId} />)}</div>}
           </section>
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
-function PaymentSection({ title, count, entries, empty }: { title: string; count: number; entries: DebtPaymentLedgerEntry[]; empty: string }) {
-  return <section><div className="debt-section-heading"><h2>{title}</h2><span className="badge badge-warning">{count}</span></div>{entries.length === 0 ? <div className="debt-empty">{empty}</div> : <div className="debt-list">{entries.map((entry) => <DebtLedgerEntryCard key={entry.id} entry={entry} />)}</div>}</section>;
+function PaymentSection({
+  title,
+  description,
+  count,
+  entries,
+  currentUserId,
+}: {
+  title: string;
+  description: string;
+  count: number;
+  entries: DebtPaymentLedgerEntry[];
+  currentUserId: string;
+}) {
+  return (
+    <section className="debt-attention-section">
+      <div className="debt-section-heading debt-heading-with-note"><div><h2>{title}</h2><p>{description}</p></div><span className="badge badge-warning">{count}</span></div>
+      <div className="debt-list">{entries.map((entry) => <DebtLedgerEntryCard key={entry.id} entry={entry} currentUserId={currentUserId} />)}</div>
+    </section>
+  );
 }

@@ -633,6 +633,7 @@ Use explicit labels and direction sentences. Never rely on color alone.
 - UX Phase 2 upgrades `/expenses` to a read-only operational summary of active Bulk cycles, current-month Maid records, and the previous-month Fridge bill. Full entry workflows and all existing routes remain unchanged.
 - UX Phase 3 upgrades `/money` to a read-only lifecycle overview with provisional current-month balance, previous-month closing readiness, confirmed DebtSync totals, and payment-response previews. Financial actions remain on their existing protected pages.
 - UX Phase 4 upgrades `/dashboard` to a read-only daily command center for today’s meals, active bazar work, role-scoped attention, and a compact provisional monthly snapshot. Confirmed-payment attention remains feature-gated and links to the existing protected response workflow.
+- UX Phase 5 makes `/money` the confirmed debt command center, separates provisional household accounting at `/money/household`, and adds exact pairwise member statements without changing stored financial data.
 - The Expenses summary introduces no schema migration, financial mutation, historical recalculation, or change to DebtSync accounting.
 - The Money summary introduces no schema migration or mutation and never combines provisional System 1 balance with confirmed DebtSync balance.
 - The Home summary introduces no schema migration or automatic mutation, never creates missing meal records, and reuses the existing Expenses and Money calculations.
@@ -711,7 +712,7 @@ Add the borrower-initiated workflow without changing accepted-transfer accountin
 ## 12C. Phase 11: Unified Record Money Interface
 
 1. Replace separate **Record payment** and **Record money received** commands with one primary **Record money** action.
-2. Begin the form with mobile-first **I sent money** and **I received money** choices, followed by one dynamic member, amount, description, current-position, projected-position, and confirmation flow.
+2. Begin the form with mobile-first **− Money sent** and **+ Money received** cash-flow choices, followed by one dynamic member, amount, description, current-position, projected-position, and confirmation flow.
 3. Continue calling the separate tested sender-initiated and receiver-initiated APIs; make no accounting, schema, or historical-data change.
 4. Redirect the old received-money form URL to the unified form.
 5. Remove debt-request creation, history, buttons, and pending sections from the active interface while preserving its backend, records, deactivation checks, and participant detail compatibility.
@@ -722,6 +723,24 @@ Add the borrower-initiated workflow without changing accepted-transfer accountin
 - Mobile controls are at least 44px, vertically stack at 390px, and never scroll horizontally.
 - Confirmation copy identifies the direction, member, amount, and who must confirm.
 - No database migration or live-data mutation is required.
+
+---
+
+## 12D. Phase 12: Money System Command Center
+
+1. Make `/money` the default confirmed DebtSync command center and add `/money/household` for provisional monthly household accounting.
+2. Extend the debt summary additively with one consistent snapshot of pending-response and initiated-payment records.
+3. Add exact participant-specific statements at `/money/members/[id]`, including obligation and accepted-transfer reconciliation components plus pair-only history.
+4. Add validated member/direction preselection and an optional full-balance amount shortcut to Record Money.
+5. Keep `/api/money/summary` compatible while adding a household-only summary endpoint and query contract.
+6. Redirect the legacy `/debts` index while preserving payment, ledger, reversal, notification, and historical request-detail routes.
+
+### Exit Criteria
+
+- Provisional monthly and permanent confirmed positions are never combined.
+- Summary counts and displayed pending records come from the same read snapshot.
+- Pairwise reconciliation components reproduce the exact displayed position.
+- No schema migration, financial mutation, backfill, or historical recalculation is required.
 
 ---
 

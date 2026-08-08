@@ -224,7 +224,7 @@ export default function DashboardClient() {
               </div>
             </div>
             <div className="home-month-grid">
-              <Link href="/money" className="home-month-stat">
+              <Link href="/money/household" className="home-month-stat">
                 <span>My balance</span>
                 <strong className={summary.month.direction === "owed" ? "text-positive" : summary.month.direction === "owes" ? "text-negative" : undefined}>
                   {formatTaka(summary.month.provisionalBalance)}
@@ -241,7 +241,7 @@ export default function DashboardClient() {
                 <strong>{summary.month.totalMeals}</strong>
                 <small>Counted this month · Open Meals</small>
               </Link>
-              <Link href="/money" className="home-month-stat">
+              <Link href="/money/household" className="home-month-stat">
                 <span>Meal rate</span>
                 <strong>{summary.month.mealRate ? formatTaka(summary.month.mealRate) : "Not available"}</strong>
                 <small>Current estimate · Open Money</small>

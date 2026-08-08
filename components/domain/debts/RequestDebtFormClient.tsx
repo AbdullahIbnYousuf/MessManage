@@ -58,10 +58,10 @@ export default function RequestDebtFormClient({ currentUserId }: { currentUserId
     finally { setSubmitting(false); }
   }
 
-  if (created) return <div className="page-container debt-page"><div className="debt-success"><h1>Debt confirmation requested</h1><p>{created.debtor.name} must accept before this changes either member’s balance.</p><Link className="btn btn-primary" href={`/debts/requests/${created.id}`}>View request</Link><Link className="btn btn-secondary" href="/debts">Back to balances</Link></div></div>;
+  if (created) return <div className="page-container debt-page"><div className="debt-success"><h1>Debt confirmation requested</h1><p>{created.debtor.name} must accept before this changes either member’s balance.</p><Link className="btn btn-primary" href={`/debts/requests/${created.id}`}>View request</Link><Link className="btn btn-secondary" href="/money">Back to debts</Link></div></div>;
 
   return <div className="page-container debt-page">
-    <div className="debt-back"><Link href="/debts">← Balances &amp; Payments</Link></div>
+    <div className="debt-back"><Link href="/money">← Debts &amp; payments</Link></div>
     <h1 className="debt-title">Request debt</h1>
     <p className="text-secondary debt-subtitle">Ask a member to confirm that they owe you. Nothing changes until they accept.</p>
     <form className="card debt-form" onSubmit={review}>

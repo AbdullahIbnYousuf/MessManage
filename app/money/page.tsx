@@ -1,15 +1,18 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
-import MoneyOverviewClient from "@/components/domain/money/MoneyOverviewClient";
+import DebtDashboardClient from "@/components/domain/debts/DebtDashboardClient";
 
 export const metadata = {
-  title: "Money",
-  description: "Understand monthly household balances and confirmed money between members.",
+  title: "Debts & payments",
+  description: "Review confirmed debts and payments between household members.",
 };
 
 export default async function MoneyPage() {
   const user = await getSessionUser();
   if (!user) redirect("/auth/login");
+  if (process.env.NEXT_PUBLIC_DEBTSYNC_ENABLED !== "true") {
+    redirect("/money/household");
+  }
 
-  return <MoneyOverviewClient currentUserId={user.id} isAdmin={user.role === "admin"} />;
+  return <DebtDashboardClient currentUserId={user.id} />;
 }
