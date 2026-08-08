@@ -173,6 +173,8 @@ export async function fetchMoneySummary({
       credits: credits.toFixed(2),
       costs: costs.toFixed(2),
       totalMeals: currentMember.meals,
+      householdBazar: currentResult.totalMonthBazar.toFixed(2),
+      householdMeals: currentResult.totalMonthMeals,
       mealRate: currentResult.mealRate?.toFixed(4) ?? null,
       hasData: currentResult.hasData,
       breakdown: {

@@ -16,6 +16,8 @@ export type MoneySummary = {
     credits: string;
     costs: string;
     totalMeals: number;
+    householdBazar: string;
+    householdMeals: number;
     mealRate: string | null;
     hasData: boolean;
     breakdown: {

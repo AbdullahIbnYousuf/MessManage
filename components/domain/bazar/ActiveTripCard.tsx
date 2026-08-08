@@ -20,12 +20,14 @@ interface Trip {
 interface Props {
   trip: Trip;
   onNotesUpdated: (notes: string) => void;
+  isCurrentUserAssigned?: boolean;
 }
 
-export default function ActiveTripCard({ trip, onNotesUpdated }: Props) {
+export default function ActiveTripCard({ trip, onNotesUpdated, isCurrentUserAssigned = false }: Props) {
   const [notes, setNotes] = useState(trip.shoppingNotes ?? "");
   const [savingNotes, setSavingNotes] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const initialNotes = React.useRef(trip.shoppingNotes ?? "");
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -39,16 +41,23 @@ export default function ActiveTripCard({ trip, onNotesUpdated }: Props) {
   const saveNotes = React.useCallback(async (currentNotes: string) => {
     if (currentNotes === initialNotes.current) return;
     setSavingNotes(true);
+    setSaveError(null);
     try {
-      await fetch("/api/bazar/notes", {
+      const response = await fetch("/api/bazar/notes", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notes: currentNotes }),
       });
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Could not save the shopping notes.");
+      }
       initialNotes.current = currentNotes;
       setNotesSaved(true);
       setTimeout(() => setNotesSaved(false), 2000);
       onNotesUpdated(currentNotes);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Could not save the shopping notes.");
     } finally {
       setSavingNotes(false);
     }
@@ -93,7 +102,9 @@ export default function ActiveTripCard({ trip, onNotesUpdated }: Props) {
           }}
         />
         <span style={{ fontWeight: 700, fontSize: "0.9375rem" }}>Bazar Trip Active</span>
-        <span className="badge badge-primary" style={{ marginLeft: "auto" }}>Open</span>
+        <span className="badge badge-primary" style={{ marginLeft: "auto" }}>
+          {isCurrentUserAssigned ? "You’re assigned" : "Open"}
+        </span>
       </div>
 
       {/* Assignees */}
@@ -135,7 +146,10 @@ export default function ActiveTripCard({ trip, onNotesUpdated }: Props) {
         <textarea
           ref={textareaRef}
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          onChange={(e) => {
+            setNotes(e.target.value);
+            setSaveError(null);
+          }}
           placeholder="Add general notes or items to buy... (anyone can edit)"
           rows={1}
           style={{
@@ -153,6 +167,14 @@ export default function ActiveTripCard({ trip, onNotesUpdated }: Props) {
             minHeight: "44px",
           }}
         />
+        {saveError && (
+          <div role="alert" style={{ display: "flex", minHeight: 44, alignItems: "center", justifyContent: "space-between", gap: "0.75rem", marginTop: "0.5rem", color: "var(--color-danger)", fontSize: "0.75rem" }}>
+            <span>{saveError}</span>
+            <button type="button" className="btn btn-secondary" style={{ minHeight: 44 }} onClick={() => void saveNotes(notes)}>
+              Retry
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

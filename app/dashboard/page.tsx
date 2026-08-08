@@ -1,67 +1,15 @@
 import { redirect } from "next/navigation";
-import { getSessionUser } from "@/lib/session";
-import { db } from "@/lib/db";
 import DashboardClient from "@/components/domain/dashboard/DashboardClient";
-import { previousMonthKey, previousMonthStart, getNow, getDhakaParts, firstDayOfMonth, formatMonthLabel } from "@/lib/utils/dates";
+import { getSessionUser } from "@/lib/session";
 
 export const metadata = {
   title: "Home",
-  description: "Your household meal and expense overview.",
+  description: "Today’s household meals, tasks, and monthly snapshot.",
 };
 
 export default async function DashboardPage() {
-  const sessionUser = await getSessionUser();
-  if (!sessionUser) redirect("/auth/login");
+  const user = await getSessionUser();
+  if (!user) redirect("/auth/login");
 
-  const dbUser = await db.user.findUnique({
-    where: { id: sessionUser.id },
-    select: { nickname: true },
-  });
-
-  const now = getNow();
-  const { y: year, m: month, d: day } = getDhakaParts(now);
-  const isAlertPeriod = day >= 16 && day <= 19;
-  const daysUntilSettle = 20 - day; // 19 on day 1, 1 on day 19, 0 on day 20
-  const isMaidChargeAlertPeriod = day >= 25 && day <= 28;
-  const monthName = now.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "Asia/Dhaka" });
-  const dayName = now.toLocaleString("en-US", { weekday: "long", timeZone: "Asia/Dhaka" });
-
-  let isPreviousMonthSettled = false;
-  const prevMonthLabel = formatMonthLabel(previousMonthStart());
-
-  if (isAlertPeriod) {
-    const prevKey = previousMonthKey();
-    const settlementExists = await db.monthlySettlementRun.findUnique({
-      where: { month: new Date(prevKey) },
-      select: { id: true },
-    });
-    isPreviousMonthSettled = !!settlementExists;
-  }
-
-  // Check if maid charges already applied this month (so we don't show the notice unnecessarily)
-  let isMaidChargeApplied = false;
-  if (isMaidChargeAlertPeriod) {
-    const currentMonthDate = firstDayOfMonth(year, month);
-    const chargeExists = await db.maidCharge.findFirst({
-      where: { month: currentMonthDate },
-      select: { id: true },
-    });
-    isMaidChargeApplied = !!chargeExists;
-  }
-
-  return (
-    <DashboardClient
-      userId={sessionUser.id}
-      name={sessionUser.name}
-      nickname={dbUser?.nickname ?? null}
-      isAlertPeriod={isAlertPeriod}
-      isPreviousMonthSettled={isPreviousMonthSettled}
-      previousMonthLabel={prevMonthLabel}
-      daysUntilSettle={daysUntilSettle}
-      monthName={monthName}
-      dayName={dayName}
-      isMaidChargeAlertPeriod={isMaidChargeAlertPeriod}
-      isMaidChargeApplied={isMaidChargeApplied}
-    />
-  );
+  return <DashboardClient />;
 }

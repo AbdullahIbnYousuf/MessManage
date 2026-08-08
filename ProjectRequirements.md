@@ -313,7 +313,7 @@ The settlement output becomes entries in System 2 where actual money movement is
 - Phase 1: MessManage branding, grouped navigation, mobile navigation, and lightweight Expenses and Money hubs — complete.
 - Phase 2: Smart Expenses overview with read-only Bulk, Maid, and Fridge status summaries — complete.
 - Phase 3: Smart Money overview separating provisional monthly balance, previous-month closing readiness, and confirmed long-running money — complete.
-- Later phases: data-rich Home redesign — not part of Phase 3.
+- Phase 4: Smart Home daily command center for today’s meals, active bazar work, role-scoped attention, and a compact provisional monthly snapshot — complete.
 
 #### Smart Money overview
 
@@ -322,6 +322,15 @@ The settlement output becomes entries in System 2 where actual money movement is
 - Previous-month closing is shown as closed, ready, blocked, or having no activity, using the same canonical readiness checks as the settlement service.
 - Payment records needing the current member's response are previewed before informational confirmed-money activity, but acceptance and rejection remain on payment detail pages.
 - When DebtSync is disabled, the Money overview remains available for current balance and monthly closing without querying or exposing confirmed-money data.
+
+#### Smart Home overview
+
+- `/dashboard` is the daily command center. It prioritises today’s complete active-member meal list, the current bazar trip, tasks requiring the signed-in member’s attention, and a compact month-to-date snapshot.
+- Loading Home is read-only and never creates missing meal records. A recorded zero is displayed as zero, while an absent record is explicitly shown as **Not set**.
+- Meal state follows the configured Dhaka deadline and existing edit-request lifecycle. Meal changes remain on `/meals`.
+- Shared bazar notes remain editable from Home through the existing notes endpoint; all trip creation, completion, and expense entry stays on `/bazar`.
+- Admin approval and closing tasks appear only to admins. Confirmed-payment responses appear only when DebtSync is enabled.
+- Home reuses the canonical Expenses and Money summaries, keeps monetary values as exact decimal strings, and does not introduce a schema migration or financial mutation.
 
 ### 10.1 Global Daily View
 

@@ -632,8 +632,10 @@ Use explicit labels and direction sentences. Never rely on color alone.
 - UX Phase 1 established the MessManage brand, grouped desktop/mobile navigation, and stable `/expenses` and `/money` hubs.
 - UX Phase 2 upgrades `/expenses` to a read-only operational summary of active Bulk cycles, current-month Maid records, and the previous-month Fridge bill. Full entry workflows and all existing routes remain unchanged.
 - UX Phase 3 upgrades `/money` to a read-only lifecycle overview with provisional current-month balance, previous-month closing readiness, confirmed DebtSync totals, and payment-response previews. Financial actions remain on their existing protected pages.
+- UX Phase 4 upgrades `/dashboard` to a read-only daily command center for today’s meals, active bazar work, role-scoped attention, and a compact provisional monthly snapshot. Confirmed-payment attention remains feature-gated and links to the existing protected response workflow.
 - The Expenses summary introduces no schema migration, financial mutation, historical recalculation, or change to DebtSync accounting.
 - The Money summary introduces no schema migration or mutation and never combines provisional System 1 balance with confirmed DebtSync balance.
+- The Home summary introduces no schema migration or automatic mutation, never creates missing meal records, and reuses the existing Expenses and Money calculations.
 
 ---
 

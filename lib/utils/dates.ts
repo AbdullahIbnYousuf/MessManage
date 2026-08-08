@@ -174,8 +174,7 @@ export function isSameDay(a: string, b: string): boolean {
 /**
  * Returns true if the deadline time (e.g. "22:00") has passed today in Dhaka time.
  */
-export function isDeadlinePassed(deadlineTime: string): boolean {
-  const now = getNow();
+export function isDeadlinePassed(deadlineTime: string, now: Date = getNow()): boolean {
   const dhaka = getDhakaParts(now);
   const [hours, minutes] = deadlineTime.split(":").map(Number) as [number, number];
   
