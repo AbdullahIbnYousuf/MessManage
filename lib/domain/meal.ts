@@ -19,66 +19,6 @@ export function computeMealRate(
   return div(totalBazarSpend, totalMeals);
 }
 
-export type MealCostShare = {
-  userId: string;
-  meals: number;
-};
-
-export type MealCostAllocation = MealCostShare & {
-  amount: Decimal;
-};
-
-/**
- * Allocates the monthly bazar total in whole paisa by meal share.
- * Largest fractional remainders receive the remaining paisa, with userId as
- * the deterministic tie-breaker. Stored/displayed member costs therefore add
- * back to the exact two-decimal bazar total.
- */
-export function computeMealCostAllocations(
-  totalBazarSpend: Decimal,
-  shares: MealCostShare[]
-): MealCostAllocation[] {
-  const positiveShares = shares.filter((share) => share.meals > 0);
-  const totalMeals = positiveShares.reduce((total, share) => total + share.meals, 0);
-  if (totalMeals === 0) return [];
-
-  const totalPaisa = totalBazarSpend
-    .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
-    .mul(100)
-    .toDecimalPlaces(0);
-  const allocations = positiveShares.map((share) => {
-    const exactPaisa = totalPaisa.mul(share.meals).div(totalMeals);
-    const basePaisa = exactPaisa.floor();
-    return {
-      ...share,
-      basePaisa,
-      remainder: exactPaisa.sub(basePaisa),
-    };
-  });
-  const allocatedPaisa = allocations.reduce(
-    (total, allocation) => total.add(allocation.basePaisa),
-    new Decimal(0)
-  );
-  const remainderPaisa = totalPaisa.sub(allocatedPaisa).toNumber();
-  const remainderRecipients = new Set(
-    [...allocations]
-      .sort((a, b) => {
-        const remainderOrder = b.remainder.cmp(a.remainder);
-        return remainderOrder !== 0
-          ? remainderOrder
-          : a.userId.localeCompare(b.userId);
-      })
-      .slice(0, remainderPaisa)
-      .map((allocation) => allocation.userId)
-  );
-
-  return allocations.map(({ userId, meals, basePaisa }) => ({
-    userId,
-    meals,
-    amount: basePaisa.add(remainderRecipients.has(userId) ? 1 : 0).div(100),
-  }));
-}
-
 /**
  * Given a user's meal pattern and a date string, returns the default meal count for that day.
  */

@@ -9,9 +9,6 @@ import { db } from "@/lib/db";
 import { effectiveBazarDate, validateBazarAmount } from "@/lib/domain/bazar";
 import { getNow, toDateString, getDhakaParts, firstDayOfMonth } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
-import { withSerializableRetry } from "@/lib/services/debts/transactions";
-import { assertMonthOpen } from "@/lib/services/month-state";
-import { financialErrorResponse } from "@/lib/utils/financial-api";
 
 export async function PATCH(
   request: Request,
@@ -45,6 +42,22 @@ export async function PATCH(
       );
     }
 
+    // Admin rule: month must not be settled
+    if (isAdmin) {
+      const { y, m } = getDhakaParts(expense.date);
+      const expenseMonth = firstDayOfMonth(y, m);
+      const settled = await db.monthlySettlementRun.findUnique({
+        where: { month: expenseMonth },
+        select: { id: true },
+      });
+      if (settled) {
+        return Response.json(
+          { error: "This month has already been settled. The expense cannot be edited." },
+          { status: 400 }
+        );
+      }
+    }
+
     const body = await request.json() as {
       amount?: number | string;
       note?: string | null;
@@ -67,27 +80,14 @@ export async function PATCH(
       expenseDate = effectiveBazarDate(body.date);
     }
 
-    const updated = await withSerializableRetry(async (tx) => {
-      const current = await tx.bazarExpense.findUnique({ where: { id } });
-      if (!current) return null;
-      const currentParts = getDhakaParts(current.date);
-      await assertMonthOpen(tx, firstDayOfMonth(currentParts.y, currentParts.m));
-      if (expenseDate !== undefined) {
-        const nextParts = getDhakaParts(new Date(expenseDate));
-        await assertMonthOpen(tx, firstDayOfMonth(nextParts.y, nextParts.m));
-      }
-      return tx.bazarExpense.update({
-        where: { id },
-        data: {
-          ...(amount !== undefined && { amount }),
-          ...(body.note !== undefined && { note: body.note?.trim() || null }),
-          ...(expenseDate !== undefined && { date: new Date(expenseDate) }),
-        },
-      });
+    const updated = await db.bazarExpense.update({
+      where: { id },
+      data: {
+        ...(amount !== undefined && { amount }),
+        ...(body.note !== undefined && { note: body.note?.trim() || null }),
+        ...(expenseDate !== undefined && { date: new Date(expenseDate) }),
+      },
     });
-    if (!updated) {
-      return Response.json({ error: "Expense not found." }, { status: 404 });
-    }
 
     return Response.json({
       data: {
@@ -99,6 +99,7 @@ export async function PATCH(
     });
   } catch (err) {
     if (err instanceof Response) return err;
-    return financialErrorResponse(err, "Bazar expense update");
+    console.error(err);
+    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }

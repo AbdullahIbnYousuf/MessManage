@@ -5,49 +5,44 @@ const mocks = vi.hoisted(() => ({
   clearance: vi.fn(),
   serializable: vi.fn(),
   globalUserFind: vi.fn(),
+  globalMealFind: vi.fn(),
   txUserFind: vi.fn(),
   txUserUpdate: vi.fn(),
+  txMealFind: vi.fn(),
   txMealUpdate: vi.fn(),
-  txSettlementFind: vi.fn(),
 }));
 
 const tx = {
   user: { findUnique: mocks.txUserFind, update: mocks.txUserUpdate },
-  mealRecord: { updateMany: mocks.txMealUpdate },
-  monthlySettlementRun: { findUnique: mocks.txSettlementFind },
+  mealRecord: { findFirst: mocks.txMealFind, updateMany: mocks.txMealUpdate },
 };
 
 vi.mock("@/lib/session", () => ({ requireAdmin: mocks.admin }));
 vi.mock("@/lib/db", () => ({
   db: {
     user: { findUnique: mocks.globalUserFind },
+    mealRecord: { findFirst: mocks.globalMealFind },
   },
 }));
 vi.mock("@/lib/queries/debt-clearance", () => ({ fetchDebtClearance: mocks.clearance }));
 vi.mock("@/lib/services/debts/transactions", () => ({ withSerializableRetry: mocks.serializable }));
-vi.mock("@/lib/utils/dates", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/utils/dates")>();
-  return {
-    ...actual,
-    getNow: () => new Date("2026-08-09T12:34:56.000Z"),
-    today: () => "2026-08-09",
-  };
-});
 
 import { GET, POST } from "@/app/api/admin/members/[id]/deactivate/route";
 
 const adminId = "00000000-0000-4000-8000-000000000001";
 const memberId = "00000000-0000-4000-8000-000000000002";
+const joinedAt = new Date("2026-01-01T00:00:00.000Z");
 
 describe("debt-aware member deactivation", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.admin.mockResolvedValue({ id: adminId, role: "admin" });
-    mocks.globalUserFind.mockResolvedValue({ status: "active" });
-    mocks.txUserFind.mockResolvedValue({ status: "active" });
+    mocks.globalUserFind.mockResolvedValue({ status: "active", joinedAt });
+    mocks.globalMealFind.mockResolvedValue({ date: new Date("2026-07-20T00:00:00.000Z") });
+    mocks.txUserFind.mockResolvedValue({ status: "active", joinedAt });
+    mocks.txMealFind.mockResolvedValue({ date: new Date("2026-07-20T00:00:00.000Z") });
     mocks.txUserUpdate.mockResolvedValue({});
     mocks.txMealUpdate.mockResolvedValue({ count: 3 });
-    mocks.txSettlementFind.mockResolvedValue(null);
     mocks.clearance.mockResolvedValue({ youOwe: "0.00", owedToYou: "0.00", net: "0.00", pendingCount: 0, pendingPaymentCount: 0, pendingDebtRequestCount: 0, canDeactivate: true });
     mocks.serializable.mockImplementation((operation: (client: typeof tx) => Promise<unknown>) => operation(tx));
   });
@@ -73,38 +68,7 @@ describe("debt-aware member deactivation", () => {
     expect(response.status).toBe(200);
     expect(mocks.serializable).toHaveBeenCalledOnce();
     expect(mocks.clearance).toHaveBeenCalledWith(tx, memberId);
-    expect(mocks.txUserUpdate).toHaveBeenCalledWith({
-      where: { id: memberId },
-      data: {
-        status: "deactivated",
-        deactivatedAt: new Date("2026-08-09T12:34:56.000Z"),
-      },
-    });
-    expect(mocks.txMealUpdate).toHaveBeenCalledWith({
-      where: {
-        userId: memberId,
-        date: { gt: new Date("2026-08-09") },
-        isLocked: false,
-      },
-      data: { mealCount: 0 },
-    });
-    await expect(response.json()).resolves.toMatchObject({
-      data: {
-        status: "deactivated",
-        deactivatedAt: "2026-08-09T12:34:56.000Z",
-      },
-    });
-  });
-
-  it("preserves meal rows when the current month is already settled", async () => {
-    mocks.txSettlementFind.mockResolvedValue({ id: "current-run" });
-
-    const response = await POST(new Request("http://localhost", { method: "POST" }), {
-      params: Promise.resolve({ id: memberId }),
-    });
-
-    expect(response.status).toBe(200);
     expect(mocks.txUserUpdate).toHaveBeenCalledOnce();
-    expect(mocks.txMealUpdate).not.toHaveBeenCalled();
+    expect(mocks.txMealUpdate).toHaveBeenCalledOnce();
   });
 });

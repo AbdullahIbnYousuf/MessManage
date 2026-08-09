@@ -1,5 +1,4 @@
 import Decimal from "decimal.js";
-import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 
 export type FridgeMonthTotals = {
@@ -10,22 +9,18 @@ export type FridgeMonthTotals = {
 
 /** Fetches the three frozen fridge totals for one bill month. */
 export async function fetchFridgeMonthTotals(
-  month: Date,
-  client: Pick<
-    Prisma.TransactionClient,
-    "fridgeBill" | "fridgeAllocation" | "fridgePayment"
-  > = db
+  month: Date
 ): Promise<FridgeMonthTotals> {
   const [bills, allocations, payments] = await Promise.all([
-    client.fridgeBill.aggregate({
+    db.fridgeBill.aggregate({
       where: { month },
       _sum: { totalAmount: true },
     }),
-    client.fridgeAllocation.aggregate({
+    db.fridgeAllocation.aggregate({
       where: { bill: { month } },
       _sum: { amount: true },
     }),
-    client.fridgePayment.aggregate({
+    db.fridgePayment.aggregate({
       where: { bill: { month } },
       _sum: { amount: true },
     }),

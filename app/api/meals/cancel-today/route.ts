@@ -4,10 +4,8 @@
 // Admin bypass: works even after the daily deadline, as long as it's before midnight.
 
 import { requireAuth } from "@/lib/session";
-import { currentMonthStart, parseDateString, today } from "@/lib/utils/dates";
-import { withSerializableRetry } from "@/lib/services/debts/transactions";
-import { assertMonthOpen } from "@/lib/services/month-state";
-import { financialErrorResponse } from "@/lib/utils/financial-api";
+import { db } from "@/lib/db";
+import { today, parseDateString } from "@/lib/utils/dates";
 
 export async function POST() {
   try {
@@ -24,15 +22,12 @@ export async function POST() {
     // If the day has rolled over, todayDate is the new day, which is unlocked anyway.
     // We rely on the isLocked filter to prevent modifying locked records.
 
-    const result = await withSerializableRetry(async (tx) => {
-      await assertMonthOpen(tx, currentMonthStart());
-      return tx.mealRecord.updateMany({
-        where: {
-          date: todayDate,
-          isLocked: false,
-        },
-        data: { mealCount: 0 },
-      });
+    const result = await db.mealRecord.updateMany({
+      where: {
+        date: todayDate,
+        isLocked: false,
+      },
+      data: { mealCount: 0 },
     });
 
     return Response.json({
@@ -43,6 +38,7 @@ export async function POST() {
     });
   } catch (err) {
     if (err instanceof Response) return err;
-    return financialErrorResponse(err, "Meal cancellation");
+    console.error(err);
+    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }

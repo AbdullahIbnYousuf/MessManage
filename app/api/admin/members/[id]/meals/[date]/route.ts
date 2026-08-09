@@ -1,3 +1,4 @@
+import { db } from "@/lib/db";
 import { getAdminMealEditBlockReason } from "@/lib/domain/meal";
 import { requireAdmin } from "@/lib/session";
 import {
@@ -7,7 +8,6 @@ import {
   toDateString,
 } from "@/lib/utils/dates";
 import type { AdminMealEditBlockReason } from "@/types";
-import { withSerializableRetry } from "@/lib/services/debts/transactions";
 
 const BLOCK_MESSAGES: Record<AdminMealEditBlockReason, string> = {
   settled_month: "This month has already been settled and is read-only.",
@@ -83,7 +83,7 @@ export async function PUT(
       targetDate.getUTCMonth() + 1
     );
 
-    const result = await withSerializableRetry(async (tx) => {
+    const result = await db.$transaction(async (tx) => {
       const [member, record, settlement, finishedCycle] = await Promise.all([
         tx.user.findUnique({
           where: { id },
@@ -168,11 +168,7 @@ export async function PUT(
     if (error instanceof Response) return error;
     if (error instanceof AdminMealEditConflict) {
       return Response.json(
-        {
-          error: error.message,
-          reason: error.reason,
-          ...(error.reason === "settled_month" && { code: "MONTH_SETTLED" }),
-        },
+        { error: error.message, reason: error.reason },
         { status: 409 }
       );
     }

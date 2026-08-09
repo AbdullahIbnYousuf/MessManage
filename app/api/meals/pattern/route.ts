@@ -5,10 +5,6 @@ import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
 import { futureDatesInCurrentMonth, applyPatternToDate } from "@/lib/domain/meal";
 import type { MealPattern } from "@/types";
-import { currentMonthKey, isDeadlinePassed, today } from "@/lib/utils/dates";
-import { withSerializableRetry } from "@/lib/services/debts/transactions";
-import { assertMonthOpen } from "@/lib/services/month-state";
-import { financialErrorResponse } from "@/lib/utils/financial-api";
 
 export async function GET() {
   try {
@@ -53,34 +49,30 @@ export async function PUT(request: Request) {
       data[day] = val;
     }
 
-    await withSerializableRetry(async (tx) => {
-      const monthDate = new Date(currentMonthKey());
-      await assertMonthOpen(tx, monthDate);
-      const config = await tx.systemConfig.findFirst({
-        select: { mealDeadline: true },
-      });
-      const deadlinePassed = isDeadlinePassed(config?.mealDeadline ?? "22:00");
-      const propagationDates = futureDatesInCurrentMonth().filter(
-        (dateStr) => !deadlinePassed || dateStr > today()
-      );
+    // Update pattern
+    await db.mealPattern.upsert({
+      where: { userId: user.id },
+      update: { ...data },
+      create: { userId: user.id, ...data },
+    });
 
-      await tx.mealPattern.upsert({
-        where: { userId: user.id },
-        update: { ...data },
-        create: { userId: user.id, ...data },
-      });
-      for (const dateStr of propagationDates) {
+    // Propagate to future unlocked meal records in the current month
+    const futureDates = futureDatesInCurrentMonth();
+
+    await db.$transaction(
+      futureDates.map((dateStr) => {
         const newCount = applyPatternToDate(data, dateStr);
-        await tx.mealRecord.updateMany({
+        return db.mealRecord.updateMany({
           where: { userId: user.id, date: new Date(dateStr), isLocked: false },
           data: { mealCount: newCount },
         });
-      }
-    });
+      })
+    );
 
     return Response.json({ data: { updated: true } });
   } catch (err) {
     if (err instanceof Response) return err;
-    return financialErrorResponse(err, "Meal pattern update");
+    console.error(err);
+    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }

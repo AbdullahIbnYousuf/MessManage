@@ -1,6 +1,6 @@
 // GET /api/meals/records?year=YYYY&month=MM
 // Returns all meal records for the current user for the given month.
-// Creates missing records from the meal pattern only while the month is open.
+// Creates missing records from the meal pattern on the fly.
 
 import { requireAuth } from "@/lib/session";
 import { getNow, getDhakaParts } from "@/lib/utils/dates";

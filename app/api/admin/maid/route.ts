@@ -1,12 +1,10 @@
 // POST /api/admin/maid — manually apply maid charges for an unsettled month
 
 import { requireAdmin } from "@/lib/session";
+import { db } from "@/lib/db";
 import { isMemberEligibleForMaidCharge } from "@/lib/domain/maid";
 import { currentMonthKey, getNow } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
-import { withSerializableRetry } from "@/lib/services/debts/transactions";
-import { assertMonthOpen } from "@/lib/services/month-state";
-import { financialErrorResponse } from "@/lib/utils/financial-api";
 
 export async function POST(request: Request) {
   try {
@@ -24,54 +22,57 @@ export async function POST(request: Request) {
     }
 
     const monthDate = new Date(monthKey);
-    const result = await withSerializableRetry(async (tx) => {
-      await assertMonthOpen(tx, monthDate);
+    const settled = await db.monthlySettlementRun.findUnique({
+      where: { month: monthDate },
+      select: { id: true },
+    });
+    if (settled) {
+      return Response.json({ error: "This month has already been settled." }, { status: 400 });
+    }
 
-      const existing = await tx.maidCharge.findFirst({
-        where: { month: monthDate },
-      });
-      if (existing) return { status: "already_applied" as const };
-
-      const config = await tx.systemConfig.findFirst();
-      const defaultCharge = new Decimal(config?.maidChargeDefault.toString() ?? "700");
-      const members = await tx.user.findMany({
-        select: { id: true, joinedAt: true, deactivatedAt: true },
-      });
-      const eligibleMembers = members.filter((member) =>
-        isMemberEligibleForMaidCharge(member.joinedAt, member.deactivatedAt, monthDate)
-      );
-      if (eligibleMembers.length === 0) return { status: "no_members" as const };
-
-      const now = getNow();
-      const chargeRows = eligibleMembers.map((member) => ({
-        userId: member.id,
-        amount: defaultCharge,
-        month: monthDate,
-        appliedAt: now,
-      }));
-      await tx.maidCharge.createMany({ data: chargeRows });
-      return {
-        status: "applied" as const,
-        applied: chargeRows.length,
-        amountEach: defaultCharge.toFixed(2),
-      };
+    // A month is either wholly uncharged or charged once for every eligible member.
+    const existing = await db.maidCharge.findFirst({
+      where: { month: monthDate },
     });
 
-    if (result.status === "already_applied") {
+    if (existing) {
       return Response.json(
         { error: "Maid charges have already been applied for this month." },
         { status: 400 }
       );
     }
-    if (result.status === "no_members") {
+
+    const config = await db.systemConfig.findFirst();
+    const defaultCharge = new Decimal(config?.maidChargeDefault.toString() ?? "700");
+
+    // For a past month, use lifecycle dates rather than current account status.
+    const members = await db.user.findMany({
+      select: { id: true, joinedAt: true, deactivatedAt: true },
+    });
+    const eligibleMembers = members.filter((member) =>
+      isMemberEligibleForMaidCharge(member.joinedAt, member.deactivatedAt, monthDate)
+    );
+
+    if (eligibleMembers.length === 0) {
       return Response.json({ error: "No members were active during this month." }, { status: 400 });
     }
 
+    const now = getNow();
+    const chargeRows = eligibleMembers.map((member) => ({
+      userId: member.id,
+      amount: defaultCharge,
+      month: monthDate,
+      appliedAt: now,
+    }));
+
+    await db.maidCharge.createMany({ data: chargeRows });
+
     return Response.json({
-      data: { applied: result.applied, month: monthKey, amountEach: result.amountEach },
+      data: { applied: chargeRows.length, month: monthKey, amountEach: defaultCharge.toFixed(2) },
     });
   } catch (err) {
     if (err instanceof Response) return err;
-    return financialErrorResponse(err, "Maid charge application");
+    console.error(err);
+    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }

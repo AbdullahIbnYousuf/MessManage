@@ -9,9 +9,6 @@ import { db } from "@/lib/db";
 import { validateMaidPayment } from "@/lib/domain/maid";
 import { getNow, toDateString } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
-import { withSerializableRetry } from "@/lib/services/debts/transactions";
-import { assertMonthOpen } from "@/lib/services/month-state";
-import { financialErrorResponse } from "@/lib/utils/financial-api";
 
 export async function PATCH(
   request: Request,
@@ -45,6 +42,20 @@ export async function PATCH(
       );
     }
 
+    // Admin rule: month must not be settled
+    if (isAdmin) {
+      const settled = await db.monthlySettlementRun.findUnique({
+        where: { month: payment.month },
+        select: { id: true },
+      });
+      if (settled) {
+        return Response.json(
+          { error: "This month has already been settled. The payment cannot be edited." },
+          { status: 400 }
+        );
+      }
+    }
+
     const body = await request.json() as {
       amount?: number | string;
       note?: string | null;
@@ -59,23 +70,13 @@ export async function PATCH(
       amount = new Decimal(String(body.amount));
     }
 
-    const updated = await withSerializableRetry(async (tx) => {
-      const current = await tx.maidPayment.findUnique({ where: { id } });
-      if (!current) {
-        return null;
-      }
-      await assertMonthOpen(tx, current.month);
-      return tx.maidPayment.update({
-        where: { id },
-        data: {
-          ...(amount !== undefined && { amount }),
-          ...(body.note !== undefined && { note: body.note?.trim() || null }),
-        },
-      });
+    const updated = await db.maidPayment.update({
+      where: { id },
+      data: {
+        ...(amount !== undefined && { amount }),
+        ...(body.note !== undefined && { note: body.note?.trim() || null }),
+      },
     });
-    if (!updated) {
-      return Response.json({ error: "Payment not found." }, { status: 404 });
-    }
 
     return Response.json({
       data: {
@@ -87,6 +88,7 @@ export async function PATCH(
     });
   } catch (err) {
     if (err instanceof Response) return err;
-    return financialErrorResponse(err, "Maid payment update");
+    console.error(err);
+    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }

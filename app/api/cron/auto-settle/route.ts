@@ -28,7 +28,6 @@ export async function GET(request: Request) {
       );
       return Response.json({
         message: `Auto-settlement skipped: ${result.reasons.join(" ")}`,
-        code: result.code ?? "VALIDATION_ERROR",
       });
     }
 

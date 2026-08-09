@@ -108,7 +108,6 @@ export default function SettlementClient({ isAdmin, monthName, initialMonth }: P
   const prevMonthKey = currentMonth ? getPreviousMonthKey(currentMonth) : "";
   const isPrevMonthSettled = history.some((h) => h.month === prevMonthKey);
   const showUnsettledBanner = prevMonthKey && !isPrevMonthSettled && selectedMonth === currentMonth;
-  const canRunSelectedMonth = selectedMonth !== "" && selectedMonth < currentMonth;
 
   const handleMonthSwitch = (month: string) => {
     void load(month);
@@ -149,7 +148,7 @@ export default function SettlementClient({ isAdmin, monthName, initialMonth }: P
             {mealRate && <> · Meal rate: <strong>৳{parseFloat(mealRate).toFixed(2)}/meal</strong></>}
           </p>
         </div>
-        {isAdmin && !isSettled && canRunSelectedMonth && (
+        {isAdmin && !isSettled && (
           <button className="btn btn-primary" onClick={() => void runSettlement()} disabled={running || validationErrors.length > 0} style={{ height: "44px", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}>
             {running ? <><span className="spinner" /> Running...</> : "Run monthly closing"}
           </button>

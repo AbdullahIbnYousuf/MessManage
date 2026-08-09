@@ -1,5 +1,4 @@
 import Decimal from "decimal.js";
-import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { fetchFridgeMonthTotals } from "@/lib/queries/fridge";
 
@@ -10,24 +9,9 @@ export type SettlementReadinessOptions = {
 };
 
 export async function fetchSettlementReadiness(
-  options: SettlementReadinessOptions,
-  client: Pick<
-    Prisma.TransactionClient,
-    | "maidCharge"
-    | "maidPayment"
-    | "fridgeBill"
-    | "fridgeAllocation"
-    | "fridgePayment"
-    | "bulkCycle"
-    | "bulkAllocation"
-  > = db
+  options: SettlementReadinessOptions
 ): Promise<string[]> {
   const { monthDate, monthStart, monthEnd } = options;
-  const timestampEndExclusive = new Date(Date.UTC(
-    monthEnd.getUTCFullYear(),
-    monthEnd.getUTCMonth() + 1,
-    1
-  ));
   const [
     actualMaidCharges,
     actualMaidPayments,
@@ -35,21 +19,21 @@ export async function fetchSettlementReadiness(
     actualBulkCycles,
     actualBulkAllocations,
   ] = await Promise.all([
-    client.maidCharge.aggregate({
+    db.maidCharge.aggregate({
       where: { month: monthDate },
       _sum: { amount: true },
     }),
-    client.maidPayment.aggregate({
+    db.maidPayment.aggregate({
       where: { month: monthDate },
       _sum: { amount: true },
     }),
-    fetchFridgeMonthTotals(monthDate, client),
-    client.bulkCycle.aggregate({
-      where: { finishedAt: { gte: monthStart, lt: timestampEndExclusive } },
+    fetchFridgeMonthTotals(monthDate),
+    db.bulkCycle.aggregate({
+      where: { finishedAt: { gte: monthStart, lte: monthEnd } },
       _sum: { cost: true },
     }),
-    client.bulkAllocation.aggregate({
-      where: { allocatedAt: { gte: monthStart, lt: timestampEndExclusive } },
+    db.bulkAllocation.aggregate({
+      where: { allocatedAt: { gte: monthStart, lte: monthEnd } },
       _sum: { amount: true },
     }),
   ]);

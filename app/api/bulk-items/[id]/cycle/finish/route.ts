@@ -2,18 +2,10 @@
 // Immediately computes and posts BulkAllocation rows for all members
 
 import { requireAuth } from "@/lib/session";
+import { db } from "@/lib/db";
 import { computeBulkAllocations } from "@/lib/domain/bulk";
 import Decimal from "decimal.js";
-import {
-  firstDayOfMonth,
-  getDhakaParts,
-  getNow,
-  isDeadlinePassed,
-  today,
-} from "@/lib/utils/dates";
-import { withSerializableRetry } from "@/lib/services/debts/transactions";
-import { assertMonthOpen } from "@/lib/services/month-state";
-import { financialErrorResponse } from "@/lib/utils/financial-api";
+import { today, isDeadlinePassed, getNow } from "@/lib/utils/dates";
 
 export async function POST(
   _request: Request,
@@ -26,85 +18,90 @@ export async function POST(
     }
     const { id: bulkItemId } = await params;
 
+    // Find the active cycle for this item
+    const cycle = await db.bulkCycle.findFirst({
+      where: { bulkItemId, status: "active" },
+    });
+
+    if (!cycle) {
+      return Response.json({ error: "No active cycle found for this item." }, { status: 404 });
+    }
+
     const finishedAt = getNow();
     const todayDate = new Date(today());
-    const finishedParts = getDhakaParts(finishedAt);
-    const finishMonth = firstDayOfMonth(finishedParts.y, finishedParts.m);
 
-    const result = await withSerializableRetry(async (tx) => {
-      const cycle = await tx.bulkCycle.findFirst({
-        where: { bulkItemId, status: "active" },
-      });
-      if (!cycle) {
-        throw Response.json({ error: "No active cycle found for this item." }, { status: 404 });
-      }
-      await assertMonthOpen(tx, finishMonth);
-      const config = await tx.systemConfig.findFirst({
-        select: { mealDeadline: true },
-      });
-      const passed = isDeadlinePassed(config?.mealDeadline ?? "22:00");
-      const mealTotals = await tx.mealRecord.groupBy({
-        by: ["userId"],
-        where: {
-          date: { gte: cycle.startedAt, lte: finishedAt },
-          OR: [
-            { date: passed ? { lte: todayDate } : { lt: todayDate } },
-            { isLocked: true },
-          ],
-        },
-        _sum: { mealCount: true },
-      });
-      const totalMeals = mealTotals.reduce(
-        (sum, row) => sum + (row._sum.mealCount ?? 0),
-        0
-      );
-      if (totalMeals === 0) {
-        throw Response.json(
-          { error: "A bulk cycle cannot be finished without recorded meals." },
-          { status: 409 }
-        );
-      }
-      const allocationRows = computeBulkAllocations(
-        new Decimal(cycle.cost.toString()),
-        mealTotals.map((row) => ({
-          userId: row.userId,
-          meals: row._sum.mealCount ?? 0,
-        }))
-      ).map((allocation) => ({
-        cycleId: cycle.id,
-        userId: allocation.userId,
-        mealsDuringCycle: allocation.meals,
-        amount: allocation.amount,
-        allocatedAt: finishedAt,
-      }));
-      const closed = await tx.bulkCycle.updateMany({
-        where: { id: cycle.id, status: "active" },
+    const config = await db.systemConfig.findFirst({
+      select: { mealDeadline: true },
+    });
+    const deadlineStr = config?.mealDeadline ?? "11:00";
+    const passed = isDeadlinePassed(deadlineStr);
+
+    const mealCondition = {
+      date: {
+        gte: cycle.startedAt,
+        lte: finishedAt,
+      },
+      OR: [
+        { date: passed ? { lte: todayDate } : { lt: todayDate } },
+        { isLocked: true },
+      ],
+    };
+
+    // Sum all meals per user during the cycle period (startedAt → now)
+    // Use locked or eaten meal records only
+    const mealTotals = await db.mealRecord.groupBy({
+      by: ["userId"],
+      where: mealCondition,
+      _sum: { mealCount: true },
+    });
+
+    const totalMeals = mealTotals.reduce(
+      (sum, row) => sum + (row._sum.mealCount ?? 0),
+      0
+    );
+
+    const cycleCost = new Decimal(cycle.cost.toString());
+    const now = getNow();
+
+    // Build allocation rows for all users who had meals during the cycle
+    const allocationRows = computeBulkAllocations(
+      cycleCost,
+      mealTotals.map((row) => ({
+        userId: row.userId,
+        meals: row._sum.mealCount ?? 0,
+      }))
+    ).map((allocation) => ({
+      cycleId: cycle.id,
+      userId: allocation.userId,
+      mealsDuringCycle: allocation.meals,
+      amount: allocation.amount,
+      allocatedAt: now,
+    }));
+
+    // Close cycle + create allocation rows atomically
+    await db.$transaction([
+      db.bulkCycle.update({
+        where: { id: cycle.id },
         data: {
           status: "finished",
           finishedAt,
           finishedById: user.id,
         },
-      });
-      if (closed.count !== 1) {
-        throw Response.json(
-          { error: "This bulk cycle has already been finished." },
-          { status: 409 }
-        );
-      }
-      await tx.bulkAllocation.createMany({ data: allocationRows });
-      return { cycleId: cycle.id, totalMeals, allocationsCreated: allocationRows.length };
-    });
+      }),
+      db.bulkAllocation.createMany({ data: allocationRows }),
+    ]);
 
     return Response.json({
       data: {
-        cycleId: result.cycleId,
+        cycleId: cycle.id,
         finishedAt: finishedAt.toISOString(),
-        totalMeals: result.totalMeals,
-        allocationsCreated: result.allocationsCreated,
+        totalMeals,
+        allocationsCreated: allocationRows.length,
       },
     });
   } catch (err) {
     if (err instanceof Response) return err;
-    return financialErrorResponse(err, "Bulk cycle finish");
+    console.error(err);
+    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }

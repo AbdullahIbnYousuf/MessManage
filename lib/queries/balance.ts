@@ -8,10 +8,9 @@
 // helper, not pure domain logic. The domain formulas it relies on live in
 // lib/domain/settlement.ts and lib/domain/meal.ts.
 
-import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { computeNetBalance, type BalanceEntry } from "@/lib/domain/settlement";
-import { computeMealCostAllocations, computeMealRate } from "@/lib/domain/meal";
+import { computeMealRate } from "@/lib/domain/meal";
 import { isDeadlinePassed, today } from "@/lib/utils/dates";
 import { sum } from "@/lib/utils/decimal";
 import Decimal from "decimal.js";
@@ -63,23 +62,7 @@ export type FetchMonthBalancesOptions = {
    * where all records are locked).
    */
   isCurrentMonth: boolean;
-  /** Optional transaction snapshot used by month closing. */
-  client?: BalanceQueryClient;
 };
-
-export type BalanceQueryClient = Pick<
-  Prisma.TransactionClient,
-  | "user"
-  | "bazarExpense"
-  | "systemConfig"
-  | "mealRecord"
-  | "maidCharge"
-  | "maidPayment"
-  | "bulkAllocation"
-  | "bulkCycle"
-  | "fridgePayment"
-  | "fridgeAllocation"
->;
 
 // ─── Main Function ───────────────────────────────────────────────────────────
 
@@ -94,22 +77,16 @@ export async function fetchMonthBalances(
   options: FetchMonthBalancesOptions
 ): Promise<MonthBalanceResult> {
   const { monthStart, monthEnd, monthDate, isCurrentMonth } = options;
-  const client = options.client ?? db;
   const ZERO = new Decimal(0);
-  const timestampEndExclusive = new Date(Date.UTC(
-    monthEnd.getUTCFullYear(),
-    monthEnd.getUTCMonth() + 1,
-    1
-  ));
 
   // ── 1. Fetch members ────────────────────────────────────────────────────
-  const members = await client.user.findMany({
+  const members = await db.user.findMany({
     select: { id: true, name: true, nickname: true, avatarUrl: true, status: true },
     orderBy: { name: "asc" },
   });
 
   // ── 2. Bazar expenses grouped by user ───────────────────────────────────
-  const bazarSpendRows = await client.bazarExpense.groupBy({
+  const bazarSpendRows = await db.bazarExpense.groupBy({
     by: ["userId"],
     where: { date: { gte: monthStart, lte: monthEnd } },
     _sum: { amount: true },
@@ -122,7 +99,7 @@ export async function fetchMonthBalances(
   let mealWhere: object;
 
   if (isCurrentMonth) {
-    const config = await client.systemConfig.findFirst({
+    const config = await db.systemConfig.findFirst({
       select: { mealDeadline: true },
     });
     const deadlineStr = config?.mealDeadline ?? "22:00";
@@ -142,7 +119,7 @@ export async function fetchMonthBalances(
     };
   }
 
-  const mealRows = await client.mealRecord.groupBy({
+  const mealRows = await db.mealRecord.groupBy({
     by: ["userId"],
     where: mealWhere,
     _sum: { mealCount: true },
@@ -157,32 +134,32 @@ export async function fetchMonthBalances(
     fridgePaymentRows,
     fridgeAllocationRows,
   ] = await Promise.all([
-    client.maidCharge.groupBy({
+    db.maidCharge.groupBy({
       by: ["userId"],
       where: { month: monthDate },
       _sum: { amount: true },
     }),
-    client.maidPayment.groupBy({
+    db.maidPayment.groupBy({
       by: ["paidById"],
       where: { month: monthDate },
       _sum: { amount: true },
     }),
-    client.bulkAllocation.groupBy({
+    db.bulkAllocation.groupBy({
       by: ["userId"],
-      where: { allocatedAt: { gte: monthStart, lt: timestampEndExclusive } },
+      where: { allocatedAt: { gte: monthStart, lte: monthEnd } },
       _sum: { amount: true },
     }),
-    client.bulkCycle.groupBy({
+    db.bulkCycle.groupBy({
       by: ["purchasedById"],
-      where: { finishedAt: { gte: monthStart, lt: timestampEndExclusive } },
+      where: { finishedAt: { gte: monthStart, lte: monthEnd } },
       _sum: { cost: true },
     }),
-    client.fridgePayment.groupBy({
+    db.fridgePayment.groupBy({
       by: ["paidById"],
       where: { bill: { month: monthDate } },
       _sum: { amount: true },
     }),
-    client.fridgeAllocation.groupBy({
+    db.fridgeAllocation.groupBy({
       by: ["userId"],
       where: { bill: { month: monthDate } },
       _sum: { amount: true },
@@ -224,20 +201,11 @@ export async function fetchMonthBalances(
     0
   );
   const mealRate = computeMealRate(totalMonthBazar, totalMonthMeals);
-  const mealCostMap = new Map(
-    computeMealCostAllocations(
-      totalMonthBazar,
-      mealRows.map((row) => ({
-        userId: row.userId,
-        meals: row._sum.mealCount ?? 0,
-      }))
-    ).map((allocation) => [allocation.userId, allocation.amount])
-  );
 
   // ── 7. Per-member balance computation ───────────────────────────────────
   const memberResults: MemberBalanceResult[] = members.map((m) => {
     const userMeals = mealMap.get(m.id) ?? 0;
-    const mealCost = mealCostMap.get(m.id) ?? ZERO;
+    const mealCost = mealRate ? mealRate.mul(userMeals) : ZERO;
 
     const bazarContributed = bazarMap.get(m.id) ?? ZERO;
     const maidPayments = maidPaymentMap.get(m.id) ?? ZERO;

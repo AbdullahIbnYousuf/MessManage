@@ -128,7 +128,7 @@ without restructuring what exists.
 **Settlement:**
 
 - ✅ Monthly settlement algorithm (greedy matching)
-- ✅ Automatic settlement on 20th of month (cron job)
+- ✅ Automatic settlement on 1st of month (cron job)
 - ✅ Settlement history and monthly reports
 - ✅ Balance calculation with detailed breakdown
 - ✅ Member-specific transaction history
@@ -142,7 +142,7 @@ without restructuring what exists.
 **Background Jobs:**
 
 - ✅ Midnight lock (locks yesterday's meals, expires edit requests)
-- ✅ Auto settle (runs settlement on 20th of month)
+- ✅ Auto settle (runs settlement on 1st of month)
 
 ---
 
@@ -150,7 +150,7 @@ without restructuring what exists.
 
 | Layer       | Choice                   | Notes                                        |
 | ----------- | ------------------------ | -------------------------------------------- |
-| Framework   | Next.js 16.3 (App Router) | Frontend AND backend in one app              |
+| Framework   | Next.js 15 (App Router)  | Frontend AND backend in one app              |
 | Language    | TypeScript — strict mode | Every file. No exceptions.                   |
 | Styling     | Tailwind CSS             | Utility classes only                         |
 | Components  | shadcn/ui                | Use these before writing custom components   |
@@ -165,7 +165,7 @@ without restructuring what exists.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
-# This is Next.js 16 App Router
+# This is Next.js 15 App Router
 
 This uses the App Router — NOT the Pages Router. They are fundamentally different.
 
@@ -174,7 +174,7 @@ This uses the App Router — NOT the Pages Router. They are fundamentally differ
 - There is no `getServerSideProps`, no `getStaticProps`, no `pages/` directory
 - Server Actions exist — use them for form mutations where appropriate
 - `use client` directive is required for any component that uses hooks or browser APIs
-Read the relevant guide in `node_modules/next/dist/docs/` before writing any Next.js code.
+Read `node_modules/next/dist/docs/` before writing any Next.js code.
 Heed all deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
@@ -531,16 +531,14 @@ These are the rules most likely to be broken by a code agent.
 - After midnight, `is_locked = true` permanently for member access. Admin corrections may update only `meal_count` without unlocking the row, and only when the month is unsettled and no finished bulk cycle covers the date.
 - A `MealEditRequest` always references today's record only — never a past or future day.
 - Pending `MealEditRequests` auto-expire at midnight — the cron job sets their status to `expired`.
-- Before the configured deadline, a `MealPattern` change propagates from today through month end. At or after the deadline it starts tomorrow; today's record uses the existing edit-request workflow. Past records are never touched.
+- When a `MealPattern` changes, auto-update all future `MealRecord` rows from today onwards for the current month. Past records are never touched.
 - There is exactly one `MealPattern` per user, updated in place. No history is kept.
 - A deactivated user's future `MealRecords` (from tomorrow onwards) are set to meal_count = 0.
-- `deactivatedAt` is the actual admin-confirmation timestamp; it is never inferred from pre-generated meal records.
 
 ### Bazar Rules
 
 - Only one BazarTrip with status = open may exist at any time. Enforced via partial unique
   index (see Database section above).
-- A BazarTrip may have at most one BazarExpense. A unique database index on trip_id enforces this during concurrent submissions.
 - A member cannot submit a BazarExpense for another member. user_id must always equal the
   authenticated user's id.
 - Being assigned to a trip never increments visit count. Only submitting a BazarExpense does.
@@ -554,7 +552,6 @@ These are the rules most likely to be broken by a code agent.
 
 - BulkCycle cost is NEVER recorded as a BazarExpense. It goes into BulkCycle.cost only.
 - Only one BulkCycle with status = active may exist per BulkItem at any time.
-- A partial unique database index on bulk_item_id enforces the active-cycle rule.
 - A new cycle's started_at is system-set to the exact moment the previous cycle was marked
   finished — not user-input.
 - For the very first cycle of an item, started_at is set to the moment the record is created.
@@ -568,7 +565,7 @@ These are the rules most likely to be broken by a code agent.
 - Maid charges are manual-only. If an admin does not apply them, the month remains at zero maid charges.
 - Admins may apply charges to the current month or any past unsettled month.
 - MaidPayment is separate from BazarExpense and must never affect the meal rate.
-- Changing SystemConfig.maidChargeDefault never deletes or changes already-posted MaidCharge rows. The new value applies only to a later manual application.
+- Changing SystemConfig.maidChargeDefault does not automatically affect already-posted MaidCharge rows. Admins must use the "Reset Current Month Charges" action to delete and reapply charges for the current month based on the new rate.
 - Deactivated members do not receive a MaidCharge for months where they are fully deactivated.
 
 ### Fridge Bill Rules
@@ -591,10 +588,6 @@ These are the rules most likely to be broken by a code agent.
 ### Settlement Rules
 
 - A month can only be settled once. Block duplicate settlement at the application layer.
-- Only completed past months may be settled; current and future months are blocked.
-- Once a run exists, every balance-source mutation for that month is rejected.
-- Readiness, canonical balances, the run, settlements, obligations, and persistent notifications are handled in one serializable transaction.
-- Meal cost is allocated in whole paisa by largest remainder, with userId as the stable tie-breaker, so balances reconcile exactly.
 - MonthlySettlement rows are permanent. Never recalculate or delete them.
 - After settlement, System 1 balance effectively resets for the next month because the
   underlying transaction records for the past month are frozen.
@@ -733,7 +726,7 @@ export async function GET(request: Request) {
     },
     {
       "path": "/api/cron/auto-settle",
-      "schedule": "0 0 20 * *"
+      "schedule": "0 0 5 * *"
     },
     {
       "path": "/api/cron/meal-reminders",
@@ -746,7 +739,7 @@ export async function GET(request: Request) {
 Three cron jobs are configured:
 
 1. **Midnight Lock** (daily at 00:00 UTC) — locks yesterday's meals and expires pending edit requests
-2. **Auto Settle** (monthly at 00:00 UTC on the 20th) — runs settlement for the previous month (allows buffer for late entries)
+2. **Auto Settle** (monthly at 00:00 UTC on the 5th) — runs settlement for the previous month (allows buffer for late entries)
 3. **Meal Reminders** — sends configured meal reminders; it does not create financial records
 
 ### Cron Endpoint Authentication
@@ -794,7 +787,7 @@ is not triggered, that month remains at zero maid charges.
 
 ### Auto Settle Job
 
-This job runs at 06:00 Asia/Dhaka on the 20th of every month. It automatically runs settlement
+This job runs at 02:00 on the 1st of every month. It automatically runs settlement
 for the previous month.
 
 ```

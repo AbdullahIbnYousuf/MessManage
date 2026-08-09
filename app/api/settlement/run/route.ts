@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
     if (result.status === "already_settled") {
       return Response.json(
-        { error: "This month has already been settled.", code: "MONTH_SETTLED" },
+        { error: "This month has already been settled." },
         { status: 409 }
       );
     }
@@ -47,11 +47,8 @@ export async function POST(request: Request) {
     }
     if (result.status === "blocked") {
       return Response.json(
-        {
-          error: `Settlement blocked: ${result.reasons.join(" ")}`,
-          code: result.code ?? "VALIDATION_ERROR",
-        },
-        { status: result.code === "SETTLEMENT_UNBALANCED" ? 409 : 400 }
+        { error: `Settlement blocked: ${result.reasons.join(" ")}` },
+        { status: 400 }
       );
     }
 
