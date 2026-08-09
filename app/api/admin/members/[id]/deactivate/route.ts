@@ -1,35 +1,13 @@
 // GET  /api/admin/members/[id]/deactivate — preview date and debt clearance
 // POST /api/admin/members/[id]/deactivate — atomically verify and deactivate
 
-import type { Prisma } from "@prisma/client";
 import { requireAdmin } from "@/lib/session";
 import { db } from "@/lib/db";
 import { DebtError } from "@/lib/domain/debts/errors";
 import { fetchDebtClearance } from "@/lib/queries/debt-clearance";
 import { withSerializableRetry } from "@/lib/services/debts/transactions";
 import { debtErrorResponse } from "@/lib/utils/debts-api";
-import { today } from "@/lib/utils/dates";
-
-type DeactivationReadClient = Pick<Prisma.TransactionClient, "mealRecord">;
-
-async function computeDeactivationDate(
-  client: DeactivationReadClient,
-  userId: string,
-  joinedAt: Date
-): Promise<{
-  deactivatedAt: Date;
-  reason: "last_meal" | "joined_date";
-}> {
-  const lastMealRecord = await client.mealRecord.findFirst({
-    where: { userId, mealCount: { gt: 0 } },
-    orderBy: { date: "desc" },
-    select: { date: true },
-  });
-
-  return lastMealRecord
-    ? { deactivatedAt: lastMealRecord.date, reason: "last_meal" }
-    : { deactivatedAt: joinedAt, reason: "joined_date" };
-}
+import { currentMonthStart, getNow, today } from "@/lib/utils/dates";
 
 export async function GET(
   _request: Request,
@@ -40,7 +18,7 @@ export async function GET(
     const { id } = await params;
     const user = await db.user.findUnique({
       where: { id },
-      select: { status: true, joinedAt: true },
+      select: { status: true },
     });
 
     if (!user) throw new DebtError("MEMBER_NOT_FOUND", "Member not found.");
@@ -48,15 +26,13 @@ export async function GET(
       throw new DebtError("VALIDATION_ERROR", "This member is already deactivated.");
     }
 
-    const [dateResult, debtClearance] = await Promise.all([
-      computeDeactivationDate(db, id, user.joinedAt),
-      fetchDebtClearance(db, id),
-    ]);
+    const deactivatedAt = getNow();
+    const debtClearance = await fetchDebtClearance(db, id);
 
     return Response.json({
       data: {
-        deactivatedAt: dateResult.deactivatedAt.toISOString(),
-        reason: dateResult.reason,
+        deactivatedAt: deactivatedAt.toISOString(),
+        reason: "deactivation_time",
         debtClearance,
       },
     });
@@ -80,7 +56,7 @@ export async function POST(
     const result = await withSerializableRetry(async (tx) => {
       const user = await tx.user.findUnique({
         where: { id },
-        select: { status: true, joinedAt: true },
+        select: { status: true },
       });
       if (!user) throw new DebtError("MEMBER_NOT_FOUND", "Member not found.");
       if (user.status === "deactivated") {
@@ -102,23 +78,25 @@ export async function POST(
         );
       }
 
-      const { deactivatedAt } = await computeDeactivationDate(
-        tx,
-        id,
-        user.joinedAt
-      );
+      const deactivatedAt = getNow();
+      const currentMonthSettlement = await tx.monthlySettlementRun.findUnique({
+        where: { month: currentMonthStart() },
+        select: { id: true },
+      });
       await tx.user.update({
         where: { id },
         data: { status: "deactivated", deactivatedAt },
       });
-      await tx.mealRecord.updateMany({
-        where: {
-          userId: id,
-          date: { gt: new Date(today()) },
-          isLocked: false,
-        },
-        data: { mealCount: 0 },
-      });
+      if (!currentMonthSettlement) {
+        await tx.mealRecord.updateMany({
+          where: {
+            userId: id,
+            date: { gt: new Date(today()) },
+            isLocked: false,
+          },
+          data: { mealCount: 0 },
+        });
+      }
 
       return { deactivatedAt };
     });

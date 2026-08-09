@@ -56,12 +56,6 @@ export async function PUT(request: Request) {
         if (val.isNegative()) throw new Error();
         updateData.maidChargeDefault = val;
 
-        // Reset maid charges for the current month so they can be reapplied
-        const { currentMonthKey } = await import("@/lib/utils/dates");
-        const monthDate = new Date(currentMonthKey());
-        await db.maidCharge.deleteMany({
-          where: { month: monthDate },
-        });
       } catch {
         return Response.json({ error: "Invalid maid charge amount" }, { status: 400 });
       }

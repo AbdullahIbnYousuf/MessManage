@@ -101,6 +101,7 @@ User allocation = Cost per meal x meals taken by that user during the cycle
 ### 4.2 Member Leaving
 
 - When a member deactivates, all future scheduled meal records are immediately set to 0 from the next day onwards.
+- The deactivation timestamp records when the admin confirms the action; pre-generated future meal rows never determine it.
 - From the following month, the deactivated member is not charged the maid fee.
 - If a member deactivates before a month starts and stays deactivated all month, they are charged neither maid fee nor meal costs for that month.
 - Bulk item charges still apply: meals taken during any open cycle at time of deactivation are counted in the final allocation when the cycle closes.
@@ -125,7 +126,7 @@ User allocation = Cost per meal x meals taken by that user during the cycle
 - Each user sets a default meal pattern on joining. The pattern is day-of-week based — Monday through Sunday — each day stores a meal count of 0, 1, 2, or more.
 - A user who takes 2 meals every day simply sets 2 for all 7 days. One pattern design covers all cases.
 - The calendar is pre-filled from this default. Users only edit days where their plan differs.
-- When a user changes their pattern, the system auto-updates all remaining future days of the current month from today onwards. Past days are never affected.
+- When a user changes their pattern before the daily deadline, the system updates today through month end. At or after the deadline it starts tomorrow, leaving today to the existing edit-request workflow. Past days are never affected.
 - There is exactly one active pattern per user. When updated, it is changed in place. No history of past patterns is stored.
 
 ### 5.2 Planned vs Actual Meals
@@ -177,6 +178,7 @@ The dashboard shows a list of who is taking meals today. Primary purpose: the ma
 - The person who enters the bazar expense is the person who spent the money. Cannot record for another member.
 - A bazar entry with zero taka is valid — the member went but spent nothing. Still counts as a completed visit.
 - Submitting a bazar expense entry automatically marks the current trip as complete.
+- Each trip can create at most one expense; the database rejects concurrent duplicate submissions.
 
 ### 6.2 Bazar Trip Triggering
 
@@ -220,7 +222,7 @@ Visit count is always derived by counting completed bazar expense entries per us
 - An untouched month intentionally remains at zero maid charges and can settle at zero.
 - Admins may apply charges to the current month or a past unsettled month.
 - Default charge is 700 taka per member per month, stored in system configuration.
-- Admin can change the default. Changes do not automatically affect already-posted charges. However, admins have a "Reset Current Month Charges" action to delete and reapply charges for the current month based on the new rate.
+- Admin can change the default. The change never deletes or alters posted charges and applies only to a later manual charge application.
 - Deactivated members are not charged for any month where they are fully deactivated.
 
 ### 7.2 Maid Payment
@@ -255,6 +257,7 @@ Bulk items are goods purchased in large quantities lasting across multiple weeks
 - A cycle's start time is system-set: the exact moment the previous cycle was marked finished.
 - For the very first cycle of an item, start time is set to the moment the record is created.
 - A cycle ends when any member marks it as finished. No overlap — new cycle starts only after the previous one closes.
+- The database enforces at most one active cycle per bulk item, including during concurrent requests.
 
 ### 8.4 Cost Allocation
 
@@ -277,6 +280,11 @@ Bulk items are goods purchased in large quantities lasting across multiple weeks
 
 - At the end of each month, smart settlement calculates the minimum transactions needed to resolve all member balances.
 - A month can only be settled once. Once settled it cannot be recalculated or reopened.
+- Only completed past months can be settled; current and future months are blocked.
+- Once settled, bazar, maid, fridge, meal, and bulk source records for that month are read-only.
+- Closing checks readiness and creates settlement outputs atomically from one serializable database snapshot.
+- Monthly bazar cost is allocated in whole paisa by largest remainder so member balances and settlement transfers reconcile exactly.
+- Nonzero bazar spending with zero recorded meals blocks closing.
 - Settlement records are permanent snapshots.
 - After settlement, System 1 balance resets for the new month. Settlement amounts pass to System 2 as debt entries.
 

@@ -1,10 +1,14 @@
 // POST /api/bazar/expense — submit a bazar expense (closes the active trip)
 
 import { requireAuth } from "@/lib/session";
-import { db } from "@/lib/db";
 import { effectiveBazarDate, validateBazarAmount } from "@/lib/domain/bazar";
-import { getNow } from "@/lib/utils/dates";
+import { firstDayOfMonth, getDhakaParts, getNow } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
+import { Prisma } from "@prisma/client";
+import { withSerializableRetry } from "@/lib/services/debts/transactions";
+import { assertMonthOpen } from "@/lib/services/month-state";
+import { FinancialError } from "@/lib/domain/financial-errors";
+import { financialErrorResponse } from "@/lib/utils/financial-api";
 
 export async function POST(request: Request) {
   try {
@@ -27,22 +31,46 @@ export async function POST(request: Request) {
     const requestedDate = body.date ?? getNow().toISOString().slice(0, 10);
     const expenseDate = effectiveBazarDate(requestedDate);
 
-    // Get active trip
-    const config = await db.systemConfig.findFirst();
-    if (!config?.activeTripId) {
-      return Response.json({ error: "No active bazar trip found." }, { status: 400 });
-    }
+    const { y, m } = getDhakaParts(new Date(expenseDate));
+    const expenseMonth = firstDayOfMonth(y, m);
+    const now = getNow();
 
-    const trip = await db.bazarTrip.findUnique({
-      where: { id: config.activeTripId },
-    });
+    try {
+      await withSerializableRetry(async (tx) => {
+        const config = await tx.systemConfig.findFirst({
+          select: { activeTripId: true },
+        });
+        if (!config?.activeTripId) {
+          throw new FinancialError(
+            "BAZAR_TRIP_ALREADY_COMPLETED",
+            "This bazar trip has already been completed."
+          );
+        }
+        const trip = await tx.bazarTrip.findUnique({
+          where: { id: config.activeTripId },
+        });
+        if (!trip || trip.status !== "open") {
+          throw new FinancialError(
+            "BAZAR_TRIP_ALREADY_COMPLETED",
+            "This bazar trip has already been completed."
+          );
+        }
+        await assertMonthOpen(tx, expenseMonth);
+        const closed = await tx.bazarTrip.updateMany({
+          where: { id: trip.id, status: "open" },
+          data: {
+            status: "completed",
+            completedAt: now,
+            shoppingNotes: null,
+          },
+        });
+        if (closed.count !== 1) {
+          throw new FinancialError(
+            "BAZAR_TRIP_ALREADY_COMPLETED",
+            "This bazar trip has already been completed."
+          );
+        }
 
-    if (!trip || trip.status !== "open") {
-      return Response.json({ error: "No active bazar trip found." }, { status: 400 });
-    }
-
-    // Submit expense + close trip + clear notes + clear activeTripId — all atomic
-    await db.$transaction(async (tx) => {
       await tx.bazarExpense.create({
         data: {
           userId: user.id,
@@ -51,28 +79,30 @@ export async function POST(request: Request) {
           tripWeight: body.isInstant ? 0.1 : 1.0,
           note: body.note ?? null,
           date: new Date(expenseDate),
-          submittedAt: getNow(),
+          submittedAt: now,
         },
       });
-
-      await tx.bazarTrip.update({
-        where: { id: trip.id },
-        data: {
-          status: "completed",
-          completedAt: getNow(),
-          shoppingNotes: null,
-        },
-      });
-
       await tx.systemConfig.updateMany({
+        where: { activeTripId: trip.id },
         data: { activeTripId: null },
       });
-    });
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError
+        && error.code === "P2002"
+      ) {
+        throw new FinancialError(
+          "BAZAR_TRIP_ALREADY_COMPLETED",
+          "This bazar trip has already been completed."
+        );
+      }
+      throw error;
+    }
 
     return Response.json({ data: { submitted: true, date: expenseDate, amount: amount.toFixed(2) } }, { status: 201 });
   } catch (err) {
     if (err instanceof Response) return err;
-    console.error(err);
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return financialErrorResponse(err, "Bazar expense creation");
   }
 }

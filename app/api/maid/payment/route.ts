@@ -5,6 +5,9 @@ import { db } from "@/lib/db";
 import { validateMaidPayment } from "@/lib/domain/maid";
 import { currentMonthKey } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
+import { withSerializableRetry } from "@/lib/services/debts/transactions";
+import { assertMonthOpen } from "@/lib/services/month-state";
+import { financialErrorResponse } from "@/lib/utils/financial-api";
 
 export async function GET() {
   try {
@@ -52,16 +55,22 @@ export async function POST(request: Request) {
     }
 
     const monthStr = body.month ?? currentMonthKey();
-    const monthDate = new Date(monthStr);
+    if (!/^\d{4}-(0[1-9]|1[0-2])(?:-01)?$/.test(monthStr)) {
+      return Response.json({ error: "Invalid month format. Use YYYY-MM." }, { status: 400 });
+    }
+    const monthDate = new Date(`${monthStr.slice(0, 7)}-01`);
 
-    const payment = await db.maidPayment.create({
-      data: {
-        paidById: user.id,
-        amount: new Decimal(String(body.amount)),
-        month: monthDate,
-        note: body.note?.trim() || null,
-        paidAt: new Date(),
-      },
+    const payment = await withSerializableRetry(async (tx) => {
+      await assertMonthOpen(tx, monthDate);
+      return tx.maidPayment.create({
+        data: {
+          paidById: user.id,
+          amount: new Decimal(String(body.amount)),
+          month: monthDate,
+          note: body.note?.trim() || null,
+          paidAt: new Date(),
+        },
+      });
     });
 
     return Response.json({
@@ -74,7 +83,6 @@ export async function POST(request: Request) {
     }, { status: 201 });
   } catch (err) {
     if (err instanceof Response) return err;
-    console.error(err);
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return financialErrorResponse(err, "Maid payment creation");
   }
 }

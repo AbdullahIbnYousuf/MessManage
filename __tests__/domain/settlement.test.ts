@@ -8,7 +8,11 @@
 
 import { describe, it, expect } from "vitest";
 import Decimal from "decimal.js";
-import { computeSettlement, computeNetBalance } from "@/lib/domain/settlement";
+import {
+  assertSettlementInvariants,
+  computeSettlement,
+  computeNetBalance,
+} from "@/lib/domain/settlement";
 import type { BalanceEntry } from "@/lib/domain/settlement";
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
@@ -155,6 +159,53 @@ describe("computeSettlement", () => {
       (t) => t.fromUserId === "b" || t.toUserId === "b"
     );
     expect(bobInvolved).toBe(false);
+  });
+});
+
+describe("assertSettlementInvariants", () => {
+  it("accepts a fully reconciled whole-paisa settlement", () => {
+    const balances = [
+      entry("a", "Alice", "33.33"),
+      entry("b", "Bob", "-16.67"),
+      entry("c", "Carol", "-16.66"),
+    ];
+    expect(() => assertSettlementInvariants(balances, computeSettlement(balances))).not.toThrow();
+  });
+
+  it("rejects a non-zero balance sum", () => {
+    const balances = [
+      entry("a", "Alice", "33.34"),
+      entry("b", "Bob", "-33.33"),
+    ];
+    expect(() => assertSettlementInvariants(balances, computeSettlement(balances)))
+      .toThrow("Settlement balances do not reconcile exactly to whole paisa.");
+  });
+
+  it("rejects transfer amounts below whole-paisa precision", () => {
+    const balances = [
+      entry("a", "Alice", "1.001"),
+      entry("b", "Bob", "-1.001"),
+    ];
+    expect(() => assertSettlementInvariants(balances, computeSettlement(balances)))
+      .toThrow("Settlement balances do not reconcile exactly to whole paisa.");
+  });
+
+  it("rejects transfers that leave a participant residual", () => {
+    const balances = [
+      entry("d1", "Debtor 1", "-40.00"),
+      entry("d2", "Debtor 2", "-10.00"),
+      entry("c1", "Creditor", "50.00"),
+    ];
+    const incorrectTransfers = [{
+      fromUserId: "d1",
+      fromUserName: "Debtor 1",
+      toUserId: "c1",
+      toUserName: "Creditor",
+      amount: new Decimal("50.00"),
+    }];
+
+    expect(() => assertSettlementInvariants(balances, incorrectTransfers))
+      .toThrow("Settlement balances do not reconcile exactly to whole paisa.");
   });
 });
 

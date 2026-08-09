@@ -6,7 +6,7 @@
 
 **Target release:** Release 1 - Operational DebtSync
 
-**Application stack:** Next.js 15 App Router, React 19, TypeScript, Prisma 6, PostgreSQL, Auth.js 5, Vercel, Vitest, web-push
+**Application stack:** Next.js 16.3 App Router, React 19, TypeScript, Prisma 6, PostgreSQL, Auth.js 5, Vercel, Vitest, web-push
 
 **Currency and timezone:** BDT, Asia/Dhaka
 
@@ -123,7 +123,7 @@ Command results:
 
 - `npm test`: passed; 8 test files and 122 tests.
 - `npm run lint`: passed with zero errors and two pre-existing warnings in `__tests__/domain/meal.test.ts` for unused `beforeEach` and `afterEach` imports.
-- `npm run build`: passed; Next.js 15.5.18 production compilation, type checking, and generation completed successfully.
+- Historical Phase 0 validation: `npm run build` passed on Next.js 15.5.18 before the later security upgrade to Next.js 16.3.0.
 
 Read-only production settlement preflight:
 

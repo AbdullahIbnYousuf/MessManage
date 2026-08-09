@@ -3,6 +3,7 @@
 
 import Decimal from "decimal.js";
 import { minDecimal } from "@/lib/utils/decimal";
+import { FinancialError } from "@/lib/domain/financial-errors";
 
 export type BalanceEntry = {
   userId: string;
@@ -71,6 +72,65 @@ export function computeSettlement(balances: BalanceEntry[]): SettlementTransfer[
   }
 
   return transfers;
+}
+
+/** Ensures a future closing can be persisted without hidden rounding residue. */
+export function assertSettlementInvariants(
+  balances: BalanceEntry[],
+  transfers: SettlementTransfer[]
+): void {
+  const totalBalance = balances.reduce(
+    (total, entry) => total.add(entry.balance),
+    new Decimal(0)
+  );
+  const totalCredits = balances.reduce(
+    (total, entry) => entry.balance.gt(0) ? total.add(entry.balance) : total,
+    new Decimal(0)
+  );
+  const totalDebts = balances.reduce(
+    (total, entry) => entry.balance.lt(0) ? total.add(entry.balance.abs()) : total,
+    new Decimal(0)
+  );
+  const totalTransferred = transfers.reduce(
+    (total, transfer) => total.add(transfer.amount),
+    new Decimal(0)
+  );
+  const invalidTransfer = transfers.some(
+    (transfer) => (
+      transfer.amount.lte(0)
+      || transfer.amount.decimalPlaces() > 2
+      || transfer.fromUserId === transfer.toUserId
+    )
+  );
+  const residuals = new Map(
+    balances.map((entry) => [entry.userId, new Decimal(entry.balance)])
+  );
+  let unknownParticipant = false;
+  for (const transfer of transfers) {
+    const debtor = residuals.get(transfer.fromUserId);
+    const creditor = residuals.get(transfer.toUserId);
+    if (debtor === undefined || creditor === undefined) {
+      unknownParticipant = true;
+      continue;
+    }
+    residuals.set(transfer.fromUserId, debtor.add(transfer.amount));
+    residuals.set(transfer.toUserId, creditor.sub(transfer.amount));
+  }
+  const hasResidual = [...residuals.values()].some((balance) => !balance.isZero());
+
+  if (
+    !totalBalance.isZero()
+    || !totalCredits.eq(totalDebts)
+    || !totalTransferred.eq(totalCredits)
+    || invalidTransfer
+    || unknownParticipant
+    || hasResidual
+  ) {
+    throw new FinancialError(
+      "SETTLEMENT_UNBALANCED",
+      "Settlement balances do not reconcile exactly to whole paisa."
+    );
+  }
 }
 
 /**

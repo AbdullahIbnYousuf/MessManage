@@ -1,10 +1,11 @@
 // PUT /api/meals/records/[date] — update meal count for today's record only
 
 import { requireAuth } from "@/lib/session";
-import { db } from "@/lib/db";
-import { today } from "@/lib/utils/dates";
+import { firstDayOfMonth, getDhakaParts, isDeadlinePassed, today } from "@/lib/utils/dates";
 import { canEditDirectly } from "@/lib/domain/meal";
-import { isDeadlinePassed } from "@/lib/utils/dates";
+import { withSerializableRetry } from "@/lib/services/debts/transactions";
+import { assertMonthOpen } from "@/lib/services/month-state";
+import { financialErrorResponse } from "@/lib/utils/financial-api";
 
 export async function PUT(
   request: Request,
@@ -29,43 +30,44 @@ export async function PUT(
       return Response.json({ error: "Meal count must be a non-negative integer." }, { status: 400 });
     }
 
-    // Get system config for deadline
-    const config = await db.systemConfig.findFirst();
-    const deadlinePassed = isDeadlinePassed(config?.mealDeadline ?? "22:00");
-
-    // Find the record
-    const record = await db.mealRecord.findUnique({
-      where: { userId_date: { userId: user.id, date: new Date(date) } },
-    });
-
-    if (!record) {
-      return Response.json({ error: "Meal record not found." }, { status: 404 });
-    }
-
-    if (record.isLocked) {
-      return Response.json({ error: "This meal record is permanently locked." }, { status: 400 });
-    }
-
-    if (!canEditDirectly(date, deadlinePassed)) {
-      const hasApprovedRequest = await db.mealEditRequest.findFirst({
-        where: {
-          userId: user.id,
-          mealRecordId: record.id,
-          status: "approved",
-        },
+    const targetDate = new Date(date);
+    const parts = getDhakaParts(targetDate);
+    const monthDate = firstDayOfMonth(parts.y, parts.m);
+    const updated = await withSerializableRetry(async (tx) => {
+      await assertMonthOpen(tx, monthDate);
+      const config = await tx.systemConfig.findFirst();
+      const deadlinePassed = isDeadlinePassed(config?.mealDeadline ?? "22:00");
+      const record = await tx.mealRecord.findUnique({
+        where: { userId_date: { userId: user.id, date: targetDate } },
       });
-
-      if (!hasApprovedRequest) {
-        return Response.json(
-          { error: "The meal deadline has passed. Submit an edit request instead." },
+      if (!record) {
+        throw Response.json({ error: "Meal record not found." }, { status: 404 });
+      }
+      if (record.isLocked) {
+        throw Response.json(
+          { error: "This meal record is permanently locked." },
           { status: 400 }
         );
       }
-    }
-
-    const updated = await db.mealRecord.update({
-      where: { id: record.id },
-      data: { mealCount },
+      if (!canEditDirectly(date, deadlinePassed)) {
+        const hasApprovedRequest = await tx.mealEditRequest.findFirst({
+          where: {
+            userId: user.id,
+            mealRecordId: record.id,
+            status: "approved",
+          },
+        });
+        if (!hasApprovedRequest) {
+          throw Response.json(
+            { error: "The meal deadline has passed. Submit an edit request instead." },
+            { status: 400 }
+          );
+        }
+      }
+      return tx.mealRecord.update({
+        where: { id: record.id },
+        data: { mealCount },
+      });
     });
 
     return Response.json({
@@ -78,7 +80,6 @@ export async function PUT(
     });
   } catch (err) {
     if (err instanceof Response) return err;
-    console.error(err);
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return financialErrorResponse(err, "Meal record update");
   }
 }

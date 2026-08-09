@@ -19,7 +19,7 @@ Every transaction reflects one of two directions: contribution (bazar) or consum
 | Formula | Definition |
 |---|---|
 | Meal Rate | Total bazar spending for month / Total meals taken by all members that month |
-| User Meal Cost | Meal rate x meals taken by user |
+| User Meal Cost | Exact monthly bazar total allocated in whole paisa by meal share using largest remainder and user_id as the stable tie-breaker |
 | User Monthly Expense | Meal cost + Maid fixed charge + Fridge bill + Bulk item allocation |
 | Net Balance | Bazar contributions + Maid payments + Fridge payments + Bulk payments - Meal costs - Maid charges - Fridge bills - Bulk allocations |
 
@@ -30,6 +30,7 @@ Every transaction reflects one of two directions: contribution (bazar) or consum
 - Database-agnostic — no database-specific types or syntax used.
 - All primary keys are UUIDs.
 - All monetary values are Decimal to avoid rounding errors.
+- Member meal costs always conserve the exact two-decimal monthly bazar total.
 - All dates use Date type (YYYY-MM-DD). All timestamps use Timestamp type (datetime with timezone).
 - Month references always use the first day of the month e.g. 2024-11-01 for November 2024.
 - Derived values (balances, leaderboard counts, meal rates) are computed at query time — not stored.
@@ -163,6 +164,7 @@ Stores each user's default weekly meal schedule. One row per user, updated in pl
 
 - When a user changes their default pattern, this row is updated in place — not replaced.
 - When updated, the system auto-fills all future MealRecord rows for the current month from today onwards with the new counts.
+- Before the configured deadline, propagation includes today. At or after the deadline, propagation starts tomorrow and today follows the MealEditRequest workflow.
 - Past MealRecord rows are never touched when the pattern changes.
 - A MealPattern row is created for a user at the time their membership is approved.
 
@@ -191,6 +193,7 @@ The daily meal log — one row per user per day. Future dates are pre-filled fro
 - A member can only edit a meal record on that exact day — before the deadline freely, or after the deadline with admin-granted permission via MealEditRequest.
 - Once the day ends (midnight), is_locked = true permanently for member access. An admin correction changes only meal_count and never unlocks the row.
 - Admins may correct daily counts in current or historical unsettled months. Corrections are blocked for settled months, dates covered by finished BulkCycles, dates before the member joined, and dates after deactivation.
+- Opening a settled calendar is read-only and never creates missing MealRecord rows.
 - When a user deactivates, all future MealRecord rows (from tomorrow onwards) are set to meal_count = 0.
 - Deactivated users do not appear in the daily meal dashboard.
 - The dashboard shows: each active member's name, their meal_count for today, and the total.
@@ -257,6 +260,7 @@ Represents a single active bazar run from the moment it is triggered until an ex
 #### Constraints
 
 - Only one BazarTrip with status = open may exist at any time.
+- The open-trip rule is enforced by a partial unique database index.
 
 ---
 
@@ -288,6 +292,7 @@ Records a member's spending for a completed bazar trip. Submitting this entry co
 - A member cannot submit a BazarExpense for another user — user_id must always equal the authenticated user.
 - amount must be 0 or greater.
 - date cannot be in a prior month.
+- trip_id is unique — one completed trip can produce at most one BazarExpense.
 
 ---
 
@@ -342,6 +347,7 @@ Tracks the full lifecycle of one bulk item purchase — from when the previous i
 #### Constraints
 
 - Only one BulkCycle with status = active may exist per BulkItem at any time.
+- The active-cycle rule is enforced by a partial unique database index on bulk_item_id.
 - A new cycle for an item cannot begin until the previous one is marked finished.
 
 ---
@@ -394,6 +400,7 @@ The monthly fixed maid fee applied to each active member. It is a separate line 
 - An admin may apply charges to the current month or a past unsettled month.
 - Deactivated members do not receive a MaidCharge.
 - The amount is stored at posting time from SystemConfig.maid_charge_default. Changes to the default do not affect already-posted charges.
+- Changing the default never deletes or reapplies current-month charges; it is used only by a later manual application.
 - Admin can set a custom amount per member per month if needed, overriding the default.
 
 #### Constraints
@@ -527,6 +534,11 @@ The output of the end-of-month settlement calculation. Records who owes whom fro
 - Each debtor-creditor pair becomes one MonthlySettlement row. For 6 members the maximum is 5 rows per month.
 - MonthlySettlement rows are permanent snapshots. They cannot be recalculated or deleted.
 - A month can only be settled once. Attempting to settle an already-settled month is blocked at the application layer.
+- Only a completed past month may be settled. Current and future months are rejected.
+- Settlement readiness, canonical balances, the run, transfers, obligations, and persistent notifications are handled in one serializable transaction.
+- Before persistence, balances must sum to zero, every transfer must be positive and limited to two decimals, total debit must equal total credit, and no residual may remain.
+- Nonzero bazar spending with zero recorded meals blocks closing.
+- Once a run exists, every balance-source mutation for that month is rejected and historical financial rows remain unchanged.
 - After settlement, these amounts are exported to System 2 where the actual money movement is tracked.
 
 #### Constraints
@@ -636,7 +648,7 @@ Global system settings managed by admins. There is always exactly one row in thi
 - A person signs up via Google -> MembershipRequest is created (pending).
 - Admin approves -> User row is created, MembershipRequest.user_id is linked.
 - Admin rejects -> MembershipRequest stays as a rejected record for audit.
-- Member deactivates -> future MealRecords set to 0, excluded from new MaidCharges, still in open BulkCycle allocations.
+- Member deactivates -> deactivated_at records the actual action timestamp; future MealRecords from tomorrow are set to 0, the member is excluded from new MaidCharges, and remains in applicable open BulkCycle allocations.
 - Admin deactivates the account only after all balances are settled.
 
 ### Settlement
