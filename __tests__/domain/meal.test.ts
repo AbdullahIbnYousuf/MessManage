@@ -6,10 +6,11 @@
  * shouldLockRecord() controls the midnight cron locking logic.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import Decimal from "decimal.js";
 import {
   computeMealRate,
+  computeMealCostAllocations,
   mealCountFromPattern,
   canEditDirectly,
   canRequestEdit,
@@ -29,6 +30,45 @@ vi.mock("@/lib/utils/dates", async () => {
     today: () => "2024-12-15",
     // getDayKey is used by mealCountFromPattern — use real implementation
   };
+});
+
+describe("computeMealCostAllocations", () => {
+  it("preserves every paisa for a repeating three-way split", () => {
+    const allocations = computeMealCostAllocations(new Decimal("100.00"), [
+      { userId: "a", meals: 1 },
+      { userId: "b", meals: 1 },
+      { userId: "c", meals: 1 },
+    ]);
+
+    expect(allocations.map((allocation) => allocation.amount.toFixed(2))).toEqual([
+      "33.34",
+      "33.33",
+      "33.33",
+    ]);
+    expect(
+      allocations.reduce((total, allocation) => total.add(allocation.amount), new Decimal(0)).toFixed(2)
+    ).toBe("100.00");
+  });
+
+  it("uses meal share first and userId as the remainder tie-breaker", () => {
+    const allocations = computeMealCostAllocations(new Decimal("10.01"), [
+      { userId: "z", meals: 2 },
+      { userId: "a", meals: 1 },
+      { userId: "m", meals: 1 },
+    ]);
+
+    expect(allocations.find((allocation) => allocation.userId === "z")?.amount.toFixed(2)).toBe("5.01");
+    expect(allocations.find((allocation) => allocation.userId === "a")?.amount.toFixed(2)).toBe("2.50");
+    expect(allocations.find((allocation) => allocation.userId === "m")?.amount.toFixed(2)).toBe("2.50");
+  });
+
+  it("returns no allocations when no meals were recorded", () => {
+    expect(
+      computeMealCostAllocations(new Decimal("100.00"), [
+        { userId: "a", meals: 0 },
+      ])
+    ).toEqual([]);
+  });
 });
 
 // ─── computeMealRate ─────────────────────────────────────────────────────────

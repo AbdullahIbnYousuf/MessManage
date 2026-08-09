@@ -22,7 +22,7 @@ interface Props {
 
 interface DeactivatePreview {
   deactivatedAt: string;
-  reason: "last_meal" | "joined_date";
+  reason: "deactivation_time";
   debtClearance: {
     youOwe: string;
     owedToYou: string;
@@ -159,10 +159,7 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
       })
     : null;
 
-  const previewMessage =
-    preview?.reason === "last_meal"
-      ? "Based on their last recorded meal."
-      : "This member never recorded a meal — date set to when they joined.";
+  const previewMessage = "Effective when you confirm deactivation.";
 
   return (
     <div className="card" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>

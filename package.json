@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "postinstall": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
+    "db:preflight:financial-indexes": "tsx scripts/preflight-financial-indexes.ts",
     "db:reset": "npx prisma migrate reset --force && npm run db:seed",
     "debts:backfill": "tsx scripts/backfill-debt-obligations.ts"
   },

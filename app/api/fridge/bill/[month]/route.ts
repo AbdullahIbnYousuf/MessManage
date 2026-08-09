@@ -6,9 +6,11 @@
 //   - Month must not be settled.
 
 import { requireAdmin } from "@/lib/session";
-import { db } from "@/lib/db";
 import { computeFridgeAllocations, computeTotalFromReadings } from "@/lib/domain/fridge";
 import Decimal from "decimal.js";
+import { withSerializableRetry } from "@/lib/services/debts/transactions";
+import { assertMonthOpen } from "@/lib/services/month-state";
+import { financialErrorResponse } from "@/lib/utils/financial-api";
 
 export async function PATCH(
   request: Request,
@@ -24,91 +26,65 @@ export async function PATCH(
     }
     const monthDate = new Date(`${month}-01`);
 
-    const bill = await db.fridgeBill.findUnique({
-      where: { month: monthDate },
-      include: { allocations: { select: { userId: true } } },
-    });
-    if (!bill) {
-      return Response.json({ error: "No fridge bill found for this month." }, { status: 404 });
-    }
-
-    // Block edit if already settled
-    const settled = await db.monthlySettlementRun.findUnique({
-      where: { month: monthDate },
-      select: { id: true },
-    });
-    if (settled) {
-      return Response.json(
-        { error: "This month has already been settled. The bill cannot be corrected." },
-        { status: 400 }
-      );
-    }
-
     const body = await request.json() as {
       previousReading?: unknown;
       currentReading?: unknown;
       unitPrice?: unknown;
     };
 
-    // Resolve readings — fall back to existing values if not provided
-    let previousReading: Decimal;
-    let currentReading: Decimal;
-    let unitPrice: Decimal;
+    const result = await withSerializableRetry(async (tx) => {
+      const bill = await tx.fridgeBill.findUnique({
+        where: { month: monthDate },
+        include: { allocations: { select: { userId: true } } },
+      });
+      if (!bill) {
+        throw Response.json({ error: "No fridge bill found for this month." }, { status: 404 });
+      }
+      await assertMonthOpen(tx, monthDate);
 
-    try {
-      previousReading = body.previousReading !== undefined && body.previousReading !== null && body.previousReading !== ""
-        ? new Decimal(String(body.previousReading))
-        : new Decimal(bill.previousReading.toString());
-    } catch {
-      return Response.json({ error: "Invalid previousReading." }, { status: 400 });
-    }
-
-    try {
-      currentReading = body.currentReading !== undefined && body.currentReading !== null && body.currentReading !== ""
-        ? new Decimal(String(body.currentReading))
-        : new Decimal(bill.currentReading.toString());
-    } catch {
-      return Response.json({ error: "Invalid currentReading." }, { status: 400 });
-    }
-
-    try {
-      unitPrice = body.unitPrice !== undefined && body.unitPrice !== null && body.unitPrice !== ""
-        ? new Decimal(String(body.unitPrice))
-        : new Decimal(bill.unitPrice.toString());
-      if (unitPrice.lte(0)) throw new Error();
-    } catch {
-      return Response.json({ error: "Invalid unitPrice." }, { status: 400 });
-    }
-
-    if (currentReading.lt(previousReading)) {
-      return Response.json(
-        { error: "Current reading cannot be less than the previous reading." },
-        { status: 400 }
+      let previousReading: Decimal;
+      let currentReading: Decimal;
+      let unitPrice: Decimal;
+      try {
+        previousReading = body.previousReading !== undefined && body.previousReading !== null && body.previousReading !== ""
+          ? new Decimal(String(body.previousReading))
+          : new Decimal(bill.previousReading.toString());
+        currentReading = body.currentReading !== undefined && body.currentReading !== null && body.currentReading !== ""
+          ? new Decimal(String(body.currentReading))
+          : new Decimal(bill.currentReading.toString());
+        unitPrice = body.unitPrice !== undefined && body.unitPrice !== null && body.unitPrice !== ""
+          ? new Decimal(String(body.unitPrice))
+          : new Decimal(bill.unitPrice.toString());
+      } catch {
+        throw Response.json({ error: "Invalid fridge bill values." }, { status: 400 });
+      }
+      if (unitPrice.lte(0)) {
+        throw Response.json({ error: "Invalid unitPrice." }, { status: 400 });
+      }
+      if (currentReading.lt(previousReading)) {
+        throw Response.json(
+          { error: "Current reading cannot be less than the previous reading." },
+          { status: 400 }
+        );
+      }
+      const computedTotal = computeTotalFromReadings(previousReading, currentReading, unitPrice);
+      if (!computedTotal || computedTotal.lte(0)) {
+        throw Response.json(
+          { error: "Computed bill amount is zero — check your meter readings." },
+          { status: 400 }
+        );
+      }
+      if (bill.allocations.length === 0 || bill.allocations.length !== bill.memberCount) {
+        throw Response.json(
+          { error: "This bill's frozen member allocations are incomplete and it cannot be corrected." },
+          { status: 409 }
+        );
+      }
+      const totalAmount = computedTotal.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+      const allocations = computeFridgeAllocations(
+        totalAmount,
+        bill.allocations.map((allocation) => allocation.userId)
       );
-    }
-
-    const computedTotal = computeTotalFromReadings(previousReading, currentReading, unitPrice);
-    if (!computedTotal || computedTotal.lte(0)) {
-      return Response.json(
-        { error: "Computed bill amount is zero — check your meter readings." },
-        { status: 400 }
-      );
-    }
-
-    if (bill.allocations.length === 0 || bill.allocations.length !== bill.memberCount) {
-      return Response.json(
-        { error: "This bill's frozen member allocations are incomplete and it cannot be corrected." },
-        { status: 409 }
-      );
-    }
-
-    const totalAmount = computedTotal.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
-    const allocations = computeFridgeAllocations(
-      totalAmount,
-      bill.allocations.map((allocation) => allocation.userId)
-    );
-
-    const updated = await db.$transaction(async (tx) => {
       const updatedBill = await tx.fridgeBill.update({
         where: { month: monthDate },
         data: { previousReading, currentReading, unitPrice, totalAmount },
@@ -123,10 +99,11 @@ export async function PATCH(
         })
       ));
 
-      return updatedBill;
+      return { updated: updatedBill, allocations };
     });
 
-    const allocationAmounts = allocations.map((allocation) => allocation.amount);
+    const allocationAmounts = result.allocations.map((allocation) => allocation.amount);
+    const { updated } = result;
 
     return Response.json({
       data: {
@@ -145,7 +122,6 @@ export async function PATCH(
     });
   } catch (err) {
     if (err instanceof Response) return err;
-    console.error(err);
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return financialErrorResponse(err, "Fridge bill correction");
   }
 }

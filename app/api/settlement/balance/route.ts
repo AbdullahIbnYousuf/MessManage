@@ -36,6 +36,11 @@ export async function GET(request: Request) {
       monthDate = new Date(currentMonthKey());
       isCurrent = true;
     }
+    const timestampEndExclusive = new Date(Date.UTC(
+      monthEnd.getUTCFullYear(),
+      monthEnd.getUTCMonth() + 1,
+      1
+    ));
 
     const [
       result,
@@ -58,8 +63,8 @@ export async function GET(request: Request) {
       db.maidCharge.aggregate({ where: { month: monthDate }, _sum: { amount: true } }),
       db.maidPayment.aggregate({ where: { month: monthDate }, _sum: { amount: true } }),
       fetchFridgeMonthTotals(monthDate),
-      db.bulkCycle.aggregate({ where: { finishedAt: { gte: monthStart, lte: monthEnd } }, _sum: { cost: true } }),
-      db.bulkAllocation.aggregate({ where: { allocatedAt: { gte: monthStart, lte: monthEnd } }, _sum: { amount: true } }),
+      db.bulkCycle.aggregate({ where: { finishedAt: { gte: monthStart, lt: timestampEndExclusive } }, _sum: { cost: true } }),
+      db.bulkAllocation.aggregate({ where: { allocatedAt: { gte: monthStart, lt: timestampEndExclusive } }, _sum: { amount: true } }),
     ]);
 
     const maidChargesSum = new Decimal(actualMaidCharges._sum.amount?.toString() ?? "0");

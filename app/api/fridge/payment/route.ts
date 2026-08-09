@@ -3,9 +3,11 @@
 // frozen FridgeAllocation debit from the FridgeBill.
 
 import { requireAuth } from "@/lib/session";
-import { db } from "@/lib/db";
 import { previousMonthKey } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
+import { withSerializableRetry } from "@/lib/services/debts/transactions";
+import { assertMonthOpen } from "@/lib/services/month-state";
+import { financialErrorResponse } from "@/lib/utils/financial-api";
 
 export async function POST(request: Request) {
   try {
@@ -31,32 +33,25 @@ export async function POST(request: Request) {
 
     // Resolve the bill by month (defaults to previous month)
     const monthStr = body.month ?? previousMonthKey();
-    const monthDate = new Date(monthStr);
-
-    const bill = await db.fridgeBill.findUnique({ where: { month: monthDate } });
-    if (!bill) {
-      return Response.json({ error: "No fridge bill found for this month." }, { status: 404 });
+    if (!/^\d{4}-(0[1-9]|1[0-2])(?:-01)?$/.test(monthStr)) {
+      return Response.json({ error: "Invalid month format. Use YYYY-MM." }, { status: 400 });
     }
+    const monthDate = new Date(`${monthStr.slice(0, 7)}-01`);
 
-    // Block payment if this bill's month has already been settled
-    const settled = await db.monthlySettlementRun.findUnique({
-      where: { month: bill.month },
-      select: { id: true },
-    });
-    if (settled) {
-      return Response.json(
-        { error: "This month has already been settled. Payments can no longer be recorded." },
-        { status: 400 }
-      );
-    }
-
-    const payment = await db.fridgePayment.create({
-      data: {
-        billId: bill.id,
-        paidById: user.id,
-        amount,
-        paidAt: new Date(),
-      },
+    const payment = await withSerializableRetry(async (tx) => {
+      const bill = await tx.fridgeBill.findUnique({ where: { month: monthDate } });
+      if (!bill) {
+        throw Response.json({ error: "No fridge bill found for this month." }, { status: 404 });
+      }
+      await assertMonthOpen(tx, bill.month);
+      return tx.fridgePayment.create({
+        data: {
+          billId: bill.id,
+          paidById: user.id,
+          amount,
+          paidAt: new Date(),
+        },
+      });
     });
 
     return Response.json({
@@ -69,7 +64,6 @@ export async function POST(request: Request) {
     }, { status: 201 });
   } catch (err) {
     if (err instanceof Response) return err;
-    console.error(err);
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return financialErrorResponse(err, "Fridge payment creation");
   }
 }

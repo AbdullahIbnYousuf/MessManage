@@ -1,9 +1,9 @@
 // POST /api/admin/members/[id]/reactivate — Reactivate a member account
 
 import { requireAdmin } from "@/lib/session";
-import { db } from "@/lib/db";
-import { today } from "@/lib/utils/dates";
+import { currentMonthStart, today } from "@/lib/utils/dates";
 import { futureDatesInCurrentMonth, applyPatternToDate } from "@/lib/domain/meal";
+import { withSerializableRetry } from "@/lib/services/debts/transactions";
 
 export async function POST(
   _request: Request,
@@ -13,20 +13,24 @@ export async function POST(
     await requireAdmin();
     const { id } = await params;
 
-    const user = await db.user.findUnique({ where: { id } });
-
-    if (!user) {
-      return Response.json({ error: "Member not found." }, { status: 404 });
-    }
-
-    if (user.status === "active") {
-      return Response.json({ error: "This member is already active." }, { status: 400 });
-    }
-
     const todayStr = today();
 
     // Reactivate user + regenerate all future meal records from tomorrow onwards using pattern
-    await db.$transaction(async (tx) => {
+    await withSerializableRetry(async (tx) => {
+      const user = await tx.user.findUnique({ where: { id } });
+      if (!user) {
+        throw Response.json({ error: "Member not found." }, { status: 404 });
+      }
+      if (user.status === "active") {
+        throw Response.json(
+          { error: "This member is already active." },
+          { status: 400 }
+        );
+      }
+      const currentMonthSettlement = await tx.monthlySettlementRun.findUnique({
+        where: { month: currentMonthStart() },
+        select: { id: true },
+      });
       await tx.user.update({
         where: { id },
         data: {
@@ -35,8 +39,10 @@ export async function POST(
         },
       });
 
-      const pattern = await tx.mealPattern.findUnique({ where: { userId: id } });
-      if (pattern) {
+      const pattern = currentMonthSettlement
+        ? null
+        : await tx.mealPattern.findUnique({ where: { userId: id } });
+      if (pattern !== null) {
         const futureDates = futureDatesInCurrentMonth().filter(d => d > todayStr);
         for (const dateStr of futureDates) {
           const newCount = applyPatternToDate(pattern, dateStr);

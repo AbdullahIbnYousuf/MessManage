@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
   const transactionClient = {
-    monthlySettlementRun: { create: vi.fn() },
+    monthlySettlementRun: { findUnique: vi.fn(), create: vi.fn() },
     monthlySettlement: { create: vi.fn() },
     debtObligation: { create: vi.fn() },
     debtNotification: { create: vi.fn() },
@@ -85,6 +85,7 @@ describe("runMonthSettlement", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.findRun.mockResolvedValue(null);
+    mocks.transactionClient.monthlySettlementRun.findUnique.mockResolvedValue(null);
     mocks.fetchReadiness.mockResolvedValue([]);
     mocks.fetchBalances.mockResolvedValue(balanceResult("-50.00", "50.00"));
     mocks.transactionClient.monthlySettlementRun.create.mockResolvedValue({ id: "run" });
@@ -136,7 +137,7 @@ describe("runMonthSettlement", () => {
   });
 
   it("returns already_settled without recalculating an existing month", async () => {
-    mocks.findRun.mockResolvedValue({ id: "existing-run" });
+    mocks.transactionClient.monthlySettlementRun.findUnique.mockResolvedValue({ id: "existing-run" });
 
     const result = await runMonthSettlement({
       monthKey: "2026-07-01",
@@ -145,13 +146,41 @@ describe("runMonthSettlement", () => {
 
     expect(result.status).toBe("already_settled");
     expect(mocks.fetchBalances).not.toHaveBeenCalled();
+    expect(mocks.transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks current and future months before opening a transaction", async () => {
+    const result = await runMonthSettlement({
+      monthKey: "2026-08-01",
+      trigger: "manual",
+      actorId: "admin",
+    });
+
+    expect(result).toMatchObject({
+      status: "blocked",
+      code: "SETTLEMENT_MONTH_NOT_CLOSED",
+    });
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
+  it("blocks nonzero bazar spending when the month has zero meals", async () => {
+    const resultWithNoMeals = balanceResult("0.00", "0.00");
+    resultWithNoMeals.totalMonthMeals = 0;
+    resultWithNoMeals.totalMonthBazar = new Decimal("100.00");
+    mocks.fetchBalances.mockResolvedValue(resultWithNoMeals);
+
+    const result = await runMonthSettlement({
+      monthKey: "2026-07-01",
+      trigger: "manual",
+      actorId: "admin",
+    });
+
+    expect(result).toMatchObject({ status: "blocked" });
+    expect(mocks.transactionClient.monthlySettlementRun.create).not.toHaveBeenCalled();
+  });
+
   it("classifies a concurrent run-creation winner as already_settled", async () => {
-    mocks.findRun
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ id: "winning-run" });
+    mocks.findRun.mockResolvedValue({ id: "winning-run" });
     mocks.transaction.mockRejectedValue(
       new Prisma.PrismaClientKnownRequestError("Unique run month", {
         code: "P2002",

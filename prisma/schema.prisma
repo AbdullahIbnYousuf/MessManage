@@ -171,7 +171,7 @@ model BazarTrip {
   status        BazarTripStatus @default(open)
   triggeredAt   DateTime        @map("triggered_at")
   completedAt   DateTime?       @map("completed_at")
-  expenses      BazarExpense[]
+  expense       BazarExpense?
   assignee1     User?           @relation("BazarTripAssignee1", fields: [assignee1Id], references: [id])
   assignee2     User?           @relation("BazarTripAssignee2", fields: [assignee2Id], references: [id])
   triggeredBy   User            @relation("BazarTripTriggeredBy", fields: [triggeredById], references: [id])
@@ -183,7 +183,7 @@ model BazarTrip {
 model BazarExpense {
   id          String    @id @default(uuid())
   userId      String    @map("user_id")
-  tripId      String    @map("trip_id")
+  tripId      String    @unique @map("trip_id")
   amount      Decimal   @db.Decimal(12, 2)
   tripWeight  Decimal   @default(1.0) @map("trip_weight") @db.Decimal(3, 2)
   note        String?

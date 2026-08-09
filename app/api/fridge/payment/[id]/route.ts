@@ -8,6 +8,9 @@ import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
 import { getNow, toDateString } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
+import { withSerializableRetry } from "@/lib/services/debts/transactions";
+import { assertMonthOpen } from "@/lib/services/month-state";
+import { financialErrorResponse } from "@/lib/utils/financial-api";
 
 export async function PATCH(
   request: Request,
@@ -44,20 +47,6 @@ export async function PATCH(
       );
     }
 
-    // Admin rule: bill's month must not be settled
-    if (isAdmin) {
-      const settled = await db.monthlySettlementRun.findUnique({
-        where: { month: payment.bill.month },
-        select: { id: true },
-      });
-      if (settled) {
-        return Response.json(
-          { error: "This month has already been settled. The payment cannot be edited." },
-          { status: 400 }
-        );
-      }
-    }
-
     const body = await request.json() as { amount?: unknown };
 
     let amount: Decimal | undefined;
@@ -76,10 +65,21 @@ export async function PATCH(
       return Response.json({ error: "Nothing to update." }, { status: 400 });
     }
 
-    const updated = await db.fridgePayment.update({
-      where: { id },
-      data: { amount },
+    const updated = await withSerializableRetry(async (tx) => {
+      const current = await tx.fridgePayment.findUnique({
+        where: { id },
+        include: { bill: { select: { month: true } } },
+      });
+      if (!current) return null;
+      await assertMonthOpen(tx, current.bill.month);
+      return tx.fridgePayment.update({
+        where: { id },
+        data: { amount },
+      });
     });
+    if (!updated) {
+      return Response.json({ error: "Payment not found." }, { status: 404 });
+    }
 
     return Response.json({
       data: {
@@ -90,7 +90,6 @@ export async function PATCH(
     });
   } catch (err) {
     if (err instanceof Response) return err;
-    console.error(err);
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    return financialErrorResponse(err, "Fridge payment update");
   }
 }
