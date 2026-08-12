@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { PageHeader } from "@/components/ui/Editorial";
 import MealCalendar from "@/components/domain/meal/MealCalendar";
 import { formatMonthLabel } from "@/lib/utils/dates";
 import type { AdminMealCalendarRecord } from "@/types";
@@ -162,22 +163,8 @@ export default function AdminMemberMealsClient({
         </Link>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "1rem",
-          marginBottom: "1.25rem",
-        }}
-      >
-        <div>
-          <h1 style={{ fontSize: "1.75rem", fontWeight: 700, margin: 0 }}>
-            Edit Member Meals
-          </h1>
-          <p className="text-secondary" style={{ fontSize: "0.875rem", marginTop: "0.25rem" }}>
-            Correct individual daily counts without changing the weekly pattern.
-          </p>
-        </div>
+      <div style={{ marginBottom: "1.25rem" }}>
+        <PageHeader eyebrow="Administration" title="Edit member meals" description="Correct individual daily counts without changing the weekly pattern." />
 
         {data && (
           <div className="card" style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.875rem" }}>

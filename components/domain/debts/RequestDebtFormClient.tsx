@@ -5,6 +5,7 @@ import Link from "next/link";
 import Decimal from "decimal.js";
 import type { DebtDashboardSummary, DebtRequestItem } from "@/types/debts";
 import { formatTaka } from "@/lib/utils/decimal";
+import { PageHeader } from "@/components/ui/Editorial";
 
 type Member = { id: string; name: string; nickname: string | null; status: string };
 
@@ -62,8 +63,7 @@ export default function RequestDebtFormClient({ currentUserId }: { currentUserId
 
   return <div className="page-container debt-page">
     <div className="debt-back"><Link href="/money">← Debts &amp; payments</Link></div>
-    <h1 className="debt-title">Request debt</h1>
-    <p className="text-secondary debt-subtitle">Ask a member to confirm that they owe you. Nothing changes until they accept.</p>
+    <PageHeader eyebrow="Private participant record" title="Request debt" description="Ask a member to confirm that they owe you. Nothing changes until they accept." />
     <form className="card debt-form" onSubmit={review}>
       <label><span>Who owes you?</span><select className="input" required value={debtorId} onChange={(event) => { setDebtorId(event.target.value); setConfirming(false); }}><option value="">Select a member</option>{members.map((member) => <option value={member.id} key={member.id}>{member.nickname || member.name}</option>)}</select></label>
       {debtorId && <div className="debt-context"><strong>Current position</strong><span>{pairwise?.direction === "you_owe" ? `You currently owe ${debtor?.nickname || debtor?.name} ${formatTaka(new Decimal(pairwise.position).abs())}.` : pairwise?.direction === "owes_you" ? `${debtor?.nickname || debtor?.name} currently owes you ${formatTaka(pairwise.position)}.` : "There is currently no confirmed debt between you."}</span></div>}

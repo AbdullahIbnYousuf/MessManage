@@ -34,7 +34,7 @@ export default function MembersDirectoryClient() {
 
   if (loading) {
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
+      <div className="member-directory-grid">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="card skeleton" style={{ height: 120, borderRadius: "var(--radius-lg)" }} />
         ))}
@@ -43,32 +43,13 @@ export default function MembersDirectoryClient() {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
-      {members.map((m, i) => {
+    <div className="member-directory-grid">
+      {members.map((m) => {
         const displayName = m.nickname ?? m.name;
         
         return (
-          <Link key={m.id} href={`/members/${m.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-            <div 
-              className="card"
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "1rem",
-                cursor: "pointer",
-                transition: "border-color 0.18s, transform 0.18s",
-                animation: `slideUp 0.3s cubic-bezier(0.16,1,0.3,1) ${0.05 * i}s both`,
-                opacity: m.status === "deactivated" ? 0.6 : 1,
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = "var(--color-primary)";
-                (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = "var(--color-border)";
-                (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
-              }}
-            >
+          <Link className="member-directory-link" key={m.id} href={`/members/${m.id}`}>
+            <div className={`card member-directory-card${m.status === "deactivated" ? " is-deactivated" : ""}`}>
               <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                 {m.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element

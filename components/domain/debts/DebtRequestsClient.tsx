@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { DebtRequestItem, DebtRequestPage } from "@/types/debts";
 import DebtRequestCard from "@/components/domain/debts/DebtRequestCard";
+import { PageHeader } from "@/components/ui/Editorial";
 
 export default function DebtRequestsClient({ currentUserId }: { currentUserId: string }) {
   const router = useRouter();
@@ -39,7 +40,8 @@ export default function DebtRequestsClient({ currentUserId }: { currentUserId: s
   }
 
   return <div className="page-container debt-page">
-    <div className="section-header"><div><div className="debt-back"><Link href="/money">← Debts &amp; payments</Link></div><h1 className="debt-title">Debt requests</h1><p className="text-secondary debt-subtitle">Only you and the other participant can see these request details.</p></div><Link className="btn btn-primary" href="/debts/requests/new">Request debt</Link></div>
+    <div className="debt-back"><Link href="/money">← Debts &amp; payments</Link></div>
+    <PageHeader eyebrow="Private participant records" title="Debt requests" description="Only you and the other participant can see these details." />
     <div className="card debt-filters"><label><span>Direction</span><select className="input" value={searchParams.get("direction") ?? "all"} onChange={(event) => setFilter("direction", event.target.value)}><option value="all">All requests</option><option value="incoming">Needs my response</option><option value="outgoing">Requested by me</option></select></label><label><span>Status</span><select className="input" value={searchParams.get("status") ?? ""} onChange={(event) => setFilter("status", event.target.value)}><option value="">All statuses</option><option value="pending">Pending</option><option value="accepted">Accepted</option><option value="rejected">Rejected</option><option value="cancelled">Cancelled</option></select></label></div>
     {loading ? <div className="debt-state"><span className="spinner" /> Loading requests…</div> : error ? <div className="debt-error" role="alert">{error}<button className="btn btn-secondary" onClick={() => void load()}>Retry</button></div> : requests.length === 0 ? <div className="debt-empty">No debt requests match these filters.</div> : <div className="debt-list">{requests.map((request) => <DebtRequestCard key={request.id} request={request} currentUserId={currentUserId} />)}</div>}
     {nextCursor && !loading && <button className="btn btn-secondary debt-load-more" disabled={loadingMore} onClick={() => void load(nextCursor)}>{loadingMore ? <><span className="spinner" /> Loading…</> : "Load more"}</button>}

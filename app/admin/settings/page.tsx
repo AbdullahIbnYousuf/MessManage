@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import SystemSettingsClient from "@/components/domain/admin/SystemSettingsClient";
+import { PageHeader } from "@/components/ui/Editorial";
 
 export const metadata = {
   title: "System settings",
@@ -13,14 +14,7 @@ export default async function SystemSettingsPage() {
 
   return (
     <div className="page-container">
-      <div className="section-header" style={{ marginBottom: "1.5rem" }}>
-        <div>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700 }}>System Settings</h1>
-          <p className="text-secondary" style={{ fontSize: "0.875rem", marginTop: "0.25rem" }}>
-            Configure global deadlines and defaults for the household.
-          </p>
-        </div>
-      </div>
+      <PageHeader eyebrow="Administration" title="System settings" description="Configure global deadlines and household defaults." />
       <SystemSettingsClient />
     </div>
   );

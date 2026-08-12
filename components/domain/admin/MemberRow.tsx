@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { formatTaka } from "@/lib/utils/decimal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 interface Member {
   id: string;
@@ -45,6 +46,8 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
   const [preview, setPreview] = useState<DeactivatePreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [confirmReactivate, setConfirmReactivate] = useState(false);
+  const [pendingRole, setPendingRole] = useState<string | null>(null);
 
   async function handleDeactivateClick() {
     setPreviewLoading(true);
@@ -101,7 +104,7 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
   }
 
   async function handleReactivate() {
-    if (!confirm(`Reactivate ${member.name}? This will restore their future meal records.`)) return;
+    setConfirmReactivate(false);
     setLoading(true);
     setError(null);
     try {
@@ -121,7 +124,7 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
   }
 
   async function handleRoleChange(newRole: string) {
-    if (!confirm(`Change ${member.name}'s role to ${newRole}?`)) return;
+    setPendingRole(null);
     setRoleLoading(true);
     setError(null);
     try {
@@ -200,7 +203,7 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
           {member.id !== currentUserId && !deactivated ? (
             <select
               value={role}
-              onChange={(event) => void handleRoleChange(event.target.value)}
+              onChange={(event) => setPendingRole(event.target.value)}
               disabled={roleLoading || loading || previewLoading || confirming}
               className="input"
               style={{ minHeight: 44, textTransform: "capitalize" }}
@@ -254,7 +257,7 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
         {deactivated && member.id !== currentUserId && (
           <button
             className="btn btn-ghost"
-            onClick={() => void handleReactivate()}
+            onClick={() => setConfirmReactivate(true)}
             disabled={loading}
             style={{ width: "100%", minHeight: 44, color: "var(--color-success)" }}
           >
@@ -326,6 +329,25 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
           </button>
         </div>
       )}
+      <ConfirmDialog
+        open={confirmReactivate}
+        title={`Reactivate ${member.name}?`}
+        description="This will restore their future meal records."
+        confirmLabel="Reactivate member"
+        busy={loading}
+        onCancel={() => setConfirmReactivate(false)}
+        onConfirm={() => void handleReactivate()}
+      />
+      <ConfirmDialog
+        open={pendingRole !== null}
+        title={`Change ${member.name}'s role to ${pendingRole}?`}
+        description="Their permissions will update as soon as this change is saved."
+        confirmLabel="Change role"
+        tone="danger"
+        busy={roleLoading}
+        onCancel={() => setPendingRole(null)}
+        onConfirm={() => pendingRole && void handleRoleChange(pendingRole)}
+      />
     </div>
   );
 }

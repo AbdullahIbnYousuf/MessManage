@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
+import Decimal from "decimal.js";
 import { formatMonthLabel } from "@/lib/utils/dates";
+import { formatTaka } from "@/lib/utils/decimal";
 import { useRouter } from "next/navigation";
 
 interface ProfileData {
@@ -55,30 +57,6 @@ interface ProfileData {
 interface Props {
   targetUserId: string;
   currentUserId: string;
-}
-
-function AnimatedNumber({ value, decimals = 0 }: { value: number; decimals?: number }) {
-  const [display, setDisplay] = useState(0);
-  const rafRef = useRef<number | null>(null);
-  const duration = 800;
-
-  useEffect(() => {
-    if (value === 0) { setDisplay(0); return; }
-    const start = performance.now();
-
-    const tick = (now: number) => {
-      const elapsed = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplay(eased * value);
-      if (progress < 1) rafRef.current = requestAnimationFrame(tick);
-    };
-
-    rafRef.current = requestAnimationFrame(tick);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, [value]);
-
-  return <>{decimals > 0 ? display.toFixed(decimals) : Math.round(display).toLocaleString()}</>;
 }
 
 export default function MemberProfileClient({ targetUserId, currentUserId }: Props) {
@@ -138,8 +116,9 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
   const { user, aggregates, mealPattern, activity } = data;
   const isOwner = user.id === currentUserId;
   const joinDate = new Date(user.joinedAt).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "Asia/Dhaka" });
-  const balanceNum = parseFloat(aggregates.balance);
-  const isPositive = balanceNum >= 0;
+  const balance = new Decimal(aggregates.balance);
+  const isPositive = balance.gte(0);
+  const isSettled = balance.eq(0);
 
   return (
     <div className="page-container" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -153,52 +132,22 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
           ← {isOwner ? "Money" : "Members"}
         </button>
 
-        {/* Month Selector Toggle */}
-        <div style={{
-          display: "flex",
-          background: "var(--color-bg-elevated)",
-          border: "1px solid var(--color-border)",
-          borderRadius: "var(--radius-lg)",
-          padding: "3px",
-          gap: "2px",
-        }}>
+        <div className="period-switch" aria-label="Profile month">
           <button
+            type="button"
             onClick={() => setSelectedMonth("current")}
-            style={{
-              background: selectedMonth === "current" ? "var(--color-primary)" : "transparent",
-              color: selectedMonth === "current" ? "#fff" : "var(--color-text-secondary)",
-              border: "none",
-              borderRadius: "calc(var(--radius-lg) - 2px)",
-              padding: "0.375rem 0.875rem",
-              fontSize: "0.8125rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              transition: "all 0.18s ease",
-              touchAction: "manipulation",
-              WebkitTapHighlightColor: "transparent",
-              minHeight: "32px",
-            }}
+            className={selectedMonth === "current" ? "is-active" : undefined}
+            aria-pressed={selectedMonth === "current"}
           >
-            Current Month
+            Current
           </button>
           <button
+            type="button"
             onClick={() => setSelectedMonth("prev")}
-            style={{
-              background: selectedMonth === "prev" ? "var(--color-primary)" : "transparent",
-              color: selectedMonth === "prev" ? "#fff" : "var(--color-text-secondary)",
-              border: "none",
-              borderRadius: "calc(var(--radius-lg) - 2px)",
-              padding: "0.375rem 0.875rem",
-              fontSize: "0.8125rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              transition: "all 0.18s ease",
-              touchAction: "manipulation",
-              WebkitTapHighlightColor: "transparent",
-              minHeight: "32px",
-            }}
+            className={selectedMonth === "prev" ? "is-active" : undefined}
+            aria-pressed={selectedMonth === "prev"}
           >
-            Previous Month
+            Previous
           </button>
         </div>
       </div>
@@ -232,30 +181,19 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
       </div>
 
       {/* 2. Balance Card with Breakdown */}
-      <div className="slide-up-delay-1" style={{
-        background: "var(--color-bg-surface)",
-        border: `1px solid ${isPositive ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.2)"}`,
-        borderRadius: "var(--radius-xl)",
-        padding: "1.25rem",
-        boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
-      }}>
+      <div className={`member-balance-card slide-up-delay-1${isSettled ? " is-settled" : isPositive ? " is-positive" : " is-negative"}`}>
         {/* Balance hero row */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
           <div>
-            <div className="stat-label" style={{ marginBottom: "0.25rem" }}>Net Balance</div>
+            <div className="stat-label" style={{ marginBottom: "0.25rem" }}>Provisional monthly balance</div>
             <div style={{ fontSize: "2rem", fontWeight: 900, color: isPositive ? "var(--color-success)" : "var(--color-danger)", letterSpacing: "-0.03em", lineHeight: 1 }}>
-              {isPositive ? "+" : "−"}৳<AnimatedNumber value={Math.abs(balanceNum)} decimals={2} />
+              {formatTaka(balance.abs())}
             </div>
             <div className="text-muted" style={{ fontSize: "0.75rem", marginTop: "0.25rem" }}>{aggregates.monthLabel}</div>
           </div>
-          <div style={{
-            width: 48, height: 48, borderRadius: "50%",
-            background: isPositive ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "1.5rem",
-          }}>
-            {isPositive ? "↑" : "↓"}
-          </div>
+          <span className={`badge ${isSettled ? "badge-muted" : isPositive ? "badge-success" : "badge-danger"}`}>
+            {isSettled ? "Balanced" : isPositive ? "Owed to member" : "Member owes"}
+          </span>
         </div>
 
         {/* Breakdown */}
@@ -269,7 +207,7 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
           ].map((row) => (
             <div key={row.label} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8125rem" }}>
               <span className="text-secondary">{row.label}</span>
-              <span style={{ color: "var(--color-success)", fontVariantNumeric: "tabular-nums" }}>+৳{parseFloat(row.value).toLocaleString()}</span>
+              <span style={{ color: "var(--color-success)", fontVariantNumeric: "tabular-nums" }}>{formatTaka(row.value)}</span>
             </div>
           ))}
 
@@ -284,7 +222,7 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
           ].map((row) => (
             <div key={row.label} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8125rem" }}>
               <span className="text-secondary">{row.label}</span>
-              <span style={{ color: "var(--color-danger)", fontVariantNumeric: "tabular-nums" }}>−৳{parseFloat(row.value).toLocaleString()}</span>
+              <span style={{ color: "var(--color-danger)", fontVariantNumeric: "tabular-nums" }}>{formatTaka(row.value)}</span>
             </div>
           ))}
         </div>
@@ -294,22 +232,22 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
       <div className="slide-up-delay-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.875rem" }}>
         <div className="stat-card">
           <div className="stat-label">Total Meals</div>
-          <div className="stat-value" style={{ color: "var(--color-accent)" }}><AnimatedNumber value={aggregates.totalMeals} /></div>
+          <div className="stat-value" style={{ color: "var(--color-accent)" }}>{aggregates.totalMeals.toLocaleString()}</div>
           <div className="stat-sub">{selectedMonth === "current" ? "this month" : "previous month"}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Bazar Visits</div>
-          <div className="stat-value"><AnimatedNumber value={aggregates.bazarVisits} /></div>
+          <div className="stat-value">{aggregates.bazarVisits.toLocaleString()}</div>
           <div className="stat-sub">{selectedMonth === "current" ? "this month" : "previous month"}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Routine Spending</div>
-          <div className="stat-value">৳<AnimatedNumber value={parseFloat(aggregates.routineSpending)} decimals={2} /></div>
+          <div className="stat-value">{formatTaka(aggregates.routineSpending)}</div>
           <div className="stat-sub">{selectedMonth === "current" ? "cash out" : "prev. cash out"}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Total Spending</div>
-          <div className="stat-value" style={{ color: "var(--color-primary)" }}>৳<AnimatedNumber value={parseFloat(aggregates.totalSpending)} decimals={2} /></div>
+          <div className="stat-value" style={{ color: "var(--color-primary)" }}>{formatTaka(aggregates.totalSpending)}</div>
           <div className="stat-sub">{selectedMonth === "current" ? "incl. bulk" : "prev. incl. bulk"}</div>
         </div>
       </div>
@@ -366,7 +304,7 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
                       <div>{new Date(b.date).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}</div>
                       {b.note && <div className="text-muted" style={{ fontSize: "0.75rem" }}>{b.note}</div>}
                     </div>
-                    <div style={{ fontWeight: 600 }}>৳{parseFloat(b.amount).toLocaleString()}</div>
+                    <div style={{ fontWeight: 600 }}>{formatTaka(b.amount)}</div>
                   </div>
                 ))}
               </div>
@@ -383,7 +321,7 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
                       <div>{b.itemName}</div>
                       <div className="text-muted" style={{ fontSize: "0.75rem" }}>{new Date(b.date).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}</div>
                     </div>
-                    <div style={{ fontWeight: 600 }}>৳{parseFloat(b.cost).toLocaleString()}</div>
+                    <div style={{ fontWeight: 600 }}>{formatTaka(b.cost)}</div>
                   </div>
                 ))}
               </div>
@@ -397,7 +335,7 @@ export default function MemberProfileClient({ targetUserId, currentUserId }: Pro
                 {activity.recentMaid.map(m => (
                   <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.875rem", padding: "0.375rem 0", borderBottom: "1px solid var(--color-border)" }}>
                     <div>{formatMonthLabel(m.month)}</div>
-                    <div style={{ fontWeight: 600 }}>৳{parseFloat(m.amount).toLocaleString()}</div>
+                    <div style={{ fontWeight: 600 }}>{formatTaka(m.amount)}</div>
                   </div>
                 ))}
               </div>

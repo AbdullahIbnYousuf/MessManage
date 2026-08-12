@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import MembersListClient from "@/components/domain/admin/MembersListClient";
+import { PageHeader } from "@/components/ui/Editorial";
 
 export const metadata = {
   title: "Manage members",
@@ -13,14 +14,7 @@ export default async function MembersPage() {
 
   return (
     <div className="page-container">
-      <div className="section-header">
-        <div>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700 }}>All Members</h1>
-          <p className="text-secondary" style={{ fontSize: "0.875rem", marginTop: "0.25rem" }}>
-            Manage member accounts, roles, and meal calendars.
-          </p>
-        </div>
-      </div>
+      <PageHeader eyebrow="Administration" title="All members" description="Manage member accounts, roles, and meal calendars." />
 
       <MembersListClient currentUserId={user.id} />
     </div>

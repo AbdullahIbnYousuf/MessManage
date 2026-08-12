@@ -7,100 +7,23 @@ export const metadata = {
 
 export default function LoginPage() {
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "var(--color-bg-base)",
-        padding: "1.5rem",
-      }}
-    >
-      {/* Background glow */}
-      <div
-        style={{
-          position: "fixed",
-          top: "30%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: 600,
-          height: 600,
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)",
-          pointerEvents: "none",
-        }}
-      />
-
-      <div
-        className="glass"
-        style={{
-          width: "100%",
-          maxWidth: 420,
-          padding: "2.5rem",
-          textAlign: "center",
-          position: "relative",
-        }}
-      >
-        {/* Logo */}
-        <div
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: "14px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto 1.25rem",
-            overflow: "hidden",
-            boxShadow: "0 0 24px var(--color-primary-glow)",
-          }}
-        >
-          <Image src="/logo.png" alt="MessManage logo" width={64} height={64} style={{ objectFit: "cover" }} />
+    <main className="auth-page">
+      <section className="auth-card" aria-labelledby="login-title">
+        <div className="auth-brand-tile">
+          <Image src="/logo.png" alt="MessManage logo" width={64} height={64} />
         </div>
-
-        <h1
-          style={{
-            fontSize: "1.625rem",
-            fontWeight: 800,
-            marginBottom: "0.375rem",
-            letterSpacing: "-0.02em",
-          }}
-        >
-          <span className="gradient-text">MessManage</span>
-        </h1>
-        <p className="text-secondary" style={{ fontSize: "0.875rem", marginBottom: "2rem" }}>
+        <span className="editorial-eyebrow">Welcome home</span>
+        <h1 id="login-title">MessManage</h1>
+        <p>
           Meals, expenses, and balances for your household.
         </p>
-
-        {/* Sign in form */}
         <form
           action={async () => {
             "use server";
             await signIn("google", { redirectTo: "/" });
           }}
         >
-          <button
-            type="submit"
-            style={{
-              width: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "0.75rem",
-              background: "white",
-              color: "#1f2937",
-              fontWeight: 600,
-              fontSize: "0.9375rem",
-              padding: "0.75rem 1.25rem",
-              borderRadius: "var(--radius-md)",
-              border: "none",
-              cursor: "pointer",
-              transition: "all 0.15s",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-            }}
-          >
-            {/* Google logo */}
+          <button type="submit" className="auth-google-button">
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -110,11 +33,10 @@ export default function LoginPage() {
             Continue with Google
           </button>
         </form>
-
-        <p className="text-muted" style={{ fontSize: "0.75rem", marginTop: "1.5rem", lineHeight: 1.5 }}>
+        <p className="auth-footnote">
           New members require admin approval.<br />Your request is submitted automatically.
         </p>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

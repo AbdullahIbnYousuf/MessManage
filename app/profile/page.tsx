@@ -4,6 +4,7 @@ import { signOut } from "@/lib/auth";
 import { db } from "@/lib/db";
 import NicknameForm from "./nickname-form";
 import ContactForm from "./contact-form";
+import { PageHeader } from "@/components/ui/Editorial";
 
 export const metadata = {
   title: "Profile",
@@ -43,7 +44,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="page-container">
-      <h1 style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: "1.5rem" }}>Profile</h1>
+      <PageHeader eyebrow="Your account" title="Profile" description="Identity, contact details, and payment information." />
 
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: 600 }}>
         {/* User card */}
