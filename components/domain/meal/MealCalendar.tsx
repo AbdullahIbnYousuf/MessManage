@@ -36,13 +36,14 @@ export default function MealCalendar({
   deadline = "",
   todayStr,
   title = "Meal Calendar",
-  instruction = "Tap +/− to update the meal count",
+  instruction = "Tap a day, then use +/− to update the meal count",
   showMemberEditRequest = true,
   footerText,
 }: Props) {
   const [savingDate, setSavingDate] = useState<string | null>(null);
   const [savedDate, setSavedDate] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [selectedDate, setSelectedDate] = useState(todayStr);
 
   const updateMeal = useCallback(
     async (date: string, count: number) => {
@@ -115,18 +116,23 @@ export default function MealCalendar({
     }
   };
 
+  const selectedRecord = records.find((record) => record.date === selectedDate) ?? firstRecord;
+  const selectedCanEdit = canEditRecord(selectedRecord);
+  const selectedLabel = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(new Date(`${selectedRecord.date}T00:00:00`));
+
   return (
-    <div className="card">
-      <div style={{ marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
-        <div style={{ flex: "1 1 auto", minWidth: "200px" }}>
-          <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>{title}</div>
-          <div className="text-secondary" style={{ fontSize: "0.8125rem", marginTop: "0.2rem" }}>
-            {instruction}
-          </div>
+    <section className="card meal-calendar" aria-labelledby="meal-calendar-title">
+      <div className="meal-card-heading">
+        <div>
+          <h2 id="meal-calendar-title">{title}</h2>
+          <p>{instruction}</p>
         </div>
-        {/* Edit request panel for today after deadline */}
         {showMemberEditRequest && deadlinePassed && editRequestStatus === null && onRequestEdit && (
-          <button className="btn btn-sm btn-secondary" onClick={onRequestEdit} style={{ flexShrink: 0, minHeight: 44 }}>
+          <button className="btn btn-secondary" onClick={onRequestEdit}>
             Request Edit
           </button>
         )}
@@ -141,23 +147,18 @@ export default function MealCalendar({
         )}
       </div>
 
-      {/* Calendar container - NO horizontal scroll */}
-      <div>
-        {/* Day headers */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "3px", marginBottom: "3px" }}>
+      <div className="meal-calendar__grid" aria-label="Monthly meal calendar">
+        <div className="meal-calendar__weekdays" aria-hidden="true">
           {DAYS_HEADER.map((d) => (
-            <div key={d} style={{ textAlign: "center", fontSize: "0.6875rem", color: "var(--color-text-muted)", fontWeight: 600, padding: "6px 0" }}>
-              {d}
-            </div>
+            <span key={d}>{d}</span>
           ))}
         </div>
 
-        {/* Calendar grid */}
         {weeks.map((week, wi) => (
-          <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "3px", marginBottom: "3px" }}>
+          <div className="meal-calendar__week" key={wi}>
             {week.map((record, di) => {
               if (!record) {
-                return <div key={di} />;
+                return <span key={di} aria-hidden="true" />;
               }
 
               const isToday = record.date === todayStr;
@@ -167,139 +168,78 @@ export default function MealCalendar({
               const isSaving = savingDate === record.date;
               const wasSaved = savedDate === record.date;
               const err = errors[record.date];
-
               const dayNum = new Date(record.date + "T00:00:00").getDate();
 
               return (
-                <div
+                <button
+                  type="button"
                   key={record.id}
-                  style={{
-                    borderRadius: "6px",
-                    padding: "8px 4px",
-                    textAlign: "center",
-                    background: isToday
-                      ? "var(--color-primary-glow)"
-                      : isFuture
-                      ? "var(--color-bg-elevated)"
-                      : "var(--color-bg-surface)",
-                    border: `1px solid ${
-                      isToday
-                        ? "rgba(59,130,246,0.4)"
-                        : "var(--color-border-subtle)"
-                    }`,
-                    opacity: isPast && record.mealCount === 0 ? 0.5 : 1,
-                    position: "relative",
-                    minHeight: canEdit ? "132px" : "72px",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                  }}
+                  className={`meal-calendar__day${isToday ? " is-today" : ""}${isFuture ? " is-future" : ""}${isPast ? " is-past" : ""}${selectedRecord.id === record.id ? " is-selected" : ""}`}
+                  onClick={() => setSelectedDate(record.date)}
+                  aria-pressed={selectedRecord.id === record.id}
+                  aria-label={`${record.date}: ${record.mealCount} meals${canEdit ? ", editable" : ", locked"}`}
                 >
-                  {/* Date number */}
-                  <div style={{ fontSize: "0.6875rem", color: isToday ? "var(--color-primary-light)" : "var(--color-text-muted)", fontWeight: isToday ? 700 : 400 }}>
-                    {dayNum}
-                  </div>
-
-                  {/* Meal count */}
+                  <span className="meal-calendar__date">{dayNum}</span>
                   {isSaving ? (
-                    <div style={{ display: "flex", justifyContent: "center", padding: "4px 0" }}>
-                      <span className="spinner" style={{ width: 16, height: 16 }} />
-                    </div>
+                    <span className="spinner meal-calendar__spinner" />
                   ) : (
-                    <div style={{ fontWeight: 700, fontSize: "1.125rem", color: record.mealCount > 0 ? "var(--color-text-primary)" : "var(--color-text-muted)", padding: "2px 0" }}>
-                      {record.mealCount}
-                    </div>
+                    <strong className={record.mealCount === 0 ? "is-zero" : undefined}>{record.mealCount}</strong>
                   )}
-
-                  {/* Controls for editable days - VERTICAL STACK */}
-                  {canEdit && !isSaving && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "3px", marginTop: "4px" }}>
-                      <button
-                        onClick={() => void updateMeal(record.date, record.mealCount + 1)}
-                        style={{ 
-                          width: "100%", 
-                          minHeight: "44px",
-                          borderRadius: "4px", 
-                          background: "var(--color-primary)", 
-                          border: "none", 
-                          cursor: "pointer", 
-                          color: "white", 
-                          fontSize: "0.875rem", 
-                          fontWeight: 600,
-                          display: "flex", 
-                          alignItems: "center", 
-                          justifyContent: "center",
-                          touchAction: "manipulation",
-                          WebkitTapHighlightColor: "transparent",
-                        }}
-                      >+</button>
-                      <button
-                        onClick={() => void updateMeal(record.date, Math.max(record.mealCount - 1, 0))}
-                        disabled={record.mealCount === 0}
-                        style={{ 
-                          width: "100%", 
-                          minHeight: "44px",
-                          borderRadius: "4px", 
-                          background: record.mealCount === 0 ? "var(--color-bg-base)" : "var(--color-bg-elevated)", 
-                          border: "1px solid var(--color-border)", 
-                          cursor: record.mealCount === 0 ? "not-allowed" : "pointer", 
-                          color: record.mealCount === 0 ? "var(--color-text-muted)" : "var(--color-text-secondary)", 
-                          fontSize: "0.875rem", 
-                          fontWeight: 600,
-                          display: "flex", 
-                          alignItems: "center", 
-                          justifyContent: "center",
-                          opacity: record.mealCount === 0 ? 0.5 : 1,
-                          touchAction: "manipulation",
-                          WebkitTapHighlightColor: "transparent",
-                        }}
-                      >−</button>
-                    </div>
-                  )}
-
-                  {/* Lock icon for locked past records */}
                   {!canEdit && (record.isLocked || isPast) && (
-                    <div style={{ position: "absolute", top: 4, right: 4, fontSize: "0.625rem", color: "var(--color-text-muted)" }}>🔒</div>
+                    <span className="meal-calendar__lock" aria-hidden="true">•</span>
                   )}
-
                   {wasSaved && !err && (
-                    <div style={{ position: "absolute", bottom: 4, right: 4, fontSize: "0.75rem", color: "var(--color-success)" }}>✓</div>
+                    <span className="meal-calendar__saved" aria-label="Saved">✓</span>
                   )}
-
                   {err && (
-                    <div style={{ fontSize: "0.625rem", color: "var(--color-danger)", marginTop: "2px" }} title={err}>!</div>
+                    <span className="meal-calendar__error" title={err} aria-label="Save failed">!</span>
                   )}
-                </div>
+                </button>
               );
             })}
           </div>
         ))}
       </div>
 
+      <div className={`meal-day-editor${selectedCanEdit ? "" : " is-locked"}`}>
+        <div className="meal-day-editor__copy">
+          <span>{selectedLabel}</span>
+          <strong>{selectedCanEdit ? "Adjust this day" : "This day can’t be changed here"}</strong>
+        </div>
+        {selectedCanEdit && (
+          <div className="meal-day-editor__controls" aria-label={`Meal count for ${selectedLabel}`}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => void updateMeal(selectedRecord.date, Math.max(selectedRecord.mealCount - 1, 0))}
+              disabled={selectedRecord.mealCount === 0 || savingDate === selectedRecord.date}
+              aria-label="Decrease meal count"
+            >−</button>
+            <strong aria-live="polite">{selectedRecord.mealCount}</strong>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => void updateMeal(selectedRecord.date, selectedRecord.mealCount + 1)}
+              disabled={savingDate === selectedRecord.date}
+              aria-label="Increase meal count"
+            >+</button>
+          </div>
+        )}
+      </div>
+
       {Object.values(errors).some(Boolean) && (
-        <div
-          style={{
-            marginTop: "0.75rem",
-            padding: "0.75rem",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid rgba(192,80,80,0.3)",
-            background: "var(--color-danger-bg)",
-            color: "var(--color-danger)",
-            fontSize: "0.8125rem",
-          }}
-        >
+        <div className="notice notice-danger" role="alert">
           {Object.values(errors).find(Boolean)}
         </div>
       )}
 
-      {/* Legend - with next lock info instead of "Today" */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "0.75rem", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+      <div className="meal-calendar__footer">
         {showMemberEditRequest ? (
-          <span>🔒 {getNextLockInfo()}</span>
+          <span>{getNextLockInfo()}</span>
         ) : footerText ? (
           <span>{footerText}</span>
         ) : null}
       </div>
-    </div>
+    </section>
   );
 }

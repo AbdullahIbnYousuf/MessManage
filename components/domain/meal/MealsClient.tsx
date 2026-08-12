@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import MealCalendar from "@/components/domain/meal/MealCalendar";
 import MealReminderSettings from "@/components/domain/meal/MealReminderSettings";
 import PatternEditor from "@/components/domain/meal/PatternEditor";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { PageHeader } from "@/components/ui/Editorial";
 import { isDeadlinePassed, formatMonthLabel } from "@/lib/utils/dates";
 import type { MealPattern } from "@/types";
 
@@ -34,6 +36,7 @@ export default function MealsClient({ deadline, year, month, todayStr, isAdmin }
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelSuccess, setCancelSuccess] = useState(false);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
 
   const deadlinePassed = isDeadlinePassed(deadline);
 
@@ -105,7 +108,7 @@ export default function MealsClient({ deadline, year, month, todayStr, isAdmin }
   }
 
   async function handleCancelToday() {
-    if (!confirm("Cancel all meals for today? This will set everyone's meal count to 0. This cannot be undone.")) return;
+    setConfirmCancelOpen(false);
     setCancelling(true);
     setCancelError(null);
     setCancelSuccess(false);
@@ -135,18 +138,11 @@ export default function MealsClient({ deadline, year, month, todayStr, isAdmin }
 
   return (
     <div className="page-container">
-      {/* Header */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>
-          My Meals
-        </h1>
-        <p className="text-secondary" style={{ fontSize: "0.875rem" }}>
-          {monthName} · {totalMeals} meals recorded
-          {deadlinePassed
-            ? " · Deadline passed for today"
-            : ` · Deadline: ${deadline}`}
-        </p>
-      </div>
+      <PageHeader
+        eyebrow={monthName}
+        title="My meals"
+        description={`${totalMeals} meals recorded · ${deadlinePassed ? "Today’s deadline has passed" : `Changes close at ${deadline}`}`}
+      />
 
       {loading ? (
         <div style={{ display: "flex", justifyContent: "center", padding: "4rem" }}>
@@ -172,7 +168,7 @@ export default function MealsClient({ deadline, year, month, todayStr, isAdmin }
 
           {/* Admin: Cancel today's meals */}
           {isAdmin && (
-            <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+            <div className="card meal-admin-notice">
               <div>
                 <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>Cancel Today&apos;s Meals</div>
                 <div className="text-muted" style={{ fontSize: "0.8125rem" }}>
@@ -183,7 +179,7 @@ export default function MealsClient({ deadline, year, month, todayStr, isAdmin }
               </div>
               <button
                 className="btn btn-sm btn-secondary"
-                onClick={() => void handleCancelToday()}
+                onClick={() => setConfirmCancelOpen(true)}
                 disabled={cancelling}
                 style={{ borderColor: "rgba(239,68,68,0.4)", color: "var(--color-danger)", flexShrink: 0 }}
               >
@@ -222,6 +218,16 @@ export default function MealsClient({ deadline, year, month, todayStr, isAdmin }
           )}
         </div>
       )}
+      <ConfirmDialog
+        open={confirmCancelOpen}
+        title="Cancel all meals for today?"
+        description="This will set everyone's meal count to 0. This cannot be undone."
+        confirmLabel="Cancel today’s meals"
+        tone="danger"
+        busy={cancelling}
+        onCancel={() => setConfirmCancelOpen(false)}
+        onConfirm={() => void handleCancelToday()}
+      />
     </div>
   );
 }

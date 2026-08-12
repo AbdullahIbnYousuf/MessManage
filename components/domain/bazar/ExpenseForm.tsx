@@ -63,63 +63,37 @@ export default function ExpenseForm({ onSubmitted, tripNotes, todayStr }: Props)
   }
 
   return (
-    <div className="card">
-      <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "1rem" }}>
-        Submit Bazar Expense
+    <section className="card bazar-expense-form" aria-labelledby="bazar-expense-title">
+      <div className="meal-card-heading">
+        <div>
+          <h2 id="bazar-expense-title">Record bazar expense</h2>
+          <p>Complete the active trip with the final amount and purchase details.</p>
+        </div>
       </div>
 
-      {/* Trip type toggle */}
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+      <fieldset className="bazar-trip-type">
+        <legend>What kind of trip was this?</legend>
         <button
           type="button"
           onClick={() => setIsInstant(false)}
-          style={{
-            flex: 1,
-            padding: "0.5rem 0.75rem",
-            borderRadius: "var(--radius-md)",
-            border: isInstant ? "1px solid var(--color-border-subtle)" : "1px solid var(--color-primary)",
-            background: isInstant ? "transparent" : "rgba(99,102,241,0.12)",
-            color: isInstant ? "var(--color-text-muted)" : "var(--color-primary)",
-            fontWeight: isInstant ? 400 : 600,
-            fontSize: "0.875rem",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-          }}
+          className={!isInstant ? "is-selected" : undefined}
         >
-          🛒 Regular
+          <strong>Regular trip</strong>
+          <span>Counts as 1 trip</span>
         </button>
         <button
           type="button"
           onClick={() => setIsInstant(true)}
-          style={{
-            flex: 1,
-            padding: "0.5rem 0.75rem",
-            borderRadius: "var(--radius-md)",
-            border: isInstant ? "1px solid rgba(245,158,11,0.6)" : "1px solid var(--color-border-subtle)",
-            background: isInstant ? "rgba(245,158,11,0.12)" : "transparent",
-            color: isInstant ? "var(--color-warning)" : "var(--color-text-muted)",
-            fontWeight: isInstant ? 600 : 400,
-            fontSize: "0.875rem",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-          }}
+          className={isInstant ? "is-selected is-instant" : undefined}
         >
-          ⚡ Instant
+          <strong>Quick run</strong>
+          <span>Counts as 0.1 trip</span>
         </button>
-      </div>
+      </fieldset>
 
-      {/* Instant info pill */}
       {isInstant && (
-        <div style={{
-          background: "rgba(245,158,11,0.08)",
-          border: "1px solid rgba(245,158,11,0.25)",
-          borderRadius: "var(--radius-md)",
-          padding: "0.5rem 0.75rem",
-          fontSize: "0.8125rem",
-          color: "var(--color-warning)",
-          marginBottom: "1rem",
-        }}>
-          ⚡ Quick run — counts as <strong>0.1 trip</strong> on the leaderboard
+        <div className="notice bazar-form-notice notice-warning">
+          Quick run selected — this counts as <strong>0.1 trip</strong> in household contributions.
         </div>
       )}
       
@@ -263,6 +237,6 @@ export default function ExpenseForm({ onSubmitted, tripNotes, todayStr }: Props)
         </button>
       </form>
       )}
-    </div>
+    </section>
   );
 }

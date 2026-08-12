@@ -9,6 +9,7 @@ import {
   mealStatePresentation,
 } from "@/components/domain/dashboard/presentation";
 import NavIcon from "@/components/navigation/NavIcon";
+import { PageHeader, SectionHeading } from "@/components/ui/Editorial";
 import { formatTaka } from "@/lib/utils/decimal";
 import type { HomeSummary } from "@/types/home";
 
@@ -38,6 +39,17 @@ function Avatar({ name, avatarUrl }: { name: string; avatarUrl: string | null })
     return <img className="avatar avatar-sm" src={avatarUrl} alt="" />;
   }
   return <span className="home-avatar-fallback" aria-hidden="true">{name.charAt(0)}</span>;
+}
+
+function greetingForDhaka(isoDate: string) {
+  const hour = Number(new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    hourCycle: "h23",
+    timeZone: "Asia/Dhaka",
+  }).format(new Date(isoDate)));
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
 }
 
 export default function DashboardClient() {
@@ -76,10 +88,11 @@ export default function DashboardClient() {
 
   return (
     <div className="page-container home-page">
-      <header className="home-header">
-        <h1>{summary ? `Hey, ${summary.currentUser.name} 👋` : "Home"}</h1>
-        <p>{summary ? formatHomeDate(summary.date) : "Today’s household command center."}</p>
-      </header>
+      <PageHeader
+        eyebrow={summary ? formatHomeDate(summary.date) : "Today"}
+        title={summary ? `${greetingForDhaka(summary.generatedAt)}, ${summary.currentUser.name}` : "Home"}
+        description="Your household, organized for today."
+      />
 
       {error && (
         <div className="home-error" role="alert">
@@ -96,15 +109,15 @@ export default function DashboardClient() {
       {loading ? <HomeSkeleton /> : summary && mealPresentation && (
         <div className="home-stack">
           <section className="home-meals-card" aria-labelledby="home-meals-title">
-            <div className="home-section-heading home-meals-heading">
+            <div className="home-meals-hero">
               <div>
-                <span className="home-eyebrow">Today</span>
-                <h2 id="home-meals-title">Today’s meals</h2>
-                <p>The household needs <strong>{summary.meals.total}</strong> meals prepared.</p>
+                <span className="home-eyebrow">Meals to prepare today</span>
+                <h2 id="home-meals-title">{summary.meals.total} meals</h2>
+                <p>Across {summary.meals.members.length} active {summary.meals.members.length === 1 ? "member" : "members"}</p>
               </div>
-              <div className="home-meal-total" aria-label={`${summary.meals.total} meals total`}>
-                <strong>{summary.meals.total}</strong>
-                <span>total</span>
+              <div className="home-meal-deadline">
+                <span>Daily deadline</span>
+                <strong>{summary.meals.deadline}</strong>
               </div>
             </div>
 
@@ -143,12 +156,7 @@ export default function DashboardClient() {
           </section>
 
           <section aria-labelledby="home-bazar-title">
-            <div className="home-section-heading">
-              <div>
-                <h2 id="home-bazar-title">Bazar</h2>
-                <p>Current trip and shared shopping notes.</p>
-              </div>
-            </div>
+            <SectionHeading title={<span id="home-bazar-title">Bazar</span>} description="Current trip and shared shopping notes." />
             {summary.bazar.activeTrip ? (
               <ActiveTripCard
                 trip={summary.bazar.activeTrip}
@@ -177,12 +185,7 @@ export default function DashboardClient() {
           </section>
 
           <section aria-labelledby="home-attention-title">
-            <div className="home-section-heading">
-              <div>
-                <h2 id="home-attention-title">Needs attention</h2>
-                <p>Your time-sensitive household tasks.</p>
-              </div>
-            </div>
+            <SectionHeading title={<span id="home-attention-title">Needs attention</span>} description="Your time-sensitive household tasks." />
             {summary.attention.length > 0 ? (
               <div className="home-attention-list">
                 {summary.attention.map((item) => {
@@ -217,12 +220,7 @@ export default function DashboardClient() {
           </section>
 
           <section aria-labelledby="home-month-title">
-            <div className="home-section-heading">
-              <div>
-                <h2 id="home-month-title">This month</h2>
-                <p>A compact provisional snapshot. Open the source page for details.</p>
-              </div>
-            </div>
+            <SectionHeading title={<span id="home-month-title">This month</span>} description="A provisional snapshot. Open the source page for details." />
             <div className="home-month-grid">
               <Link href="/money/household" className="home-month-stat">
                 <span>My balance</span>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import ActiveTripCard from "@/components/domain/bazar/ActiveTripCard";
 import ExpenseForm from "@/components/domain/bazar/ExpenseForm";
+import { PageHeader, SectionHeading } from "@/components/ui/Editorial";
 import { formatNumericDate, formatMonthLabel } from "@/lib/utils/dates";
 
 interface Assignee {
@@ -356,24 +357,20 @@ export default function BazarClient({ todayStr, currentUserId, isAdmin }: { toda
 
   return (
     <div className="page-container">
-      {/* Header */}
-      <div className="section-header" style={{ marginBottom: "1.5rem" }}>
-        <div>
-          <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>Bazar</h1>
-          <p className="text-secondary" style={{ fontSize: "0.875rem" }}>
-            Manage bazar trips, submit expenses, and track contributions.
-          </p>
-        </div>
-        {!loading && !trip && (
+      <PageHeader
+        eyebrow="Household shopping"
+        title="Bazar"
+        description="Plan the next market run, share a list, and record what was spent."
+        actions={!loading && !trip ? (
           <button
             className="btn btn-primary"
             onClick={() => void triggerTrip()}
             disabled={triggeringTrip}
           >
-            {triggeringTrip ? <><span className="spinner" /> Opening...</> : "⚡ Trigger Bazar Trip"}
+            {triggeringTrip ? <><span className="spinner" /> Opening...</> : "Start bazar trip"}
           </button>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       {loading ? (
         <div style={{ display: "flex", justifyContent: "center", padding: "4rem" }}>
@@ -386,16 +383,6 @@ export default function BazarClient({ todayStr, currentUserId, isAdmin }: { toda
               {triggerError}
             </div>
           )}
-
-          {/* Leaderboard */}
-          {leaderboard.length > 0 && (() => {
-            const top3 = leaderboard.slice(0, 3);
-            const rest = leaderboard.slice(3);
-            const medals = ["🥇", "🥈", "🥉"];
-            return (
-              <LeaderboardCard top3={top3} rest={rest} medals={medals} />
-            );
-          })()}
 
           {/* Active trip */}
           {trip ? (
@@ -414,10 +401,26 @@ export default function BazarClient({ todayStr, currentUserId, isAdmin }: { toda
                 Trigger a new trip when someone is going to the bazar. The system will suggest the two members with the fewest visits.
               </p>
               <button className="btn btn-primary" onClick={() => void triggerTrip()} disabled={triggeringTrip}>
-                {triggeringTrip ? <><span className="spinner" /> Opening...</> : "⚡ Trigger Bazar Trip"}
+                {triggeringTrip ? <><span className="spinner" /> Opening...</> : "Start bazar trip"}
               </button>
             </div>
           )}
+
+          {/* Contribution context follows the active workflow. */}
+          {leaderboard.length > 0 && (() => {
+            const top3 = leaderboard.slice(0, 3);
+            const rest = leaderboard.slice(3);
+            const medals = ["🥇", "🥈", "🥉"];
+            return (
+              <section aria-labelledby="bazar-contributions-title">
+                <SectionHeading
+                  title={<span id="bazar-contributions-title">Household contributions</span>}
+                  description="Trip counts help share bazar responsibilities fairly."
+                />
+                <LeaderboardCard top3={top3} rest={rest} medals={medals} />
+              </section>
+            );
+          })()}
 
           {/* Expenses split by month */}
           {(() => {

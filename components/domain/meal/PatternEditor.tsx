@@ -54,90 +54,46 @@ export default function PatternEditor({ initial, onSaved }: Props) {
   }
 
   return (
-    <div className="card">
-      <div style={{ marginBottom: "1rem" }}>
-        <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>Default Meal Pattern</div>
-        <div className="text-secondary" style={{ fontSize: "0.8125rem", marginTop: "0.2rem" }}>
+    <section className="card meal-pattern" aria-labelledby="meal-pattern-title">
+      <div className="meal-card-heading">
+        <div>
+        <h2 id="meal-pattern-title">Default meal pattern</h2>
+        <p>
           Set how many meals you take each day of the week. Changes apply to all future days this month.
+        </p>
         </div>
       </div>
 
-      <div style={{ overflowX: "auto", margin: "0 -4px", padding: "0 4px" }}>
-        <div style={{ minWidth: "min-content", paddingBottom: "1.25rem" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(7, 1fr)",
-              gap: "0.5rem",
-            }}
-          >
+      <div className="meal-pattern__grid">
         {DAYS.map(({ key, label }) => (
-          <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.375rem" }}>
-            <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", fontWeight: 500 }}>
-              {label}
-            </span>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
-              {/* Increment */}
+          <div className="meal-pattern__day" key={key}>
+            <span>{label}</span>
+            <div className="meal-pattern__stepper">
               <button
+                type="button"
                 onClick={() => setDay(key, Math.min(pattern[key] + 1, 5))}
-                style={{
-                  width: 32, height: 24,
-                  background: "var(--color-bg-elevated)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "6px 6px 0 0",
-                  color: "var(--color-text-secondary)",
-                  cursor: "pointer",
-                  fontSize: "0.75rem",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "all 0.1s",
-                }}
-              >▲</button>
-
-              {/* Value display */}
-              <div
-                style={{
-                  width: 32, height: 36,
-                  background: pattern[key] > 0 ? "var(--color-primary-glow)" : "var(--color-bg-elevated)",
-                  border: `1px solid ${pattern[key] > 0 ? "rgba(59,130,246,0.4)" : "var(--color-border)"}`,
-                  borderTop: "none", borderBottom: "none",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontWeight: 700,
-                  fontSize: "1rem",
-                  color: pattern[key] > 0 ? "var(--color-primary-light)" : "var(--color-text-muted)",
-                }}
-              >
-                {pattern[key]}
-              </div>
-
-              {/* Decrement */}
+                disabled={pattern[key] >= 5}
+                aria-label={`Increase ${label} meal count`}
+              >+</button>
+              <strong className={pattern[key] === 0 ? "is-zero" : undefined}>{pattern[key]}</strong>
               <button
+                type="button"
                 onClick={() => setDay(key, Math.max(pattern[key] - 1, 0))}
-                style={{
-                  width: 32, height: 24,
-                  background: "var(--color-bg-elevated)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "0 0 6px 6px",
-                  color: "var(--color-text-secondary)",
-                  cursor: "pointer",
-                  fontSize: "0.75rem",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "all 0.1s",
-                }}
-              >▼</button>
+                disabled={pattern[key] === 0}
+                aria-label={`Decrease ${label} meal count`}
+              >−</button>
             </div>
-            </div>
-          ))}
           </div>
-        </div>
+          ))}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-        <button className="btn btn-primary btn-sm" onClick={save} disabled={loading}>
+      <div className="meal-pattern__actions">
+        <button className="btn btn-primary" onClick={save} disabled={loading}>
           {loading ? <span className="spinner" /> : "Save Pattern"}
         </button>
         {success && <span className="badge badge-success">Saved!</span>}
         {error && <span className="text-negative" style={{ fontSize: "0.8125rem" }}>{error}</span>}
       </div>
-    </div>
+    </section>
   );
 }
