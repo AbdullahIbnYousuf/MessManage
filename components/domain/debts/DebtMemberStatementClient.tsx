@@ -6,6 +6,7 @@ import Decimal from "decimal.js";
 import DebtLedgerEntryCard from "@/components/domain/debts/DebtLedgerEntryCard";
 import { formatTaka } from "@/lib/utils/decimal";
 import type { DebtMemberStatement } from "@/types/debts";
+import { PageHeader } from "@/components/ui/Editorial";
 
 type ApiResult = { data?: DebtMemberStatement; error?: string };
 
@@ -68,10 +69,7 @@ export default function DebtMemberStatementClient({
   return (
     <section className="debt-page debt-statement" aria-labelledby="member-statement-title">
       <div className="debt-back"><Link href="/money">← Debts &amp; payments</Link></div>
-      <div className="section-header debt-statement-header">
-        <div><span className="money-eyebrow">Member statement</span><h1 className="debt-title" id="member-statement-title">{statement.member.name}</h1><p className="text-secondary debt-subtitle">Every permanent obligation and money record between you.</p></div>
-        {statement.member.status === "active" && <Link className="btn btn-primary debt-full-mobile" href={`/debts/payments/new?${actionParams.toString()}`}>{actionLabel}</Link>}
-      </div>
+      <PageHeader eyebrow="Member statement" title={<span id="member-statement-title">{statement.member.name}</span>} description="Every permanent obligation and money record between you." actions={statement.member.status === "active" ? <Link className="btn btn-primary debt-full-mobile" href={`/debts/payments/new?${actionParams.toString()}`}>{actionLabel}</Link> : undefined} />
 
       <div className={`debt-statement-position debt-statement-position--${statement.direction}`}>
         <span>Current confirmed position</span><strong>{positionText}</strong><small>Pending records are excluded until confirmed.</small>

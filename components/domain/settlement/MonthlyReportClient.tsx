@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, use } from "react";
 import Link from "next/link";
 import { formatMonthLabel } from "@/lib/utils/dates";
+import { PageHeader } from "@/components/ui/Editorial";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -155,25 +156,13 @@ export default function MonthlyReportClient({ params }: Props) {
   return (
     <div className="page-container" style={{ maxWidth: 820 }}>
 
-      {/* ── Header ── */}
-      <div style={{ marginBottom: "2rem" }}>
-        <Link href="/settlement" className="btn btn-ghost btn-sm" style={{ paddingLeft: 0, marginBottom: "1rem" }}>
-          ← Back to monthly closing
-        </Link>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
-          <div>
-            <h1 style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "0.25rem" }}>
-              {monthLabel}
-            </h1>
-            <p className="text-muted" style={{ fontSize: "0.875rem" }}>
-              Finalized · {new Date(data.settledAt).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Dhaka" })}
-            </p>
-          </div>
-          <span className="badge badge-success" style={{ fontSize: "0.8rem", padding: "0.3rem 0.8rem" }}>
-            ✓ Settled
-          </span>
-        </div>
-      </div>
+      <Link href="/settlement" className="money-back-link">← Back to monthly closing</Link>
+      <PageHeader
+        eyebrow="Monthly statement"
+        title={monthLabel}
+        description={`Finalized · ${new Date(data.settledAt).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Dhaka" })}`}
+        actions={<span className="badge badge-success">✓ Settled</span>}
+      />
 
       <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
 

@@ -9,6 +9,7 @@ import {
 import { formatMonthLabel, formatTimestamp } from "@/lib/utils/dates";
 import { formatTaka } from "@/lib/utils/decimal";
 import type { HouseholdMoneySummary } from "@/types/money";
+import { PageHeader, SectionHeading } from "@/components/ui/Editorial";
 
 function MoneySkeleton() {
   return (
@@ -65,12 +66,11 @@ export default function MoneyOverviewClient({
 
   return (
     <section className="hub-page money-page" aria-labelledby="household-money-title">
-      <header className="hub-page__header money-page__header">
-        <div>
-          <h1 id="household-money-title">Household monthly balance</h1>
-          <p className="text-secondary">Meals and shared household activity before monthly closing.</p>
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="Provisional household money"
+        title={<span id="household-money-title">Monthly balance</span>}
+        description="Meals and shared household activity before monthly closing."
+      />
 
       <div className="money-lifecycle money-lifecycle--compact" aria-label="Household money lifecycle">
         <div className="money-lifecycle__step"><strong>1 · Monthly activity</strong>Provisional meals, contributions, and shared costs.</div>
@@ -112,7 +112,7 @@ export default function MoneyOverviewClient({
           </div>
 
           <section className="money-breakdown-card" aria-labelledby="monthly-breakdown-title">
-            <div className="money-section-heading"><div><h2 id="monthly-breakdown-title">This month’s breakdown</h2><p>Exact source totals used to derive your provisional position.</p></div></div>
+            <SectionHeading title={<span id="monthly-breakdown-title">This month’s breakdown</span>} description="Exact source totals used to derive your provisional position." />
             <div className="money-breakdown-grid">
               <div><span>Bazar contributed</span><strong className="text-positive">{formatTaka(summary.currentMonth.breakdown.bazarContributed)}</strong></div>
               <div><span>Maid payments</span><strong className="text-positive">{formatTaka(summary.currentMonth.breakdown.maidPayments)}</strong></div>

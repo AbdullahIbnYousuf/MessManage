@@ -5,6 +5,7 @@ import Link from "next/link";
 import Decimal from "decimal.js";
 import type { DebtDashboardSummary, DebtPaymentLedgerEntry } from "@/types/debts";
 import { formatTaka } from "@/lib/utils/decimal";
+import { PageHeader } from "@/components/ui/Editorial";
 
 type Member = { id: string; name: string; nickname: string | null; status: string };
 type MemberDetail = { user: { bkashNumber: string | null; bankName: string | null; bankAccountNumber: string | null } };
@@ -150,8 +151,7 @@ export default function PaymentFormClient({
 
   return <div className="page-container debt-page">
     <div className="debt-back"><Link href="/money">← Debts &amp; payments</Link></div>
-    <h1 className="debt-title">Record money</h1>
-    <p className="text-secondary debt-subtitle">Record money that already moved outside the app. The other member must confirm it.</p>
+    <PageHeader eyebrow="Confirmed member money" title="Record money" description="Record money that already moved outside the app. The other member must confirm it." />
     <form className="card debt-form" onSubmit={startConfirmation}>
       <fieldset className="debt-money-direction">
         <legend>What happened?</legend>

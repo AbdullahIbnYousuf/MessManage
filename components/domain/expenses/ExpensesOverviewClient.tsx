@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import NavIcon from "@/components/navigation/NavIcon";
 import ExpenseSummaryCard from "@/components/domain/expenses/ExpenseSummaryCard";
+import { PageHeader, SectionHeading } from "@/components/ui/Editorial";
 import { buildExpenseReviewItems } from "@/components/domain/expenses/presentation";
 import { formatMonthLabel } from "@/lib/utils/dates";
 import { formatTaka } from "@/lib/utils/decimal";
@@ -70,12 +71,11 @@ export default function ExpensesOverviewClient({ isAdmin }: { isAdmin: boolean }
 
   return (
     <div className="page-container hub-page expenses-page">
-      <header className="hub-page__header">
-        <h1>Expenses</h1>
-        <p className="text-secondary">
-          See the household’s longer-running and monthly costs at a glance.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Shared household costs"
+        title="Expenses"
+        description="See longer-running purchases and monthly charges at a glance."
+      />
 
       {summary && (
         <div className="expense-context" aria-label="Expense reporting periods">
@@ -99,10 +99,7 @@ export default function ExpensesOverviewClient({ isAdmin }: { isAdmin: boolean }
         <>
           {reviewItems.length > 0 && (
             <section className="hub-section expense-review">
-              <div className="hub-section__heading">
-                <h2>To review</h2>
-                <p className="text-secondary">These are status reminders, not overdue warnings.</p>
-              </div>
+              <SectionHeading title="To review" description="Status reminders—not overdue warnings." />
               <div className="expense-review__list">
                 {reviewItems.map((item) => (
                   <Link href={item.href} className="expense-review__item" key={item.id}>

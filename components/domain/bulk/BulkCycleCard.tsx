@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { parseDateString, toDateString } from "@/lib/utils/dates";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 interface Cycle {
   id: string;
@@ -46,6 +47,7 @@ export default function BulkCycleCard({ item, isAdmin, currentUserId, onCycleSta
   const [finishing, setFinishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pastExpanded, setPastExpanded] = useState(false);
+  const [confirmFinishOpen, setConfirmFinishOpen] = useState(false);
 
   // Edit active cycle state
   const [editingCycle, setEditingCycle] = useState(false);
@@ -91,7 +93,7 @@ export default function BulkCycleCard({ item, isAdmin, currentUserId, onCycleSta
   }
 
   async function finishCycle() {
-    if (!confirm(`Mark the ${item.name} cycle as finished? This will calculate and post allocations for all members immediately.`)) return;
+    setConfirmFinishOpen(false);
     setFinishing(true);
     setError(null);
     try {
@@ -261,7 +263,7 @@ export default function BulkCycleCard({ item, isAdmin, currentUserId, onCycleSta
           {isAdmin && (
             <button
               className="btn btn-sm btn-secondary"
-              onClick={() => void finishCycle()}
+              onClick={() => setConfirmFinishOpen(true)}
               disabled={finishing}
               style={{ borderColor: "rgba(239,68,68,0.4)", color: "var(--color-danger)" }}
             >
@@ -354,6 +356,16 @@ export default function BulkCycleCard({ item, isAdmin, currentUserId, onCycleSta
           )}
         </div>
       )}
+      <ConfirmDialog
+        open={confirmFinishOpen}
+        title={`Mark the ${item.name} cycle as finished?`}
+        description="This will calculate and post allocations for all members immediately."
+        confirmLabel="Finish cycle"
+        tone="danger"
+        busy={finishing}
+        onCancel={() => setConfirmFinishOpen(false)}
+        onConfirm={() => void finishCycle()}
+      />
     </div>
   );
 }

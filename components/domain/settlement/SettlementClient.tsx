@@ -6,6 +6,8 @@ import { formatTaka } from "@/lib/utils/decimal";
 import { formatNumericDate, formatMonthLabel } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 import MoneyBackLink from "@/components/domain/money/MoneyBackLink";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { PageHeader } from "@/components/ui/Editorial";
 
 interface BalanceEntry {
   userId: string;
@@ -52,6 +54,7 @@ export default function SettlementClient({ isAdmin, monthName, initialMonth }: P
   const [runResult, setRunResult] = useState<HistoryMonth | null>(null);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Array<{ type: string; message: string }>>([]);
+  const [confirmRunOpen, setConfirmRunOpen] = useState(false);
 
   // Viewed month & current month states (format: YYYY-MM)
   const [selectedMonth, setSelectedMonth] = useState<string>("");
@@ -115,7 +118,7 @@ export default function SettlementClient({ isAdmin, monthName, initialMonth }: P
   };
 
   async function runSettlement() {
-    if (!confirm(`Run monthly closing for ${formatMonthLabel(selectedMonth)}? This is permanent and cannot be undone.`)) return;
+    setConfirmRunOpen(false);
     setRunning(true);
     setRunError(null);
     try {
@@ -141,25 +144,20 @@ export default function SettlementClient({ isAdmin, monthName, initialMonth }: P
   return (
     <div className="page-container">
       <MoneyBackLink />
-      <div className="section-header" style={{ marginBottom: "1.5rem" }}>
-        <div>
-          <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>Monthly closing</h1>
-          <p className="text-secondary" style={{ fontSize: "0.875rem" }}>
-            {formatMonthLabel(selectedMonth || currentMonth || monthName)}
-            {mealRate && <> · Meal rate: <strong>৳{parseFloat(mealRate).toFixed(2)}/meal</strong></>}
-          </p>
-        </div>
-        {isAdmin && !isSettled && canRunSelectedMonth && (
-          <button className="btn btn-primary" onClick={() => void runSettlement()} disabled={running || validationErrors.length > 0} style={{ height: "44px", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}>
+      <PageHeader
+        eyebrow="Permanent month-end record"
+        title="Monthly closing"
+        description={<>{formatMonthLabel(selectedMonth || currentMonth || monthName)}{mealRate && <> · Meal rate: <strong>{formatTaka(mealRate)} per meal</strong></>}</>}
+        actions={isAdmin && !isSettled && canRunSelectedMonth ? (
+          <button className="btn btn-primary" onClick={() => setConfirmRunOpen(true)} disabled={running || validationErrors.length > 0}>
             {running ? <><span className="spinner" /> Running...</> : "Run monthly closing"}
           </button>
-        )}
-        {isSettled && (
+        ) : isSettled ? (
           <span className="badge badge-success" style={{ fontSize: "0.875rem", padding: "0.5rem 1.0rem" }}>
             ✓ Settled
           </span>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       {loading ? (
         <div style={{ display: "flex", justifyContent: "center", padding: "4rem" }}>
@@ -330,6 +328,16 @@ export default function SettlementClient({ isAdmin, monthName, initialMonth }: P
           )}
         </div>
       )}
+      <ConfirmDialog
+        open={confirmRunOpen}
+        title={`Run monthly closing for ${formatMonthLabel(selectedMonth)}?`}
+        description="This is permanent and cannot be undone."
+        confirmLabel="Run monthly closing"
+        tone="danger"
+        busy={running}
+        onCancel={() => setConfirmRunOpen(false)}
+        onConfirm={() => void runSettlement()}
+      />
     </div>
   );
 }

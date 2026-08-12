@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { DebtDashboardSummary, DebtPaymentLedgerEntry } from "@/types/debts";
 import { formatTaka } from "@/lib/utils/decimal";
 import DebtLedgerEntryCard from "@/components/domain/debts/DebtLedgerEntryCard";
+import { PageHeader } from "@/components/ui/Editorial";
 
 type ApiResult<T> = { data?: T; error?: string };
 
@@ -34,16 +35,15 @@ export default function DebtDashboardClient({ currentUserId }: { currentUserId: 
 
   return (
     <section className="debt-page money-command-center" aria-labelledby="money-debts-title">
-      <div className="section-header">
-        <div>
-          <h1 className="debt-title" id="money-debts-title">Debts &amp; payments</h1>
-          <p className="text-secondary debt-subtitle">Permanent household obligations and confirmed money between members.</p>
-        </div>
-        <div className="debt-command-grid">
+      <PageHeader
+        eyebrow="Confirmed member money"
+        title={<span id="money-debts-title">Debts &amp; payments</span>}
+        description="Permanent household obligations and confirmed money between members."
+        actions={<div className="debt-command-grid">
           <Link href="/debts/payments/new" className="btn btn-primary debt-full-mobile">Record money</Link>
           <Link href="/debts/ledger" className="btn btn-secondary debt-full-mobile">Open ledger</Link>
-        </div>
-      </div>
+        </div>}
+      />
 
       {loading && <div className="debt-state"><span className="spinner" /> Loading confirmed positions…</div>}
       {error && <div className="debt-error" role="alert">{error}<button className="btn btn-secondary" onClick={() => void load()}>Retry</button></div>}

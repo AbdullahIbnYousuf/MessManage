@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { formatMonthLabel, previousMonthKey } from "@/lib/utils/dates";
 import ExpensesBackLink from "@/components/domain/expenses/ExpensesBackLink";
+import { PageHeader } from "@/components/ui/Editorial";
 
 interface ChargeEntry {
   id: string;
@@ -286,69 +287,37 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
   return (
     <div className="page-container">
       <ExpensesBackLink />
-      <div className="section-header" style={{ marginBottom: "1.5rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
-        <div>
-          <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.25rem" }}>Maid charges</h1>
-          <p className="text-secondary" style={{ fontSize: "0.875rem" }}>
-            Monthly maid charges and payments — {monthLabel}
-          </p>
-        </div>
-
-        {/* Month Selector Toggle */}
-        <div style={{
-          display: "flex",
-          background: "var(--color-bg-elevated)",
-          border: "1px solid var(--color-border)",
-          borderRadius: "var(--radius-lg)",
-          padding: "3px",
-          gap: "2px",
-        }}>
+      <PageHeader
+        eyebrow="Expenses"
+        title="Maid charges"
+        description={`Monthly charges and payments · ${monthLabel}`}
+        actions={<>
+        <div className="period-switch" aria-label="Maid charge month">
           <button
+            type="button"
             onClick={() => setSelectedMonth("current")}
-            style={{
-              background: selectedMonth === "current" ? "var(--color-primary)" : "transparent",
-              color: selectedMonth === "current" ? "#fff" : "var(--color-text-secondary)",
-              border: "none",
-              borderRadius: "calc(var(--radius-lg) - 2px)",
-              padding: "0.375rem 0.875rem",
-              fontSize: "0.8125rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              transition: "all 0.18s ease",
-              touchAction: "manipulation",
-              WebkitTapHighlightColor: "transparent",
-              minHeight: "44px",
-            }}
+            className={selectedMonth === "current" ? "is-active" : undefined}
+            aria-pressed={selectedMonth === "current"}
           >
-            Current Month
+            Current
           </button>
           <button
+            type="button"
             onClick={() => setSelectedMonth("prev")}
-            style={{
-              background: selectedMonth === "prev" ? "var(--color-primary)" : "transparent",
-              color: selectedMonth === "prev" ? "#fff" : "var(--color-text-secondary)",
-              border: "none",
-              borderRadius: "calc(var(--radius-lg) - 2px)",
-              padding: "0.375rem 0.875rem",
-              fontSize: "0.8125rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              transition: "all 0.18s ease",
-              touchAction: "manipulation",
-              WebkitTapHighlightColor: "transparent",
-              minHeight: "44px",
-            }}
+            className={selectedMonth === "prev" ? "is-active" : undefined}
+            aria-pressed={selectedMonth === "prev"}
           >
-            Previous Month
+            Previous
           </button>
         </div>
 
         {isAdmin && !chargesApplied && !isSelectedMonthSettled && (
-          <button className="btn btn-primary" style={{ minHeight: 44, width: "100%" }} onClick={() => void applyCharges()} disabled={applying}>
+          <button className="btn btn-primary" onClick={() => void applyCharges()} disabled={applying}>
             {applying ? <span className="spinner" /> : `Apply ৳${defaultCharge} Charge to All`}
           </button>
         )}
-      </div>
+        </>}
+      />
 
       {loading ? (
         <div style={{ display: "flex", justifyContent: "center", padding: "4rem" }}>
