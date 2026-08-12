@@ -1,10 +1,20 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { DM_Sans, Newsreader } from "next/font/google";
 import "./globals.css";
 import { getSessionUser } from "@/lib/session";
 import Sidebar from "@/components/Sidebar";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+  display: "swap",
+});
+
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  variable: "--font-newsreader",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -28,7 +38,7 @@ export default async function RootLayout({
   const user = await getSessionUser();
 
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${dmSans.variable} ${newsreader.variable}`}>
       <body>
         {user ? (
           <div className="layout-wrapper">

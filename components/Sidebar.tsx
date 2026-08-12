@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -20,6 +20,8 @@ export default function Sidebar({ user }: { user: SessionUser }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const mobileMenuPanelRef = useRef<HTMLDivElement>(null);
+  const mobileMenuCloseRef = useRef<HTMLButtonElement>(null);
   const debtSyncEnabled = process.env.NEXT_PUBLIC_DEBTSYNC_ENABLED === "true";
   const activeId = activeNavigationId(pathname, user.id);
   const notificationsActive = pathname === "/notifications" || pathname.startsWith("/notifications/");
@@ -50,11 +52,37 @@ export default function Sidebar({ user }: { user: SessionUser }) {
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    mobileMenuCloseRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setMobileMenuOpen(false);
+      if (event.key !== "Tab" || !mobileMenuPanelRef.current) return;
+      const focusable = Array.from(
+        mobileMenuPanelRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      );
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previouslyFocused?.focus();
+    };
   }, [mobileMenuOpen]);
 
   return (
@@ -115,49 +143,52 @@ export default function Sidebar({ user }: { user: SessionUser }) {
       </nav>
 
       {mobileMenuOpen && (
-        <div className="mobile-menu" role="dialog" aria-modal="true" aria-label="More navigation">
-          <div className="mobile-menu__header">
-            <div className="mobile-brand">
-              <Image src="/logo.png" alt="MessManage logo" width={38} height={38} />
-              <span>MessManage</span>
+        <div className="mobile-menu">
+          <div className="mobile-menu__backdrop" onMouseDown={() => setMobileMenuOpen(false)} aria-hidden="true" />
+          <div ref={mobileMenuPanelRef} className="mobile-menu__panel" role="dialog" aria-modal="true" aria-label="More navigation">
+            <div className="mobile-menu__header">
+              <div className="mobile-brand">
+                <Image src="/logo.png" alt="MessManage logo" width={38} height={38} />
+                <span>More</span>
+              </div>
+              <button ref={mobileMenuCloseRef} type="button" className="mobile-menu__close" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            <button type="button" className="mobile-menu__close" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu">
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
 
-          <nav className="mobile-menu__links" aria-label="More destinations">
-            {moreHouseholdItems.map((item) => {
-              const active = item.id === activeId;
-              return (
-                <Link key={item.id} href={item.href} className={`mobile-menu-link ${active ? "active" : ""}`} aria-current={active ? "page" : undefined}>
-                  <span className="navigation-link__icon"><NavIcon name={item.icon} /></span>
-                  <span>{item.label}</span>
-                  <span aria-hidden="true">→</span>
-                </Link>
-              );
-            })}
-            <Link href="/profile" className={`mobile-menu-link ${pathname.startsWith("/profile") ? "active" : ""}`}>
-              <span className="navigation-link__icon"><NavIcon name="profile" /></span>
-              <span>Profile</span>
-              <span aria-hidden="true">→</span>
-            </Link>
-            {moreAdminItems.map((item) => {
-              const active = item.id === activeId;
-              return (
-                <Link key={item.id} href={item.href} className={`mobile-menu-link ${active ? "active" : ""}`} aria-current={active ? "page" : undefined}>
-                  <span className="navigation-link__icon"><NavIcon name={item.icon} /></span>
-                  <span>{item.label}</span>
-                  <span aria-hidden="true">→</span>
-                </Link>
-              );
-            })}
-          </nav>
+            <nav className="mobile-menu__links" aria-label="More destinations">
+              {moreHouseholdItems.map((item) => {
+                const active = item.id === activeId;
+                return (
+                  <Link key={item.id} href={item.href} className={`mobile-menu-link ${active ? "active" : ""}`} aria-current={active ? "page" : undefined}>
+                    <span className="navigation-link__icon"><NavIcon name={item.icon} /></span>
+                    <span>{item.label}</span>
+                    <span aria-hidden="true">→</span>
+                  </Link>
+                );
+              })}
+              <Link href="/profile" className={`mobile-menu-link ${pathname.startsWith("/profile") ? "active" : ""}`}>
+                <span className="navigation-link__icon"><NavIcon name="profile" /></span>
+                <span>Profile</span>
+                <span aria-hidden="true">→</span>
+              </Link>
+              {moreAdminItems.map((item) => {
+                const active = item.id === activeId;
+                return (
+                  <Link key={item.id} href={item.href} className={`mobile-menu-link ${active ? "active" : ""}`} aria-current={active ? "page" : undefined}>
+                    <span className="navigation-link__icon"><NavIcon name={item.icon} /></span>
+                    <span>{item.label}</span>
+                    <span aria-hidden="true">→</span>
+                  </Link>
+                );
+              })}
+            </nav>
 
-          <div className="mobile-menu__user">
-            <UserIdentity user={user} size={44} />
+            <div className="mobile-menu__user">
+              <UserIdentity user={user} size={44} />
+            </div>
           </div>
         </div>
       )}
