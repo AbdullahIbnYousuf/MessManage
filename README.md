@@ -18,6 +18,16 @@ Production: [mess-manage.vercel.app](https://mess-manage.vercel.app)
 
 The interface is designed for 390px mobile screens first, with desktop navigation as a secondary layout.
 
+## Interface
+
+MessManage uses a light **Warm Editorial** visual system: Newsreader display headings, DM Sans interface text, warm paper-like surfaces, restrained terracotta accents, and tabular numerals for money. The design keeps household information—not decorative artwork—as the primary visual content.
+
+- Mobile navigation stays focused on Home, Meals, Bazar, Money, and More, with safe-area spacing and 44px touch targets.
+- Desktop uses a compact espresso sidebar and responsive content widths suited to forms, operational pages, and financial reports.
+- Statuses always include explicit wording; financial direction, errors, and required actions never depend on color alone.
+- Motion is intentionally subtle and nonessential animation is disabled when reduced motion is requested.
+- The application currently ships as one consistent light theme; a theme toggle is outside the present release.
+
 ## Accounting model
 
 MessManage deliberately separates two accounting stages:
