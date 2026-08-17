@@ -319,31 +319,7 @@ export default function MealsClient({
             </div>
           )}
 
-          {/* Admin: Cancel today's meals */}
-          {isAdmin && isCurrentMonth && (
-            <div className="card meal-admin-notice">
-              <div>
-                <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>Cancel Today&apos;s Meals</div>
-                <div className="text-muted" style={{ fontSize: "0.8125rem" }}>
-                  Sets all members&apos; meal count to 0 for today. Use if cooking was cancelled.
-                </div>
-                {cancelError && <div style={{ color: "var(--color-danger)", fontSize: "0.8125rem", marginTop: "0.25rem" }}>{cancelError}</div>}
-                {cancelSuccess && <div style={{ color: "var(--color-success)", fontSize: "0.8125rem", marginTop: "0.25rem" }}>All meals cancelled for today.</div>}
-              </div>
-              <button
-                className="btn btn-sm btn-secondary"
-                onClick={() => setConfirmCancelOpen(true)}
-                disabled={cancelling}
-                style={{ borderColor: "rgba(239,68,68,0.4)", color: "var(--color-danger)", flexShrink: 0 }}
-              >
-                {cancelling ? <span className="spinner" /> : "Cancel Today's Meals"}
-              </button>
-            </div>
-          )}
-
           {/* Calendar */}
-          <MealReminderSettings />
-
           <MealCalendar
             records={visibleRecords}
             deadlinePassed={isCurrentMonth && deadlinePassed}
@@ -375,6 +351,30 @@ export default function MealsClient({
                 void load();
               }}
             />
+          )}
+
+          <MealReminderSettings />
+
+          {/* Admin: Cancel today's meals */}
+          {isAdmin && isCurrentMonth && (
+            <div className="card meal-admin-notice">
+              <div>
+                <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>Cancel Today&apos;s Meals</div>
+                <div className="text-muted" style={{ fontSize: "0.8125rem" }}>
+                  Sets all members&apos; meal count to 0 for today. Use if cooking was cancelled.
+                </div>
+                {cancelError && <div style={{ color: "var(--color-danger)", fontSize: "0.8125rem", marginTop: "0.25rem" }}>{cancelError}</div>}
+                {cancelSuccess && <div style={{ color: "var(--color-success)", fontSize: "0.8125rem", marginTop: "0.25rem" }}>All meals cancelled for today.</div>}
+              </div>
+              <button
+                className="btn btn-sm btn-secondary"
+                onClick={() => setConfirmCancelOpen(true)}
+                disabled={cancelling}
+                style={{ borderColor: "rgba(239,68,68,0.4)", color: "var(--color-danger)", flexShrink: 0 }}
+              >
+                {cancelling ? <span className="spinner" /> : "Cancel Today's Meals"}
+              </button>
+            </div>
           )}
 
           {/* Submit request loading state */}
