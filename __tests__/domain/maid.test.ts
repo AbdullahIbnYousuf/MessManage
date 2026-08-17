@@ -1,6 +1,29 @@
 import { describe, it, expect } from "vitest";
 import Decimal from "decimal.js";
-import { computeMaidCharge, isMemberEligibleForMaidCharge, validateMaidPayment } from "@/lib/domain/maid";
+import {
+  computeMaidCharge,
+  isMemberEligibleForMaidCharge,
+  maidServiceMonthForAccountingMonth,
+  usesDeferredMaidAccounting,
+  validateMaidPayment,
+} from "@/lib/domain/maid";
+
+describe("maidServiceMonthForAccountingMonth", () => {
+  it("associates July service with August accounting", () => {
+    expect(maidServiceMonthForAccountingMonth(new Date("2026-08-01T00:00:00.000Z")))
+      .toEqual(new Date("2026-07-01T00:00:00.000Z"));
+  });
+
+  it("handles December service in January accounting", () => {
+    expect(maidServiceMonthForAccountingMonth(new Date("2027-01-01T00:00:00.000Z")))
+      .toEqual(new Date("2026-12-01T00:00:00.000Z"));
+  });
+
+  it("keeps pre-cutover accounting months in the legacy period", () => {
+    expect(usesDeferredMaidAccounting(new Date("2026-07-01T00:00:00.000Z"))).toBe(false);
+    expect(usesDeferredMaidAccounting(new Date("2026-08-01T00:00:00.000Z"))).toBe(true);
+  });
+});
 
 describe("computeMaidCharge", () => {
   it("returns default charge for active members", () => {

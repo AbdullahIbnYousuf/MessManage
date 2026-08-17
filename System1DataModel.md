@@ -389,7 +389,8 @@ The monthly fixed maid fee applied to each active member. It is a separate line 
 | id | UUID | Primary key |
 | user_id | UUID -> User | Which member is being charged |
 | amount | Decimal | Fixed charge for this member for this month. Defaults to SystemConfig.maid_charge_default |
-| month | Date | First day of the month this charge applies to e.g. 2024-11-01 |
+| month | Date | Accounting month whose balance and settlement include the charge |
+| service_month | Date, nullable | Month the maid worked; previous month for deferred records, null for legacy same-month records |
 | applied_at | Timestamp | When the charge was posted |
 
 #### Business Rules
@@ -398,6 +399,8 @@ The monthly fixed maid fee applied to each active member. It is a separate line 
 - Maid charges are applied manually by an admin. There is no automatic charge job.
 - If an admin does not apply charges for an unsettled month, that month remains at zero maid charges.
 - An admin may apply charges to the current month or a past unsettled month.
+- From August 2026 accounting onward, each charge covers the previous service month. July service is included in August accounting and settlement.
+- Member eligibility is determined from service_month, while balances and settlement use month.
 - Deactivated members do not receive a MaidCharge.
 - The amount is stored at posting time from SystemConfig.maid_charge_default. Changes to the default do not affect already-posted charges.
 - Changing the default never deletes or reapplies current-month charges; it is used only by a later manual application.
@@ -418,7 +421,8 @@ Records when one member physically pays the maid on behalf of the whole group.
 | id | UUID | Primary key |
 | paid_by | UUID -> User | Who physically paid the maid |
 | amount | Decimal | Total amount paid e.g. 3500 for 5 members at 700 each |
-| month | Date | Which month this payment covers e.g. 2024-11-01 |
+| month | Date | Accounting month whose balance and settlement receive the payment credit |
+| service_month | Date, nullable | Maid service month covered by the payment; null for legacy same-month records |
 | note | String, nullable | Optional context |
 | paid_at | Timestamp | When this was recorded |
 
@@ -429,6 +433,7 @@ Records when one member physically pays the maid on behalf of the whole group.
 - The paying member is owed (total paid - own share) from the rest of the group, which surfaces naturally in the monthly settlement.
 - MaidPayment is kept separate from BazarExpense to prevent maid costs from corrupting the meal rate calculation.
 - Any member can record a MaidPayment.
+- The payment uses the same service and accounting months as its corresponding deferred charges.
 
 ---
 

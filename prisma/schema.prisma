@@ -238,25 +238,27 @@ model BulkAllocation {
 }
 
 model MaidCharge {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  amount    Decimal  @db.Decimal(12, 2)
-  month     DateTime @db.Date
-  appliedAt DateTime @map("applied_at")
-  user      User     @relation(fields: [userId], references: [id])
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id")
+  amount       Decimal   @db.Decimal(12, 2)
+  month        DateTime  @db.Date
+  serviceMonth DateTime? @map("service_month") @db.Date
+  appliedAt    DateTime  @map("applied_at")
+  user         User      @relation(fields: [userId], references: [id])
 
   @@unique([userId, month])
   @@map("MaidCharge")
 }
 
 model MaidPayment {
-  id       String   @id @default(uuid())
-  paidById String   @map("paid_by")
-  amount   Decimal  @db.Decimal(12, 2)
-  month    DateTime @db.Date
-  note     String?
-  paidAt   DateTime @map("paid_at")
-  paidBy   User     @relation(fields: [paidById], references: [id])
+  id           String    @id @default(uuid())
+  paidById     String    @map("paid_by")
+  amount       Decimal   @db.Decimal(12, 2)
+  month        DateTime  @db.Date
+  serviceMonth DateTime? @map("service_month") @db.Date
+  note         String?
+  paidAt       DateTime  @map("paid_at")
+  paidBy       User      @relation(fields: [paidById], references: [id])
 
   @@map("MaidPayment")
 }

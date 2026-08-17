@@ -221,6 +221,8 @@ Visit count is always derived by counting completed bazar expense entries per us
 - Charges are applied manually by an admin; they are never generated automatically.
 - An untouched month intentionally remains at zero maid charges and can settle at zero.
 - Admins may apply charges to the current month or a past unsettled month.
+- Beginning with July 2026 service, maid charges enter the following accounting month and settlement (July service is included in August accounting).
+- Member eligibility follows the service month; balance and settlement inclusion follows the accounting month.
 - Default charge is 700 taka per member per month, stored in system configuration.
 - Admin can change the default. The change never deletes or alters posted charges and applies only to a later manual charge application.
 - Deactivated members are not charged for any month where they are fully deactivated.
@@ -235,6 +237,7 @@ One member often pays the full maid bill on behalf of the whole group. This is h
 - Net result: the paying member is owed the group's share minus their own portion. This surfaces naturally in the monthly settlement.
 - Maid Payment is recorded separately from bazar expenses — it must never affect the meal rate calculation.
 - Any member can record a Maid Payment.
+- A maid payment is credited in the same following accounting month as the service charge it pays.
 
 ---
 

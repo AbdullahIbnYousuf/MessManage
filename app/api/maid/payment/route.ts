@@ -2,7 +2,11 @@
 
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
-import { validateMaidPayment } from "@/lib/domain/maid";
+import {
+  maidServiceMonthForAccountingMonth,
+  usesDeferredMaidAccounting,
+  validateMaidPayment,
+} from "@/lib/domain/maid";
 import { currentMonthKey } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 import { withSerializableRetry } from "@/lib/services/debts/transactions";
@@ -59,6 +63,13 @@ export async function POST(request: Request) {
       return Response.json({ error: "Invalid month format. Use YYYY-MM." }, { status: 400 });
     }
     const monthDate = new Date(`${monthStr.slice(0, 7)}-01`);
+    if (!usesDeferredMaidAccounting(monthDate)) {
+      return Response.json(
+        { error: "Maid payments before August 2026 use the closed legacy accounting period." },
+        { status: 400 }
+      );
+    }
+    const serviceMonth = maidServiceMonthForAccountingMonth(monthDate);
 
     const payment = await withSerializableRetry(async (tx) => {
       await assertMonthOpen(tx, monthDate);
@@ -67,6 +78,7 @@ export async function POST(request: Request) {
           paidById: user.id,
           amount: new Decimal(String(body.amount)),
           month: monthDate,
+          serviceMonth,
           note: body.note?.trim() || null,
           paidAt: new Date(),
         },

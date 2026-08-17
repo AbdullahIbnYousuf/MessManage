@@ -1,7 +1,11 @@
 // POST /api/admin/maid — manually apply maid charges for an unsettled month
 
 import { requireAdmin } from "@/lib/session";
-import { isMemberEligibleForMaidCharge } from "@/lib/domain/maid";
+import {
+  isMemberEligibleForMaidCharge,
+  maidServiceMonthForAccountingMonth,
+  usesDeferredMaidAccounting,
+} from "@/lib/domain/maid";
 import { currentMonthKey, getNow } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
 import { withSerializableRetry } from "@/lib/services/debts/transactions";
@@ -24,6 +28,13 @@ export async function POST(request: Request) {
     }
 
     const monthDate = new Date(monthKey);
+    if (!usesDeferredMaidAccounting(monthDate)) {
+      return Response.json(
+        { error: "Maid charges before August 2026 use the closed legacy accounting period." },
+        { status: 400 }
+      );
+    }
+    const serviceMonth = maidServiceMonthForAccountingMonth(monthDate);
     const result = await withSerializableRetry(async (tx) => {
       await assertMonthOpen(tx, monthDate);
 
@@ -38,7 +49,7 @@ export async function POST(request: Request) {
         select: { id: true, joinedAt: true, deactivatedAt: true },
       });
       const eligibleMembers = members.filter((member) =>
-        isMemberEligibleForMaidCharge(member.joinedAt, member.deactivatedAt, monthDate)
+        isMemberEligibleForMaidCharge(member.joinedAt, member.deactivatedAt, serviceMonth)
       );
       if (eligibleMembers.length === 0) return { status: "no_members" as const };
 
@@ -47,6 +58,7 @@ export async function POST(request: Request) {
         userId: member.id,
         amount: defaultCharge,
         month: monthDate,
+        serviceMonth,
         appliedAt: now,
       }));
       await tx.maidCharge.createMany({ data: chargeRows });
