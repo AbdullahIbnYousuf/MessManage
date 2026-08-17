@@ -112,6 +112,10 @@ export default function SettlementClient({ isAdmin, monthName, initialMonth }: P
   const isPrevMonthSettled = history.some((h) => h.month === prevMonthKey);
   const showUnsettledBanner = prevMonthKey && !isPrevMonthSettled && selectedMonth === currentMonth;
   const canRunSelectedMonth = selectedMonth !== "" && selectedMonth < currentMonth;
+  const visibleMonthKey = selectedMonth || currentMonth;
+  const visibleMonthLabel = visibleMonthKey
+    ? formatMonthLabel(visibleMonthKey)
+    : monthName;
 
   const handleMonthSwitch = (month: string) => {
     void load(month);
@@ -147,7 +151,7 @@ export default function SettlementClient({ isAdmin, monthName, initialMonth }: P
       <PageHeader
         eyebrow="Permanent month-end record"
         title="Monthly closing"
-        description={<>{formatMonthLabel(selectedMonth || currentMonth || monthName)}{mealRate && <> · Meal rate: <strong>{formatTaka(mealRate)} per meal</strong></>}</>}
+        description={<>{visibleMonthLabel}{mealRate && <> · Meal rate: <strong>{formatTaka(mealRate)} per meal</strong></>}</>}
         actions={isAdmin && !isSettled && canRunSelectedMonth ? (
           <button className="btn btn-primary" onClick={() => setConfirmRunOpen(true)} disabled={running || validationErrors.length > 0}>
             {running ? <><span className="spinner" /> Running...</> : "Run monthly closing"}
@@ -330,7 +334,7 @@ export default function SettlementClient({ isAdmin, monthName, initialMonth }: P
       )}
       <ConfirmDialog
         open={confirmRunOpen}
-        title={`Run monthly closing for ${formatMonthLabel(selectedMonth)}?`}
+        title={`Run monthly closing for ${visibleMonthLabel}?`}
         description="This is permanent and cannot be undone."
         confirmLabel="Run monthly closing"
         tone="danger"

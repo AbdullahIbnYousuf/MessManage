@@ -3,8 +3,15 @@
 // Creates missing records from the meal pattern only while the month is open.
 
 import { requireAuth } from "@/lib/session";
-import { getNow, getDhakaParts } from "@/lib/utils/dates";
-import { fetchOrCreateMealRecordsForMonth } from "@/lib/queries/meal-records";
+import {
+  compareCalendarMonths,
+  getNow,
+  getDhakaParts,
+} from "@/lib/utils/dates";
+import {
+  fetchOrCreateMealRecordsForMonth,
+  fetchRollingMealRecords,
+} from "@/lib/queries/meal-records";
 
 export async function GET(request: Request) {
   try {
@@ -20,11 +27,20 @@ export async function GET(request: Request) {
       return Response.json({ error: "Invalid year or month." }, { status: 400 });
     }
 
-    const allRecords = await fetchOrCreateMealRecordsForMonth(
-      user.id,
-      year,
-      month
+    const relation = compareCalendarMonths(
+      { year, month },
+      { year: defaultY, month: defaultM }
     );
+    if (relation > 1) {
+      return Response.json(
+        { error: "Meals can only be scheduled through next month." },
+        { status: 400 }
+      );
+    }
+
+    const allRecords = relation >= 0
+      ? await fetchRollingMealRecords(user.id, year, month)
+      : await fetchOrCreateMealRecordsForMonth(user.id, year, month);
 
     return Response.json({
       data: allRecords.map((r) => ({

@@ -526,6 +526,8 @@ These are the rules most likely to be broken by a code agent.
 ### Meal Rules
 
 - Future individual meal records (tomorrow onwards) can be edited directly without changing the global pattern.
+- The member calendar maintains a persisted rolling window for the current and next calendar month. Saving the weekly pattern updates the editable remainder of the current month and all of next month.
+- Historical member calendars are read-only and never materialize missing MealRecord rows.
 - Today's meal record can be edited directly before the admin-configurable `mealDeadline`.
 - After the deadline passes, today's meal can only be edited by submitting a `MealEditRequest`, which requires Admin approval.
 - After midnight, `is_locked = true` permanently for member access. Admin corrections may update only `meal_count` without unlocking the row, and only when the month is unsettled and no finished bulk cycle covers the date.
@@ -567,6 +569,8 @@ These are the rules most likely to be broken by a code agent.
 - MaidCharge is a flat fee per active member per month. It does not depend on meal count.
 - Maid charges are manual-only. If an admin does not apply them, the month remains at zero maid charges.
 - Admins may apply charges to the current month or any past unsettled month.
+- From August 2026 accounting onward, MaidCharge.month is the accounting/settlement month and serviceMonth is the previous month when the maid worked. Eligibility uses serviceMonth.
+- MaidPayment uses the same accounting and service months as the related charges; July service and payments belong to August accounting.
 - MaidPayment is separate from BazarExpense and must never affect the meal rate.
 - Changing SystemConfig.maidChargeDefault never deletes or changes already-posted MaidCharge rows. The new value applies only to a later manual application.
 - Deactivated members do not receive a MaidCharge for months where they are fully deactivated.
@@ -789,8 +793,9 @@ not cause an error.
 ### Manual Maid Charges
 
 Maid charges are never created by a cron job. An admin explicitly applies the configured
-charge to eligible members for the current month or a past unsettled month. If the action
-is not triggered, that month remains at zero maid charges.
+charge to eligible members for the current or previous unsettled accounting month. From
+August 2026 onward, that accounting month contains the preceding service month. If the
+action is not triggered, that accounting month remains at zero maid charges.
 
 ### Auto Settle Job
 

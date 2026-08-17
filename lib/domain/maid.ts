@@ -3,6 +3,22 @@
 
 import Decimal from "decimal.js";
 
+/** First accounting month using previous-month maid service. */
+export const DEFERRED_MAID_ACCOUNTING_START = new Date("2026-08-01T00:00:00.000Z");
+
+/** Returns the service month charged in the supplied accounting month. */
+export function maidServiceMonthForAccountingMonth(accountingMonth: Date): Date {
+  return new Date(Date.UTC(
+    accountingMonth.getUTCFullYear(),
+    accountingMonth.getUTCMonth() - 1,
+    1
+  ));
+}
+
+export function usesDeferredMaidAccounting(accountingMonth: Date): boolean {
+  return accountingMonth >= DEFERRED_MAID_ACCOUNTING_START;
+}
+
 /**
  * Returns the maid charge amount for a given member for a given month.
  * Uses the default charge from SystemConfig.

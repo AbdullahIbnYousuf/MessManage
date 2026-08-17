@@ -1,7 +1,15 @@
 // PUT /api/meals/records/[date] — update meal count for today's record only
 
 import { requireAuth } from "@/lib/session";
-import { firstDayOfMonth, getDhakaParts, isDeadlinePassed, today } from "@/lib/utils/dates";
+import {
+  compareCalendarMonths,
+  firstDayOfMonth,
+  getDhakaParts,
+  getNow,
+  isDeadlinePassed,
+  parseDateString,
+  today,
+} from "@/lib/utils/dates";
 import { canEditDirectly } from "@/lib/domain/meal";
 import { withSerializableRetry } from "@/lib/services/debts/transactions";
 import { assertMonthOpen } from "@/lib/services/month-state";
@@ -14,6 +22,10 @@ export async function PUT(
   try {
     const user = await requireAuth();
     const { date } = await params;
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return Response.json({ error: "Invalid meal date." }, { status: 400 });
+    }
 
     // Past dates cannot be edited
     if (date < today()) {
@@ -30,8 +42,25 @@ export async function PUT(
       return Response.json({ error: "Meal count must be a non-negative integer." }, { status: 400 });
     }
 
-    const targetDate = new Date(date);
+    const targetDate = parseDateString(date);
+    if (
+      Number.isNaN(targetDate.getTime()) ||
+      targetDate.toISOString().slice(0, 10) !== date
+    ) {
+      return Response.json({ error: "Invalid meal date." }, { status: 400 });
+    }
     const parts = getDhakaParts(targetDate);
+    const now = getDhakaParts(getNow());
+    const monthRelation = compareCalendarMonths(
+      { year: parts.y, month: parts.m },
+      { year: now.y, month: now.m }
+    );
+    if (monthRelation > 1) {
+      return Response.json(
+        { error: "Meals can only be scheduled through next month." },
+        { status: 400 }
+      );
+    }
     const monthDate = firstDayOfMonth(parts.y, parts.m);
     const updated = await withSerializableRetry(async (tx) => {
       await assertMonthOpen(tx, monthDate);

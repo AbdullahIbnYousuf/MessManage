@@ -13,7 +13,9 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:preflight:financial-indexes": "tsx scripts/preflight-financial-indexes.ts",
     "db:reset": "npx prisma migrate reset --force && npm run db:seed",
-    "debts:backfill": "tsx scripts/backfill-debt-obligations.ts"
+    "debts:backfill": "tsx scripts/backfill-debt-obligations.ts",
+    "maid:cutover:preflight": "tsx scripts/cutover-maid-accounting.ts",
+    "maid:cutover:apply": "tsx scripts/cutover-maid-accounting.ts --apply"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

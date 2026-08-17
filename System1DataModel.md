@@ -163,8 +163,9 @@ Stores each user's default weekly meal schedule. One row per user, updated in pl
 #### Business Rules
 
 - When a user changes their default pattern, this row is updated in place — not replaced.
-- When updated, the system auto-fills all future MealRecord rows for the current month from today onwards with the new counts.
-- Before the configured deadline, propagation includes today. At or after the deadline, propagation starts tomorrow and today follows the MealEditRequest workflow.
+- When updated, the system auto-fills the editable remainder of the current month and the complete next calendar month with the new counts.
+- Before the configured deadline, current-month propagation includes today. At or after the deadline, it starts tomorrow and today follows the MealEditRequest workflow. Next-month propagation always includes the complete month.
+- Saving the pattern intentionally replaces individual adjustments on every affected future date in both months.
 - Past MealRecord rows are never touched when the pattern changes.
 - A MealPattern row is created for a user at the time their membership is approved.
 
@@ -189,11 +190,11 @@ The daily meal log — one row per user per day. Future dates are pre-filled fro
 
 #### Business Rules
 
-- Future dates are pre-filled automatically from the user's MealPattern when the month begins or when the pattern changes.
-- A member can only edit a meal record on that exact day — before the deadline freely, or after the deadline with admin-granted permission via MealEditRequest.
+- Opening Meals maintains a rolling persisted schedule for the current and immediately following calendar month, pre-filled from the user's MealPattern.
+- Members may directly edit future dates in the current month and any date in the next month. Today's record remains subject to the deadline and MealEditRequest rules.
 - Once the day ends (midnight), is_locked = true permanently for member access. An admin correction changes only meal_count and never unlocks the row.
 - Admins may correct daily counts in current or historical unsettled months. Corrections are blocked for settled months, dates covered by finished BulkCycles, dates before the member joined, and dates after deactivation.
-- Opening a settled calendar is read-only and never creates missing MealRecord rows.
+- Historical member calendars are read-only and never create missing MealRecord rows. Missing historical dates are shown as not recorded rather than zero.
 - When a user deactivates, all future MealRecord rows (from tomorrow onwards) are set to meal_count = 0.
 - Deactivated users do not appear in the daily meal dashboard.
 - The dashboard shows: each active member's name, their meal_count for today, and the total.
@@ -389,7 +390,8 @@ The monthly fixed maid fee applied to each active member. It is a separate line 
 | id | UUID | Primary key |
 | user_id | UUID -> User | Which member is being charged |
 | amount | Decimal | Fixed charge for this member for this month. Defaults to SystemConfig.maid_charge_default |
-| month | Date | First day of the month this charge applies to e.g. 2024-11-01 |
+| month | Date | Accounting month whose balance and settlement include the charge |
+| service_month | Date, nullable | Month the maid worked; previous month for deferred records, null for legacy same-month records |
 | applied_at | Timestamp | When the charge was posted |
 
 #### Business Rules
@@ -398,6 +400,8 @@ The monthly fixed maid fee applied to each active member. It is a separate line 
 - Maid charges are applied manually by an admin. There is no automatic charge job.
 - If an admin does not apply charges for an unsettled month, that month remains at zero maid charges.
 - An admin may apply charges to the current month or a past unsettled month.
+- From August 2026 accounting onward, each charge covers the previous service month. July service is included in August accounting and settlement.
+- Member eligibility is determined from service_month, while balances and settlement use month.
 - Deactivated members do not receive a MaidCharge.
 - The amount is stored at posting time from SystemConfig.maid_charge_default. Changes to the default do not affect already-posted charges.
 - Changing the default never deletes or reapplies current-month charges; it is used only by a later manual application.
@@ -418,7 +422,8 @@ Records when one member physically pays the maid on behalf of the whole group.
 | id | UUID | Primary key |
 | paid_by | UUID -> User | Who physically paid the maid |
 | amount | Decimal | Total amount paid e.g. 3500 for 5 members at 700 each |
-| month | Date | Which month this payment covers e.g. 2024-11-01 |
+| month | Date | Accounting month whose balance and settlement receive the payment credit |
+| service_month | Date, nullable | Maid service month covered by the payment; null for legacy same-month records |
 | note | String, nullable | Optional context |
 | paid_at | Timestamp | When this was recorded |
 
@@ -429,6 +434,7 @@ Records when one member physically pays the maid on behalf of the whole group.
 - The paying member is owed (total paid - own share) from the rest of the group, which surfaces naturally in the monthly settlement.
 - MaidPayment is kept separate from BazarExpense to prevent maid costs from corrupting the meal rate calculation.
 - Any member can record a MaidPayment.
+- The payment uses the same service and accounting months as its corresponding deferred charges.
 
 ---
 
@@ -601,8 +607,8 @@ Global system settings managed by admins. There is always exactly one row in thi
 ### Meal System
 
 - Default pattern is day-of-week based (Mon-Sun), each day stores a meal count (0 or more).
-- Changing the default pattern auto-updates all future MealRecord rows for the current month from today onwards. Past records are never touched.
-- A member can only edit a meal record on that exact calendar day — before the deadline freely, or after the deadline with admin permission via MealEditRequest.
+- Changing the default pattern auto-updates the editable remainder of the current month and the complete next month. Past records are never touched.
+- Members may edit future current-month dates and next-month dates directly. Today's deadline and MealEditRequest restrictions remain unchanged.
 - Once the day ends (midnight), is_locked = true. Members can never bypass this lock.
 - Admins can correct counts in unsettled months without unlocking records, except where a finished bulk cycle has frozen allocations.
 - MealEditRequest auto-expires at midnight if still pending.

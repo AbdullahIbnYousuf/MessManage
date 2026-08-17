@@ -25,7 +25,10 @@ vi.mock("@/lib/utils/dates", async (importOriginal) => {
   return { ...actual, today: () => "2026-08-09" };
 });
 
-import { fetchOrCreateMealRecordsForMonth } from "@/lib/queries/meal-records";
+import {
+  fetchOrCreateMealRecordsForMonth,
+  fetchRollingMealRecords,
+} from "@/lib/queries/meal-records";
 
 describe("fetchOrCreateMealRecordsForMonth", () => {
   beforeEach(() => {
@@ -37,7 +40,7 @@ describe("fetchOrCreateMealRecordsForMonth", () => {
     mocks.recordCreate.mockResolvedValue({ count: 31 });
   });
 
-  it("does not create missing rows for a settled month", async () => {
+  it("does not create missing rows while browsing a historical month", async () => {
     const stored = [{
       id: "existing",
       userId: "member",
@@ -46,12 +49,13 @@ describe("fetchOrCreateMealRecordsForMonth", () => {
       isLocked: true,
     }];
     mocks.recordFind.mockResolvedValue(stored);
-    mocks.settlementFind.mockResolvedValue({ id: "run" });
 
     const records = await fetchOrCreateMealRecordsForMonth("member", 2026, 7);
 
     expect(records).toBe(stored);
     expect(mocks.recordCreate).not.toHaveBeenCalled();
+    expect(mocks.patternFind).not.toHaveBeenCalled();
+    expect(mocks.settlementFind).not.toHaveBeenCalled();
     expect(mocks.recordFind).toHaveBeenCalledOnce();
   });
 
@@ -66,5 +70,31 @@ describe("fetchOrCreateMealRecordsForMonth", () => {
     expect(mocks.recordCreate).toHaveBeenCalledOnce();
     expect(mocks.recordFind).toHaveBeenCalledTimes(2);
     expect(records).toEqual([{ id: "created" }]);
+  });
+
+  it("does not materialize a current month that already has a settlement run", async () => {
+    const stored = [{ id: "settled-current" }];
+    mocks.recordFind.mockResolvedValue(stored);
+    mocks.settlementFind.mockResolvedValue({ id: "run" });
+
+    const records = await fetchOrCreateMealRecordsForMonth("member", 2026, 8);
+
+    expect(records).toBe(stored);
+    expect(mocks.recordCreate).not.toHaveBeenCalled();
+  });
+
+  it("materializes both current and next month in one rolling transaction", async () => {
+    mocks.recordFind.mockResolvedValue([]);
+    mocks.settlementFind.mockResolvedValue(null);
+
+    await fetchRollingMealRecords("member", 2026, 8);
+
+    expect(mocks.serializable).toHaveBeenCalledOnce();
+    expect(mocks.recordCreate).toHaveBeenCalledTimes(2);
+    const currentRows = mocks.recordCreate.mock.calls[0]?.[0].data;
+    const nextRows = mocks.recordCreate.mock.calls[1]?.[0].data;
+    expect(currentRows).toHaveLength(31);
+    expect(nextRows).toHaveLength(30);
+    expect(nextRows[0].date).toEqual(new Date("2026-09-01"));
   });
 });

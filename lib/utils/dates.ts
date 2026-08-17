@@ -86,6 +86,36 @@ export function lastDayOfMonth(year: number, month: number): Date {
   return new Date(Date.UTC(year, month, 0));
 }
 
+export type CalendarMonth = {
+  year: number;
+  month: number;
+};
+
+/**
+ * Moves a 1-indexed calendar month without relying on the server time zone.
+ */
+export function shiftCalendarMonth(
+  year: number,
+  month: number,
+  offset: number
+): CalendarMonth {
+  const shifted = new Date(Date.UTC(year, month - 1 + offset, 1));
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+  };
+}
+
+/**
+ * Compares two calendar months. Negative means A is earlier than B.
+ */
+export function compareCalendarMonths(
+  a: CalendarMonth,
+  b: CalendarMonth
+): number {
+  return (a.year * 12 + a.month) - (b.year * 12 + b.month);
+}
+
 /**
  * Returns the first day of the current month as a UTC midnight Date.
  */

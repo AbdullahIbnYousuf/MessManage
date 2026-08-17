@@ -282,6 +282,9 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
 
   const activeMonthKey = selectedMonth === "prev" ? previousMonthKey() : currentMonthKey;
   const monthLabel = formatMonthLabel(activeMonthKey);
+  const accountingMonth = new Date(`${activeMonthKey.slice(0, 7)}-01T00:00:00.000Z`);
+  accountingMonth.setUTCMonth(accountingMonth.getUTCMonth() - 1);
+  const serviceMonthLabel = formatMonthLabel(accountingMonth);
   const chargesApplied = charges.length > 0;
 
   return (
@@ -290,7 +293,7 @@ export default function MaidClient({ isAdmin, currentUserId, currentMonthKey, de
       <PageHeader
         eyebrow="Expenses"
         title="Maid charges"
-        description={`Monthly charges and payments · ${monthLabel}`}
+        description={`${serviceMonthLabel} maid service · Included in ${monthLabel} balance`}
         actions={<>
         <div className="period-switch" aria-label="Maid charge month">
           <button

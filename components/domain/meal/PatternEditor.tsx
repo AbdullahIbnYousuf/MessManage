@@ -59,7 +59,7 @@ export default function PatternEditor({ initial, onSaved }: Props) {
         <div>
         <h2 id="meal-pattern-title">Default meal pattern</h2>
         <p>
-          Set how many meals you take each day of the week. Changes apply to all future days this month.
+          Saving updates the editable remainder of this month and every day next month.
         </p>
         </div>
       </div>

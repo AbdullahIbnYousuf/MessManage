@@ -1087,6 +1087,17 @@
   .home-page :focus-visible { outline: 2px solid var(--color-primary-light); outline-offset: 2px; }
 
   /* ── Meals ── */
+  .meal-month-nav { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px auto; align-items: center; gap: .5rem; margin-bottom: 1.25rem; padding: .625rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-bg-surface); }
+  .meal-month-nav__arrow { width: 44px; min-height: 44px; padding: 0; font-size: 1rem; }
+  .meal-month-nav__label { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: .1rem; text-align: center; }
+  .meal-month-nav__label strong { max-width: 100%; overflow: hidden; font-size: .875rem; text-overflow: ellipsis; white-space: nowrap; }
+  .meal-month-nav__label span { color: var(--color-text-muted); font-size: .6875rem; }
+  .meal-month-nav__today { min-width: 58px; min-height: 44px; padding: 0 .625rem; }
+  .meal-load-error { display: flex; min-height: 88px; align-items: center; justify-content: space-between; gap: 1rem; }
+  .meal-load-error > div { display: flex; min-width: 0; flex-direction: column; gap: .2rem; }
+  .meal-load-error strong { color: var(--color-danger); font-size: .875rem; }
+  .meal-load-error span { color: var(--color-text-secondary); font-size: .8rem; }
+  .meal-load-error .btn { flex-shrink: 0; min-height: 44px; }
   .meal-admin-notice { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; border-color: rgba(168,68,58,.25); }
   .meal-card-heading { display: flex; min-width: 0; align-items: flex-start; justify-content: space-between; gap: .75rem; margin-bottom: 1rem; }
   .meal-card-heading h2 { margin: 0; font-size: 1.25rem; }
@@ -1105,6 +1116,7 @@
   .meal-calendar__date { font-size: .625rem; color: var(--color-text-muted); }
   .meal-calendar__day strong { font-size: 1rem; line-height: 1; font-variant-numeric: tabular-nums; }
   .meal-calendar__day strong.is-zero { color: var(--color-text-muted); font-weight: 500; }
+  .meal-calendar__missing { color: var(--color-text-muted); font-size: 1rem; line-height: 1; }
   .meal-calendar__lock { position: absolute; top: 5px; right: 5px; width: 5px; height: 5px; overflow: hidden; border-radius: 50%; background: var(--color-text-muted); color: transparent; }
   .meal-calendar__saved, .meal-calendar__error { position: absolute; right: 4px; bottom: 3px; color: var(--color-success); font-size: .65rem; }
   .meal-calendar__error { color: var(--color-danger); }
@@ -1163,6 +1175,11 @@
       padding-top: calc(57px + env(safe-area-inset-top));
       padding-bottom: calc(76px + env(safe-area-inset-bottom));
     }
+
+    .meal-month-nav { grid-template-columns: 44px minmax(0, 1fr) 44px; }
+    .meal-month-nav__today { grid-column: 1 / -1; width: 100%; }
+    .meal-load-error { align-items: stretch; flex-direction: column; }
+    .meal-load-error .btn { width: 100%; }
 
     .layout-mobile-header {
       position: fixed;

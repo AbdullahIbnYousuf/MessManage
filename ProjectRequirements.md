@@ -125,14 +125,16 @@ User allocation = Cost per meal x meals taken by that user during the cycle
 
 - Each user sets a default meal pattern on joining. The pattern is day-of-week based — Monday through Sunday — each day stores a meal count of 0, 1, 2, or more.
 - A user who takes 2 meals every day simply sets 2 for all 7 days. One pattern design covers all cases.
-- The calendar is pre-filled from this default. Users only edit days where their plan differs.
-- When a user changes their pattern before the daily deadline, the system updates today through month end. At or after the deadline it starts tomorrow, leaving today to the existing edit-request workflow. Past days are never affected.
+- The calendar maintains a saved rolling window covering the current and next calendar month. Both are pre-filled from this default, and users edit only the dates where their plan differs.
+- When a user changes their pattern before the daily deadline, the system updates today through current-month end plus the complete next month. At or after the deadline it starts tomorrow in the current month while still updating all of next month. Past days are never affected.
+- Saving the pattern intentionally replaces individual adjustments on the affected future dates.
 - There is exactly one active pattern per user. When updated, it is changed in place. No history of past patterns is stored.
 
 ### 5.2 Planned vs Actual Meals
 
-- Future dates are pre-scheduled from the default pattern and can be edited before the deadline.
+- Future dates through the end of next month are saved from the default pattern and can be edited directly.
 - Past dates reflect what actually happened and are permanently locked for members once the day ends. Admins have the narrow correction exception described below.
+- Members may browse their history back to their joining month. Historical browsing is read-only and never creates missing records.
 
 ### 5.3 Daily Deadline and Meal Locking
 
@@ -221,6 +223,8 @@ Visit count is always derived by counting completed bazar expense entries per us
 - Charges are applied manually by an admin; they are never generated automatically.
 - An untouched month intentionally remains at zero maid charges and can settle at zero.
 - Admins may apply charges to the current month or a past unsettled month.
+- Beginning with July 2026 service, maid charges enter the following accounting month and settlement (July service is included in August accounting).
+- Member eligibility follows the service month; balance and settlement inclusion follows the accounting month.
 - Default charge is 700 taka per member per month, stored in system configuration.
 - Admin can change the default. The change never deletes or alters posted charges and applies only to a later manual charge application.
 - Deactivated members are not charged for any month where they are fully deactivated.
@@ -235,6 +239,7 @@ One member often pays the full maid bill on behalf of the whole group. This is h
 - Net result: the paying member is owed the group's share minus their own portion. This surfaces naturally in the monthly settlement.
 - Maid Payment is recorded separately from bazar expenses — it must never affect the meal rate calculation.
 - Any member can record a Maid Payment.
+- A maid payment is credited in the same following accounting month as the service charge it pays.
 
 ---
 
@@ -416,7 +421,7 @@ The settlement output becomes entries in System 2 where actual money movement is
 | Admin meal correction | Admin may change counts in unsettled months unless the date belongs to a finished bulk cycle. The record stays locked. |
 | Post-deadline edit | Admin may grant member permission or directly correct the count. |
 | MealEditRequest expiry | Auto-expires at midnight if still pending. |
-| Default pattern change | Auto-updates all remaining future days of current month. Past records untouched. |
+| Default pattern change | Auto-updates the editable remainder of the current month and all of next month. Past records untouched. |
 | Forgotten meal | If food is cooked, cost stays with that user. No exception. |
 | Bazar entry ownership | Self-entered only. Cannot record for another member. |
 | Bazar zero entry | Valid participation event. Increments visit count. |

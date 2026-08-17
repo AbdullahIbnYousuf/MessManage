@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 interface MealRecord {
   id: string;
   date: string;
-  mealCount: number;
+  mealCount: number | null;
   isLocked: boolean;
+  isMissing?: boolean;
 }
 
 interface Props {
@@ -44,6 +45,16 @@ export default function MealCalendar({
   const [savedDate, setSavedDate] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [selectedDate, setSelectedDate] = useState(todayStr);
+
+  const visibleMonth = records[0]?.date.slice(0, 7) ?? "";
+  useEffect(() => {
+    if (!visibleMonth) return;
+    setSelectedDate(
+      todayStr.startsWith(`${visibleMonth}-`) ? todayStr : `${visibleMonth}-01`
+    );
+    setSavedDate(null);
+    setErrors({});
+  }, [todayStr, visibleMonth]);
 
   const updateMeal = useCallback(
     async (date: string, count: number) => {
@@ -118,6 +129,7 @@ export default function MealCalendar({
 
   const selectedRecord = records.find((record) => record.date === selectedDate) ?? firstRecord;
   const selectedCanEdit = canEditRecord(selectedRecord);
+  const selectedMealCount = selectedRecord.mealCount ?? 0;
   const selectedLabel = new Intl.DateTimeFormat("en-US", {
     weekday: "long",
     day: "numeric",
@@ -169,6 +181,9 @@ export default function MealCalendar({
               const wasSaved = savedDate === record.date;
               const err = errors[record.date];
               const dayNum = new Date(record.date + "T00:00:00").getDate();
+              const mealLabel = record.isMissing
+                ? "not recorded"
+                : `${record.mealCount ?? 0} meals`;
 
               return (
                 <button
@@ -177,11 +192,13 @@ export default function MealCalendar({
                   className={`meal-calendar__day${isToday ? " is-today" : ""}${isFuture ? " is-future" : ""}${isPast ? " is-past" : ""}${selectedRecord.id === record.id ? " is-selected" : ""}`}
                   onClick={() => setSelectedDate(record.date)}
                   aria-pressed={selectedRecord.id === record.id}
-                  aria-label={`${record.date}: ${record.mealCount} meals${canEdit ? ", editable" : ", locked"}`}
+                  aria-label={`${record.date}: ${mealLabel}${canEdit ? ", editable" : ", locked"}`}
                 >
                   <span className="meal-calendar__date">{dayNum}</span>
                   {isSaving ? (
                     <span className="spinner meal-calendar__spinner" />
+                  ) : record.isMissing ? (
+                    <span className="meal-calendar__missing">—</span>
                   ) : (
                     <strong className={record.mealCount === 0 ? "is-zero" : undefined}>{record.mealCount}</strong>
                   )}
@@ -204,22 +221,28 @@ export default function MealCalendar({
       <div className={`meal-day-editor${selectedCanEdit ? "" : " is-locked"}`}>
         <div className="meal-day-editor__copy">
           <span>{selectedLabel}</span>
-          <strong>{selectedCanEdit ? "Adjust this day" : "This day can’t be changed here"}</strong>
+          <strong>
+            {selectedRecord.isMissing
+              ? "No meal record was stored"
+              : selectedCanEdit
+                ? "Adjust this day"
+                : "This day can’t be changed here"}
+          </strong>
         </div>
-        {selectedCanEdit && (
+        {selectedCanEdit && selectedRecord.mealCount !== null && (
           <div className="meal-day-editor__controls" aria-label={`Meal count for ${selectedLabel}`}>
             <button
               type="button"
               className="btn btn-secondary"
-              onClick={() => void updateMeal(selectedRecord.date, Math.max(selectedRecord.mealCount - 1, 0))}
-              disabled={selectedRecord.mealCount === 0 || savingDate === selectedRecord.date}
+              onClick={() => void updateMeal(selectedRecord.date, Math.max(selectedMealCount - 1, 0))}
+              disabled={selectedMealCount === 0 || savingDate === selectedRecord.date}
               aria-label="Decrease meal count"
             >−</button>
-            <strong aria-live="polite">{selectedRecord.mealCount}</strong>
+            <strong aria-live="polite">{selectedMealCount}</strong>
             <button
               type="button"
               className="btn btn-primary"
-              onClick={() => void updateMeal(selectedRecord.date, selectedRecord.mealCount + 1)}
+              onClick={() => void updateMeal(selectedRecord.date, selectedMealCount + 1)}
               disabled={savingDate === selectedRecord.date}
               aria-label="Increase meal count"
             >+</button>
