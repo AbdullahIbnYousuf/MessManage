@@ -8,13 +8,19 @@ const mocks = vi.hoisted(() => ({
   settlementFind: vi.fn(),
   patternFind: vi.fn(),
   mealUpdate: vi.fn(),
+  mealFind: vi.fn(),
+  mealCreate: vi.fn(),
 }));
 
 const tx = {
   user: { findUnique: mocks.userFind, update: mocks.userUpdate },
   monthlySettlementRun: { findUnique: mocks.settlementFind },
   mealPattern: { findUnique: mocks.patternFind },
-  mealRecord: { updateMany: mocks.mealUpdate },
+  mealRecord: {
+    updateMany: mocks.mealUpdate,
+    findMany: mocks.mealFind,
+    createMany: mocks.mealCreate,
+  },
 };
 
 vi.mock("@/lib/session", () => ({ requireAdmin: mocks.admin }));
@@ -26,6 +32,7 @@ vi.mock("@/lib/utils/dates", async (importOriginal) => {
   return {
     ...actual,
     currentMonthStart: () => new Date("2026-08-01"),
+    getNow: () => new Date("2026-08-09T12:00:00.000Z"),
     today: () => "2026-08-09",
   };
 });
@@ -47,12 +54,14 @@ describe("member reactivation month safety", () => {
     mocks.settlementFind.mockResolvedValue(null);
     mocks.patternFind.mockResolvedValue({ monday: 2 });
     mocks.mealUpdate.mockResolvedValue({ count: 1 });
+    mocks.mealFind.mockResolvedValue([]);
+    mocks.mealCreate.mockResolvedValue({ count: 31 });
     mocks.serializable.mockImplementation(
       (operation: (client: typeof tx) => Promise<unknown>) => operation(tx)
     );
   });
 
-  it("reactivates and restores only tomorrow onward in an open month", async () => {
+  it("reactivates and restores tomorrow onward plus the complete next month", async () => {
     const response = await POST(new Request("http://localhost", { method: "POST" }), {
       params: Promise.resolve({ id: memberId }),
     });
@@ -60,11 +69,20 @@ describe("member reactivation month safety", () => {
     expect(response.status).toBe(200);
     expect(mocks.serializable).toHaveBeenCalledOnce();
     expect(mocks.userUpdate).toHaveBeenCalledOnce();
-    expect(mocks.mealUpdate).toHaveBeenCalledOnce();
+    expect(mocks.mealCreate).toHaveBeenCalledTimes(2);
+    expect(mocks.mealUpdate).toHaveBeenCalledTimes(52);
     expect(mocks.mealUpdate).toHaveBeenCalledWith({
       where: {
         userId: memberId,
         date: new Date("2026-08-10"),
+        isLocked: false,
+      },
+      data: { mealCount: 2 },
+    });
+    expect(mocks.mealUpdate).toHaveBeenCalledWith({
+      where: {
+        userId: memberId,
+        date: new Date("2026-09-01"),
         isLocked: false,
       },
       data: { mealCount: 2 },

@@ -1,8 +1,16 @@
 // POST /api/admin/members/[id]/reactivate — Reactivate a member account
 
 import { requireAdmin } from "@/lib/session";
-import { currentMonthStart, today } from "@/lib/utils/dates";
-import { futureDatesInCurrentMonth, applyPatternToDate } from "@/lib/domain/meal";
+import {
+  allDaysInMonth,
+  firstDayOfMonth,
+  getDhakaParts,
+  getNow,
+  shiftCalendarMonth,
+  toDateString,
+} from "@/lib/utils/dates";
+import { applyPatternToDate } from "@/lib/domain/meal";
+import { ensureMealRecordsForMonth } from "@/lib/queries/meal-records";
 import { withSerializableRetry } from "@/lib/services/debts/transactions";
 
 export async function POST(
@@ -13,7 +21,11 @@ export async function POST(
     await requireAdmin();
     const { id } = await params;
 
-    const todayStr = today();
+    const actionNow = getNow();
+    const now = getDhakaParts(actionNow);
+    const todayStr = toDateString(actionNow);
+    const currentMonth = firstDayOfMonth(now.y, now.m);
+    const next = shiftCalendarMonth(now.y, now.m, 1);
 
     // Reactivate user + regenerate all future meal records from tomorrow onwards using pattern
     await withSerializableRetry(async (tx) => {
@@ -28,7 +40,7 @@ export async function POST(
         );
       }
       const currentMonthSettlement = await tx.monthlySettlementRun.findUnique({
-        where: { month: currentMonthStart() },
+        where: { month: currentMonth },
         select: { id: true },
       });
       await tx.user.update({
@@ -43,7 +55,26 @@ export async function POST(
         ? null
         : await tx.mealPattern.findUnique({ where: { userId: id } });
       if (pattern !== null) {
-        const futureDates = futureDatesInCurrentMonth().filter(d => d > todayStr);
+        await ensureMealRecordsForMonth(
+          tx,
+          id,
+          now.y,
+          now.m,
+          pattern,
+          todayStr
+        );
+        await ensureMealRecordsForMonth(
+          tx,
+          id,
+          next.year,
+          next.month,
+          pattern,
+          todayStr
+        );
+        const futureDates = [
+          ...allDaysInMonth(now.y, now.m).filter(d => d > todayStr),
+          ...allDaysInMonth(next.year, next.month),
+        ];
         for (const dateStr of futureDates) {
           const newCount = applyPatternToDate(pattern, dateStr);
           await tx.mealRecord.updateMany({

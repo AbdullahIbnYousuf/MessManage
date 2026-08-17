@@ -526,6 +526,8 @@ These are the rules most likely to be broken by a code agent.
 ### Meal Rules
 
 - Future individual meal records (tomorrow onwards) can be edited directly without changing the global pattern.
+- The member calendar maintains a persisted rolling window for the current and next calendar month. Saving the weekly pattern updates the editable remainder of the current month and all of next month.
+- Historical member calendars are read-only and never materialize missing MealRecord rows.
 - Today's meal record can be edited directly before the admin-configurable `mealDeadline`.
 - After the deadline passes, today's meal can only be edited by submitting a `MealEditRequest`, which requires Admin approval.
 - After midnight, `is_locked = true` permanently for member access. Admin corrections may update only `meal_count` without unlocking the row, and only when the month is unsettled and no finished bulk cycle covers the date.

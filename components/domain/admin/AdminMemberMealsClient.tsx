@@ -108,7 +108,7 @@ export default function AdminMemberMealsClient({
     (record: {
       id: string;
       date: string;
-      mealCount: number;
+      mealCount: number | null;
       isLocked: boolean;
       canEdit?: boolean;
     }) => record.canEdit === true,

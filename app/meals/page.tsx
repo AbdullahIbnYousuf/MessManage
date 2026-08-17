@@ -13,13 +13,30 @@ export default async function MealsPage() {
   const user = await getSessionUser();
   if (!user) redirect("/auth/login");
 
-  // Fetch system config for deadline — server side so no client fetch needed
-  const config = await db.systemConfig.findFirst();
+  // Fetch server-owned calendar boundaries so navigation is stable on hydration.
+  const [config, member] = await Promise.all([
+    db.systemConfig.findFirst(),
+    db.user.findUnique({
+      where: { id: user.id },
+      select: { joinedAt: true },
+    }),
+  ]);
   const deadline = config?.mealDeadline ?? "22:00";
 
   // Use getNow() so MOCK_CURRENT_TIME is respected in development
   const { y: year, m: month } = getDhakaParts(getNow());
+  const joined = getDhakaParts(member?.joinedAt ?? getNow());
   const todayStr = today();
 
-  return <MealsClient deadline={deadline} year={year} month={month} todayStr={todayStr} isAdmin={user.role === "admin"} />;
+  return (
+    <MealsClient
+      deadline={deadline}
+      initialYear={year}
+      initialMonth={month}
+      earliestYear={joined.y}
+      earliestMonth={joined.m}
+      todayStr={todayStr}
+      isAdmin={user.role === "admin"}
+    />
+  );
 }

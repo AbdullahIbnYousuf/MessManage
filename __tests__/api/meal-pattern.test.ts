@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   configFind: vi.fn(),
   patternUpsert: vi.fn(),
   recordUpdate: vi.fn(),
+  ensureRecords: vi.fn(),
 }));
 
 const tx = {
@@ -22,14 +23,22 @@ vi.mock("@/lib/services/month-state", () => ({ assertMonthOpen: mocks.assertMont
 vi.mock("@/lib/services/debts/transactions", () => ({
   withSerializableRetry: mocks.serializable,
 }));
-vi.mock("@/lib/utils/dates", () => ({
-  currentMonthKey: () => "2026-08-01",
-  isDeadlinePassed: mocks.deadlinePassed,
-  today: () => "2026-08-09",
-}));
+vi.mock("@/lib/utils/dates", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/utils/dates")>();
+  return {
+    ...actual,
+    currentMonthKey: () => "2026-08-01",
+    getNow: () => new Date("2026-08-09T12:00:00.000Z"),
+    isDeadlinePassed: mocks.deadlinePassed,
+    today: () => "2026-08-09",
+  };
+});
 vi.mock("@/lib/domain/meal", () => ({
   futureDatesInCurrentMonth: () => ["2026-08-09", "2026-08-10", "2026-08-11"],
   applyPatternToDate: () => 2,
+}));
+vi.mock("@/lib/queries/meal-records", () => ({
+  ensureMealRecordsForMonth: mocks.ensureRecords,
 }));
 
 import { PUT } from "@/app/api/meals/pattern/route";
@@ -60,6 +69,7 @@ describe("meal pattern propagation deadline", () => {
     mocks.assertMonthOpen.mockResolvedValue(undefined);
     mocks.patternUpsert.mockResolvedValue({});
     mocks.recordUpdate.mockResolvedValue({ count: 1 });
+    mocks.ensureRecords.mockResolvedValue([]);
     mocks.serializable.mockImplementation(
       (operation: (client: typeof tx) => Promise<unknown>) => operation(tx)
     );
@@ -75,7 +85,12 @@ describe("meal pattern propagation deadline", () => {
       tx,
       new Date("2026-08-01")
     );
-    expect(mocks.recordUpdate).toHaveBeenCalledTimes(3);
+    expect(mocks.assertMonthOpen).toHaveBeenCalledWith(
+      tx,
+      new Date("2026-09-01")
+    );
+    expect(mocks.ensureRecords).toHaveBeenCalledTimes(2);
+    expect(mocks.recordUpdate).toHaveBeenCalledTimes(53);
     expect(mocks.recordUpdate).toHaveBeenNthCalledWith(1, {
       where: {
         userId: "member",
@@ -93,7 +108,7 @@ describe("meal pattern propagation deadline", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.patternUpsert).toHaveBeenCalledOnce();
-    expect(mocks.recordUpdate).toHaveBeenCalledTimes(2);
+    expect(mocks.recordUpdate).toHaveBeenCalledTimes(52);
     expect(mocks.recordUpdate).not.toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ date: new Date("2026-08-09") }),

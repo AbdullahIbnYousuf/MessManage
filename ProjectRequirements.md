@@ -125,14 +125,16 @@ User allocation = Cost per meal x meals taken by that user during the cycle
 
 - Each user sets a default meal pattern on joining. The pattern is day-of-week based — Monday through Sunday — each day stores a meal count of 0, 1, 2, or more.
 - A user who takes 2 meals every day simply sets 2 for all 7 days. One pattern design covers all cases.
-- The calendar is pre-filled from this default. Users only edit days where their plan differs.
-- When a user changes their pattern before the daily deadline, the system updates today through month end. At or after the deadline it starts tomorrow, leaving today to the existing edit-request workflow. Past days are never affected.
+- The calendar maintains a saved rolling window covering the current and next calendar month. Both are pre-filled from this default, and users edit only the dates where their plan differs.
+- When a user changes their pattern before the daily deadline, the system updates today through current-month end plus the complete next month. At or after the deadline it starts tomorrow in the current month while still updating all of next month. Past days are never affected.
+- Saving the pattern intentionally replaces individual adjustments on the affected future dates.
 - There is exactly one active pattern per user. When updated, it is changed in place. No history of past patterns is stored.
 
 ### 5.2 Planned vs Actual Meals
 
-- Future dates are pre-scheduled from the default pattern and can be edited before the deadline.
+- Future dates through the end of next month are saved from the default pattern and can be edited directly.
 - Past dates reflect what actually happened and are permanently locked for members once the day ends. Admins have the narrow correction exception described below.
+- Members may browse their history back to their joining month. Historical browsing is read-only and never creates missing records.
 
 ### 5.3 Daily Deadline and Meal Locking
 
@@ -419,7 +421,7 @@ The settlement output becomes entries in System 2 where actual money movement is
 | Admin meal correction | Admin may change counts in unsettled months unless the date belongs to a finished bulk cycle. The record stays locked. |
 | Post-deadline edit | Admin may grant member permission or directly correct the count. |
 | MealEditRequest expiry | Auto-expires at midnight if still pending. |
-| Default pattern change | Auto-updates all remaining future days of current month. Past records untouched. |
+| Default pattern change | Auto-updates the editable remainder of the current month and all of next month. Past records untouched. |
 | Forgotten meal | If food is cooked, cost stays with that user. No exception. |
 | Bazar entry ownership | Self-entered only. Cannot record for another member. |
 | Bazar zero entry | Valid participation event. Increments visit count. |

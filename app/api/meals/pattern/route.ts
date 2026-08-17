@@ -3,9 +3,18 @@
 
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
-import { futureDatesInCurrentMonth, applyPatternToDate } from "@/lib/domain/meal";
+import { applyPatternToDate } from "@/lib/domain/meal";
+import { ensureMealRecordsForMonth } from "@/lib/queries/meal-records";
 import type { MealPattern } from "@/types";
-import { currentMonthKey, isDeadlinePassed, today } from "@/lib/utils/dates";
+import {
+  allDaysInMonth,
+  firstDayOfMonth,
+  getDhakaParts,
+  getNow,
+  isDeadlinePassed,
+  shiftCalendarMonth,
+  toDateString,
+} from "@/lib/utils/dates";
 import { withSerializableRetry } from "@/lib/services/debts/transactions";
 import { assertMonthOpen } from "@/lib/services/month-state";
 import { financialErrorResponse } from "@/lib/utils/financial-api";
@@ -53,24 +62,57 @@ export async function PUT(request: Request) {
       data[day] = val;
     }
 
+    const operationNow = getNow();
+    const now = getDhakaParts(operationNow);
+    const todayStr = toDateString(operationNow);
+    const next = shiftCalendarMonth(now.y, now.m, 1);
+
     await withSerializableRetry(async (tx) => {
-      const monthDate = new Date(currentMonthKey());
+      const monthDate = firstDayOfMonth(now.y, now.m);
+      const nextMonthDate = firstDayOfMonth(next.year, next.month);
       await assertMonthOpen(tx, monthDate);
+      await assertMonthOpen(tx, nextMonthDate);
       const config = await tx.systemConfig.findFirst({
         select: { mealDeadline: true },
       });
-      const deadlinePassed = isDeadlinePassed(config?.mealDeadline ?? "22:00");
-      const propagationDates = futureDatesInCurrentMonth().filter(
-        (dateStr) => !deadlinePassed || dateStr > today()
+      const deadlinePassed = isDeadlinePassed(
+        config?.mealDeadline ?? "22:00",
+        operationNow
+      );
+      const propagationDates = allDaysInMonth(now.y, now.m).filter(
+        (dateStr) =>
+          dateStr >= todayStr && (!deadlinePassed || dateStr > todayStr)
       );
 
-      await tx.mealPattern.upsert({
+      const savedPattern = await tx.mealPattern.upsert({
         where: { userId: user.id },
         update: { ...data },
         create: { userId: user.id, ...data },
       });
-      for (const dateStr of propagationDates) {
-        const newCount = applyPatternToDate(data, dateStr);
+
+      await ensureMealRecordsForMonth(
+        tx,
+        user.id,
+        now.y,
+        now.m,
+        savedPattern,
+        todayStr
+      );
+      await ensureMealRecordsForMonth(
+        tx,
+        user.id,
+        next.year,
+        next.month,
+        savedPattern,
+        todayStr
+      );
+
+      const datesToUpdate = [
+        ...propagationDates,
+        ...allDaysInMonth(next.year, next.month),
+      ];
+      for (const dateStr of datesToUpdate) {
+        const newCount = applyPatternToDate(savedPattern, dateStr);
         await tx.mealRecord.updateMany({
           where: { userId: user.id, date: new Date(dateStr), isLocked: false },
           data: { mealCount: newCount },
