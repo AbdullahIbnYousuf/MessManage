@@ -1130,6 +1130,36 @@
   .meal-day-editor__controls .btn { width: 44px; padding: 0; font-size: 1.1rem; }
   .meal-day-editor__controls > strong { text-align: center; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
   .meal-calendar__footer { margin-top: .75rem; color: var(--color-text-muted); font-size: .75rem; }
+  .meal-correction-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .meal-correction-toolbar.is-editing { border-color: var(--color-primary); background: var(--color-primary-subtle); }
+  .meal-correction-toolbar > div:first-child { display: flex; min-width: 0; flex-direction: column; gap: .2rem; }
+  .meal-correction-toolbar > div:first-child > strong { font-size: .95rem; }
+  .meal-correction-toolbar > div:first-child > span { color: var(--color-text-secondary); font-size: .8125rem; line-height: 1.45; }
+  .meal-correction-toolbar__actions { display: flex; flex-shrink: 0; gap: .5rem; }
+  .meal-correction-summary { max-height: min(42vh, 360px); margin-top: 1rem; overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-elevated); }
+  .meal-correction-summary ul { margin: 0; padding: 0; list-style: none; }
+  .meal-correction-summary li, .meal-correction-summary > div { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 1rem; padding: .65rem .75rem; border-bottom: 1px solid var(--color-border-subtle); font-size: .8125rem; }
+  .meal-correction-summary li strong, .meal-correction-summary > div strong { font-variant-numeric: tabular-nums; }
+  .meal-correction-summary > div { border-bottom: 0; background: var(--color-bg-surface); }
+  .meal-review-loading { display: flex; justify-content: center; padding: 3rem; }
+  .meal-review-loading .spinner { width: 28px; height: 28px; }
+  .meal-review-load-error { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .meal-review-list { display: flex; flex-direction: column; gap: .75rem; }
+  .meal-review-card { display: flex; flex-direction: column; gap: 1rem; }
+  .meal-review-card.is-complete { opacity: .62; }
+  .meal-review-card__header { display: flex; align-items: flex-start; gap: .75rem; }
+  .meal-review-card__header .avatar-fallback { width: 36px; height: 36px; flex-shrink: 0; font-size: .875rem; }
+  .meal-review-card__identity { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: .15rem; }
+  .meal-review-card__identity > strong { font-size: .95rem; }
+  .meal-review-card__identity > span { color: var(--color-text-secondary); font-size: .8125rem; }
+  .meal-review-card__identity > small { color: var(--color-text-muted); font-size: .75rem; }
+  .meal-review-card__changes { display: flex; flex-direction: column; gap: .5rem; }
+  .meal-review-card__changes > .btn { align-self: flex-start; }
+  .meal-review-card__changes ul { margin: 0; padding: 0; border: 1px solid var(--color-border); border-radius: var(--radius-md); list-style: none; }
+  .meal-review-card__changes li { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 1rem; padding: .6rem .75rem; border-bottom: 1px solid var(--color-border-subtle); font-size: .8125rem; }
+  .meal-review-card__changes li:last-child { border-bottom: 0; }
+  .meal-review-card__changes li strong { font-variant-numeric: tabular-nums; }
+  .meal-review-card__actions { display: flex; justify-content: flex-end; gap: .5rem; }
   .notice { margin-top: .75rem; padding: .75rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: .8125rem; }
   .notice-danger { border-color: rgba(168,68,58,.3); background: var(--color-danger-bg); color: var(--color-danger); }
   .notice-warning { border-color: rgba(165,108,18,.28); background: var(--color-warning-bg); color: var(--color-warning); }
@@ -1328,6 +1358,11 @@
     .meal-card-heading .btn { width: 100%; }
     .meal-pattern__grid { gap: 3px; }
     .meal-pattern__actions, .meal-pattern__actions .btn { width: 100%; }
+    .meal-correction-toolbar, .meal-review-load-error { align-items: stretch; flex-direction: column; }
+    .meal-correction-toolbar > .btn, .meal-correction-toolbar__actions, .meal-correction-toolbar__actions .btn, .meal-review-load-error .btn { width: 100%; }
+    .meal-correction-toolbar__actions, .meal-review-card__actions { display: grid; grid-template-columns: 1fr; }
+    .meal-review-card__header { flex-wrap: wrap; }
+    .meal-review-card__header .badge { margin-left: 44px; }
     .bazar-active-card__header { grid-template-columns: 10px minmax(0,1fr); }
     .bazar-active-card__badge { grid-column: 2; justify-self: start; }
     .admin-hub-grid { grid-template-columns: 1fr; }

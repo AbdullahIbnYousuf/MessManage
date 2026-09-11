@@ -14,6 +14,7 @@ import {
 import { withSerializableRetry } from "@/lib/services/debts/transactions";
 import { assertMonthOpen } from "@/lib/services/month-state";
 import { financialErrorResponse } from "@/lib/utils/financial-api";
+import { invalidatePendingMealCorrectionsForRange } from "@/lib/services/meal-corrections";
 
 export async function POST(
   _request: Request,
@@ -64,6 +65,11 @@ export async function POST(
           { status: 409 }
         );
       }
+      await invalidatePendingMealCorrectionsForRange(
+        tx,
+        cycle.startedAt,
+        finishedAt
+      );
       const allocationRows = computeBulkAllocations(
         new Decimal(cycle.cost.toString()),
         mealTotals.map((row) => ({

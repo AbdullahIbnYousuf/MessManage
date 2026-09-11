@@ -90,7 +90,7 @@ without restructuring what exists.
 
 - ✅ Daily meal records with configurable deadline
 - ✅ Meal patterns (weekly schedule)
-- ✅ Meal edit requests (after deadline, requires admin approval)
+- ✅ Exact meal-correction batches for protected dates (requires admin approval)
 - ✅ Admin-managed member meal calendars with protected historical corrections
 - ✅ Automatic meal locking at midnight
 - ✅ Admin ability to cancel today's meals for all members
@@ -141,7 +141,7 @@ without restructuring what exists.
 
 **Background Jobs:**
 
-- ✅ Midnight lock (locks yesterday's meals, expires edit requests)
+- ✅ Midnight lock (locks yesterday's meals, expires legacy same-day edit requests)
 - ✅ Auto settle (runs settlement on 20th of month)
 
 ---
@@ -335,20 +335,21 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
 
 ### MealEditRequest Status Enum
 
-MealEditRequest has four statuses — not three:
+MealEditRequest has five statuses:
 
 ```prisma
 enum MealEditRequestStatus {
   pending
   approved
   rejected
-  expired    ← set automatically by the midnight cron job, never set manually
+  expired      ← legacy same-day requests only; set by the midnight cron job
+  invalidated  ← a monthly closing, bulk-cycle finish, or direct admin correction won the transaction race
 }
 ```
 
-`expired` means the request was still pending when midnight arrived and the linked
-MealRecord was permanently locked. The cron job sets this automatically. No user or admin
-action triggers it. No code path should ever set status = expired except the midnight cron job.
+`expired` means a legacy same-day request was still pending when midnight arrived and the linked
+MealRecord was permanently locked. The cron job sets this automatically. New monthly correction
+batches persist until reviewed or atomically invalidated by a conflicting accounting operation.
 
 ### Migrations
 
@@ -529,10 +530,11 @@ These are the rules most likely to be broken by a code agent.
 - The member calendar maintains a persisted rolling window for the current and next calendar month. Saving the weekly pattern updates the editable remainder of the current month and all of next month.
 - Historical member calendars are read-only and never materialize missing MealRecord rows.
 - Today's meal record can be edited directly before the admin-configurable `mealDeadline`.
-- After the deadline passes, today's meal can only be edited by submitting a `MealEditRequest`, which requires Admin approval.
+- After the deadline passes, today's meal can only be corrected through an admin-approved `MealEditRequest` batch.
 - After midnight, `is_locked = true` permanently for member access. Admin corrections may update only `meal_count` without unlocking the row, and only when the month is unsettled and no finished bulk cycle covers the date.
-- A `MealEditRequest` always references today's record only — never a past or future day.
-- Pending `MealEditRequests` auto-expire at midnight — the cron job sets their status to `expired`.
+- A member may draft exact corrections for protected dates in one unsettled calendar month and submit them as one batch. Pending/rejected items never alter MealRecord rows.
+- Admin approval applies the whole batch atomically. Monthly closing, an overlapping bulk-cycle finish, or a direct admin correction invalidates an affected pending batch if it wins first.
+- Only legacy same-day `MealEditRequest` rows auto-expire at midnight. New batch requests do not.
 - Before the configured deadline, a `MealPattern` change propagates from today through month end. At or after the deadline it starts tomorrow; today's record uses the existing edit-request workflow. Past records are never touched.
 - There is exactly one `MealPattern` per user, updated in place. No history is kept.
 - A deactivated user's future `MealRecords` (from tomorrow onwards) are set to meal_count = 0.
@@ -749,7 +751,7 @@ export async function GET(request: Request) {
 
 Three cron jobs are configured:
 
-1. **Midnight Lock** (daily at 00:00 UTC) — locks yesterday's meals and expires pending edit requests
+1. **Midnight Lock** (daily at 00:00 UTC) — locks yesterday's meals and expires pending legacy same-day edit requests
 2. **Auto Settle** (monthly at 00:00 UTC on the 20th) — runs settlement for the previous month (allows buffer for late entries)
 3. **Meal Reminders** — sends configured meal reminders; it does not create financial records
 
@@ -780,7 +782,7 @@ This job runs at midnight every day. It is a hard, irreversible operation.
 ```
 1. Find all MealRecord rows where date = yesterday AND is_locked = false
 2. Set is_locked = true on all of them
-3. Find all MealEditRequest rows where status = 'pending'
+3. Find all legacy MealEditRequest rows where status = 'pending', batch_id IS NULL,
    AND their linked MealRecord.date = yesterday
 4. Set status = 'expired' on all of them
 5. All of the above in a single Prisma transaction
@@ -904,7 +906,7 @@ NEVER use float or number type for any monetary value
 NEVER store a running balance as a database column
 NEVER blend BulkCycle cost into a BazarExpense record
 NEVER blend MaidPayment into BazarExpense
-NEVER allow a member to edit a MealRecord for any day other than today
+NEVER allow a member to directly rewrite protected meal dates; exact corrections require whole-batch admin approval
 NEVER allow a past day's MealRecord to be unlocked under any condition
 NEVER allow an admin meal correction in a settled month or for a date covered by a finished BulkCycle
 NEVER allow two BazarTrips with status = open simultaneously
@@ -914,7 +916,7 @@ NEVER allow a member to submit a BazarExpense on behalf of another member
 NEVER recalculate a BulkAllocation after it has been posted
 NEVER run month-end settlement twice for the same month
 NEVER delete a MembershipRequest, MealRecord, BazarExpense, BulkAllocation, or MonthlySettlement
-NEVER set MealEditRequest.status = expired from any code path except the midnight cron job
+NEVER set MealEditRequest.status = expired from any code path except the midnight cron job, and only for legacy same-day requests
 NEVER expose the Anthropic API key to the client (browser)
 NEVER instantiate PrismaClient outside of lib/db.ts
 NEVER write business logic inside a route handler

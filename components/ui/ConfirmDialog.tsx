@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type { ReactNode } from "react";
 
 export default function ConfirmDialog({
   open,
@@ -12,6 +13,7 @@ export default function ConfirmDialog({
   busy = false,
   onConfirm,
   onCancel,
+  children,
 }: {
   open: boolean;
   title: string;
@@ -22,6 +24,7 @@ export default function ConfirmDialog({
   busy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  children?: ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -81,6 +84,7 @@ export default function ConfirmDialog({
         </span>
         <h2 id="confirm-dialog-title">{title}</h2>
         <p id="confirm-dialog-description">{description}</p>
+        {children}
         <div className="confirm-dialog__actions">
           <button ref={cancelRef} type="button" className="btn btn-secondary" disabled={busy} onClick={onCancel}>
             {cancelLabel}

@@ -9,7 +9,7 @@ Production: [mess-manage.vercel.app](https://mess-manage.vercel.app)
 ## What it manages
 
 - **Home:** today’s complete meal list, active bazar trip, tasks needing attention, and a month-to-date snapshot.
-- **Meals:** weekly patterns, daily counts, configurable deadlines, edit requests, locking, and protected admin corrections.
+- **Meals:** weekly patterns, rolling two-month schedules, configurable deadlines, exact monthly correction requests, locking, and protected admin corrections.
 - **Bazar:** shared shopping notes, fair assignee suggestions, trip completion, expenses, history, and participation statistics.
 - **Expenses:** operational summaries and full workflows for bulk items, maid charges, and fridge bills.
 - **Money:** provisional household accounting, monthly closing, permanent member obligations, confirmed money sent or received, pairwise statements, and a shared ledger.
@@ -137,7 +137,7 @@ Vercel runs three authenticated jobs configured in `vercel.json`:
 
 | Job | UTC schedule | Responsibility |
 |---|---|---|
-| Midnight lock | Daily at `00:00` | Lock completed meal records and expire pending edit requests |
+| Midnight lock | Daily at `00:00` | Lock completed meal records and expire pending legacy same-day edit requests |
 | Auto close | Monthly on the 20th at `00:00` | Attempt closing for the previous month |
 | Meal reminders | Daily at `14:30` | Send configured reminders without creating financial records |
 

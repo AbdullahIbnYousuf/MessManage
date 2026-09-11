@@ -84,6 +84,7 @@ export async function PUT(
             userId: user.id,
             mealRecordId: record.id,
             status: "approved",
+            batchId: null,
           },
         });
         if (!hasApprovedRequest) {

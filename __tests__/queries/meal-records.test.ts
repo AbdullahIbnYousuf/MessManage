@@ -22,7 +22,11 @@ vi.mock("@/lib/services/debts/transactions", () => ({
 }));
 vi.mock("@/lib/utils/dates", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/utils/dates")>();
-  return { ...actual, today: () => "2026-08-09" };
+  return {
+    ...actual,
+    getNow: () => new Date("2026-08-09T06:00:00.000Z"),
+    today: () => "2026-08-09",
+  };
 });
 
 import {

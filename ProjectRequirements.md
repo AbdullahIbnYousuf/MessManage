@@ -112,7 +112,7 @@ User allocation = Cost per meal x meals taken by that user during the cycle
 | Role | Permissions |
 |---|---|
 | Regular Member | Record own meals, record own bazar spending, record maid payment, view balances and reports, trigger bazar trip, edit shopping notes, add bulk item type, record bulk purchase, mark bulk cycle as finished |
-| Admin | All member permissions + directly correct protected member meal calendars + set and change daily meal deadline + approve or reject membership requests + grant post-deadline meal edit permission + change maid charge default + deactivate member accounts + run month-end settlement |
+| Admin | All member permissions + directly correct protected member meal calendars + set and change daily meal deadline + approve or reject membership requests + review exact monthly meal-correction batches + change maid charge default + deactivate member accounts + run month-end settlement |
 
 - Multiple admins are allowed. Any number of admin accounts can exist. Any admin can perform all admin actions.
 - Design intent: admin is a lightweight permission gate. The normal flow is user-driven. Admin intervention occurs only for rule exceptions.
@@ -140,7 +140,7 @@ User allocation = Cost per meal x meals taken by that user during the cycle
 
 - A single daily deadline applies to all meal types for that day. Set and changed by admin only.
 - Before the deadline: users can freely edit today's meals.
-- After the deadline: today's meals are locked. The user may request admin permission to edit.
+- After the deadline: direct editing closes. The member may propose the exact corrected count for admin review.
 - At midnight: today's record is permanently locked for member edits. An admin may correct its meal count later only while the month is unsettled and the date is not covered by a finished bulk cycle; the record remains locked.
 - Future days remain freely editable until their own deadline arrives.
 
@@ -149,19 +149,19 @@ User allocation = Cost per meal x meals taken by that user during the cycle
 | Situation | Who Acts | Permission Needed |
 |---|---|---|
 | Edit meal before deadline | User | No |
-| Edit meal after deadline, same day only | User after admin approval | Yes — admin grants via MealEditRequest |
-| Edit any past day before today | Not permitted for members | Hard block for members |
+| Edit meal after deadline | Member proposes the exact change | Admin approves the batch |
+| Correct a past day in an unsettled month | Member proposes one or more exact changes | Admin approves the batch |
 | Admin corrects a member's daily meal count | Admin | Allowed only in an unsettled month and outside finished bulk cycles |
 
-The same-day-only restriction still applies to members. Admin corrections never unlock a record and are blocked once a bulk allocation or monthly settlement has frozen the affected accounting period.
+Members never directly rewrite protected dates. Admin-approved batches apply exact proposed values and remain blocked once a bulk allocation or monthly settlement has frozen the affected accounting period.
 
 ### 5.5 MealEditRequest Lifecycle
 
-- A user submits a MealEditRequest for today's record after the deadline has passed.
-- An admin approves or rejects the request.
-- If approved, the user can perform the edit themselves. Alternatively, an admin may correct the count directly under the admin correction rules.
-- When an admin directly corrects a record with a pending request, that request is marked approved in the same transaction.
-- At midnight, any pending MealEditRequest auto-expires — it is meaningless once the day ends.
+- A member drafts exact before/after corrections for one unsettled month and submits them as one batch.
+- An admin sees the complete summary and approves or rejects the whole batch.
+- Approval updates or creates every requested MealRecord atomically. Pending and rejected batches have no accounting effect.
+- Monthly closing, an overlapping bulk-cycle finish, or a direct admin correction invalidates an affected pending batch if it happens first.
+- Existing legacy same-day permission requests remain compatible and are the only requests that auto-expire at midnight.
 
 ### 5.6 Forgotten and Missed Meals
 
@@ -383,7 +383,7 @@ The settlement output becomes entries in System 2 where actual money movement is
 |---|---|---|
 | Record own meals | Any member | No |
 | Edit meals before deadline | Any member | No |
-| Edit meals after deadline — same day only | Member after approval | Yes — MealEditRequest |
+| Correct protected meals in an unsettled month | Member after whole-batch approval | Yes — MealEditRequest |
 | Edit any past day's meals | Admin only | Only while month is unsettled and no finished bulk cycle covers the date |
 | Record own bazar expense | Any member | No |
 | Record bazar for another member | Not permitted | N/A |
@@ -397,7 +397,7 @@ The settlement output becomes entries in System 2 where actual money movement is
 | Set or change daily meal deadline | Admin only | N/A |
 | Change maid charge default | Admin only | N/A |
 | Approve or reject membership request | Admin only | N/A |
-| Grant post-deadline meal edit permission | Admin only | N/A |
+| Approve or reject a meal-correction batch | Admin only | N/A |
 | Directly correct a member's daily meal count | Admin only | Settlement and frozen bulk-allocation safeguards apply |
 | Deactivate a member account | Admin only | N/A |
 | Run month-end settlement | Admin only | N/A |
@@ -417,10 +417,10 @@ The settlement output becomes entries in System 2 where actual money movement is
 | Maid payment | Recorded separately from bazar. Paying member gets full amount as credit. |
 | Bulk item cost | Usage-based, separate line item, posted immediately on cycle close. |
 | Bulk purchase recording | Separate from bazar expense. Never enters meal rate calculation. |
-| Meal edit restriction | Members can only edit on that exact calendar day. Midnight permanently locks member access. |
+| Meal edit restriction | Members edit future dates directly and propose exact admin-reviewed corrections for protected dates in unsettled months. |
 | Admin meal correction | Admin may change counts in unsettled months unless the date belongs to a finished bulk cycle. The record stays locked. |
-| Post-deadline edit | Admin may grant member permission or directly correct the count. |
-| MealEditRequest expiry | Auto-expires at midnight if still pending. |
+| Post-deadline edit | Member proposes the exact count; admin approval applies it atomically. |
+| MealEditRequest expiry | Legacy same-day requests expire at midnight; batch corrections persist until reviewed or invalidated. |
 | Default pattern change | Auto-updates the editable remainder of the current month and all of next month. Past records untouched. |
 | Forgotten meal | If food is cooked, cost stays with that user. No exception. |
 | Bazar entry ownership | Self-entered only. Cannot record for another member. |

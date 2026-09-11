@@ -8,6 +8,7 @@ import {
 } from "@/lib/utils/dates";
 import type { AdminMealEditBlockReason } from "@/types";
 import { withSerializableRetry } from "@/lib/services/debts/transactions";
+import { invalidatePendingMealCorrectionsForRange } from "@/lib/services/meal-corrections";
 
 const BLOCK_MESSAGES: Record<AdminMealEditBlockReason, string> = {
   settled_month: "This month has already been settled and is read-only.",
@@ -126,13 +127,19 @@ export async function PUT(
       if (blockReason) throw new AdminMealEditConflict(blockReason);
 
       const now = new Date();
+      await invalidatePendingMealCorrectionsForRange(
+        tx,
+        targetDate,
+        targetDate,
+        admin.id
+      );
       const [updated, approvedRequests] = await Promise.all([
         tx.mealRecord.update({
           where: { id: record.id },
           data: { mealCount: mealCount as number },
         }),
         tx.mealEditRequest.updateMany({
-          where: { mealRecordId: record.id, status: "pending" },
+          where: { mealRecordId: record.id, status: "pending", batchId: null },
           data: {
             status: "approved",
             reviewedById: admin.id,

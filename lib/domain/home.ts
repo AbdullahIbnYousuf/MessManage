@@ -14,7 +14,7 @@ export function getHomeMealState({
   hasRecord: boolean;
   isLocked: boolean;
   deadlinePassed: boolean;
-  editRequestStatus: "pending" | "approved" | "rejected" | "expired" | null;
+  editRequestStatus: "pending" | "approved" | "rejected" | "expired" | "invalidated" | null;
 }): HomeMealState {
   if (!hasRecord) return "missing";
   if (isLocked) return "locked";

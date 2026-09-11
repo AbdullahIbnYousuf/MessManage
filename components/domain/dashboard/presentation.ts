@@ -49,13 +49,13 @@ export function mealStatePresentation(
     case "request_required":
       return {
         label: "Deadline passed",
-        description: "Request admin permission in Meals if your count needs changing.",
+        description: "Propose the corrected count in Meals for admin review.",
         tone: "attention",
       };
     case "request_pending":
       return {
         label: "Request pending",
-        description: "An admin is reviewing your meal edit request.",
+        description: "An admin is reviewing your proposed meal correction.",
         tone: "attention",
       };
     case "request_approved":
@@ -110,8 +110,8 @@ export function attentionPresentation(item: HomeAttentionItem): {
       };
     case "admin_meal_edits":
       return {
-        title: `${item.count} meal edit request${plural} pending`,
-        description: "Review today’s deadline exception requests.",
+        title: `${item.count} meal correction request${plural} pending`,
+        description: "Review the exact meal corrections proposed by members.",
         icon: "meals",
         tone: "attention",
       };

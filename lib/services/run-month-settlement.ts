@@ -20,6 +20,7 @@ import {
   getNow,
   lastDayOfMonth,
 } from "@/lib/utils/dates";
+import { invalidatePendingMealCorrectionsForRange } from "@/lib/services/meal-corrections";
 
 export type RunMonthSettlementInput = {
   monthKey: string;
@@ -139,6 +140,7 @@ export async function runMonthSettlement(
 
       const transfers = computeSettlement(balanceResult.members);
       assertSettlementInvariants(balanceResult.members, transfers);
+      await invalidatePendingMealCorrectionsForRange(tx, monthStart, monthEnd);
       const settledAt = getNow();
       const run = await tx.monthlySettlementRun.create({
         data: {

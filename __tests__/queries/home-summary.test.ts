@@ -63,7 +63,7 @@ function client(overrides?: {
     },
     mealEditRequest: {
       findFirst: vi.fn().mockResolvedValue(overrides?.editRequest ?? null),
-      count: vi.fn().mockResolvedValue(0),
+      findMany: vi.fn().mockResolvedValue([]),
     },
     membershipRequest: {
       count: vi.fn().mockResolvedValue(0),
@@ -122,7 +122,7 @@ describe("fetchHomeSummary", () => {
       confirmedMoneyEnabled: false,
       now,
     });
-    expect(db.mealEditRequest.count).not.toHaveBeenCalled();
+    expect(db.mealEditRequest.findMany).not.toHaveBeenCalled();
     expect(db.membershipRequest.count).not.toHaveBeenCalled();
   });
 
@@ -159,7 +159,11 @@ describe("fetchHomeSummary", () => {
         },
       },
     });
-    db.mealEditRequest.count.mockResolvedValue(2);
+    db.mealEditRequest.findMany.mockResolvedValue([
+      { id: "legacy", batchId: null },
+      { id: "batch-item-1", batchId: "batch" },
+      { id: "batch-item-2", batchId: "batch" },
+    ]);
     db.membershipRequest.count.mockResolvedValue(1);
 
     const summary = await fetchHomeSummary({
@@ -180,7 +184,10 @@ describe("fetchHomeSummary", () => {
       "admin_meal_edits",
       "admin_memberships",
     ]);
-    expect(db.mealEditRequest.count).toHaveBeenCalledWith({ where: { status: "pending" } });
+    expect(db.mealEditRequest.findMany).toHaveBeenCalledWith({
+      where: { status: "pending" },
+      select: { id: true, batchId: true },
+    });
     expect(db.membershipRequest.count).toHaveBeenCalledWith({ where: { status: "pending" } });
   });
 });

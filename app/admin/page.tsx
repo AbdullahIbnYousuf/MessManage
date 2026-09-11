@@ -29,8 +29,8 @@ const destinations: Array<{
   },
   {
     href: "/admin/meal-edit-requests",
-    title: "Meal edit requests",
-    description: "Review post-deadline meal changes.",
+    title: "Meal correction requests",
+    description: "Review exact changes proposed by members.",
     icon: "meals",
   },
   {
