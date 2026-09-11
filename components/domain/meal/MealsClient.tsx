@@ -449,6 +449,33 @@ export default function MealsClient({
             </div>
           )}
 
+          {/* Calendar */}
+          <MealCalendar
+            records={displayedRecords}
+            deadlinePassed={isCurrentMonth && deadlinePassed}
+            editRequestStatus={isCurrentMonth ? editRequestStatus : null}
+            onSaveMeal={saveVisibleMeal}
+            canEditRecord={canEditRecord}
+            deadline={deadline}
+            todayStr={todayStr}
+            instruction={correctionMode
+              ? "Tap protected dates and prepare the corrected counts before review"
+              : isHistoricalMonth
+              ? "Review the stored meal counts for this month"
+              : isNextMonth
+                ? "Tap a day to adjust next month’s saved schedule"
+                : "Tap a day, then use +/− to update the meal count"}
+            showMemberEditRequest={isCurrentMonth && !correctionMode}
+            allowMissingEdit={correctionMode}
+            footerText={correctionMode
+              ? "Draft changes have no accounting effect until the complete request is approved."
+              : isHistoricalMonth
+              ? "Historical meals are view only. Missing records are shown as Not recorded."
+              : isNextMonth
+                ? "This schedule is saved from your weekly pattern and can be adjusted now."
+                : undefined}
+          />
+
           {!isNextMonth && (
             <div className={`card meal-correction-toolbar${correctionMode ? " is-editing" : ""}`}>
               <div>
@@ -489,33 +516,6 @@ export default function MealsClient({
               )}
             </div>
           )}
-
-          {/* Calendar */}
-          <MealCalendar
-            records={displayedRecords}
-            deadlinePassed={isCurrentMonth && deadlinePassed}
-            editRequestStatus={isCurrentMonth ? editRequestStatus : null}
-            onSaveMeal={saveVisibleMeal}
-            canEditRecord={canEditRecord}
-            deadline={deadline}
-            todayStr={todayStr}
-            instruction={correctionMode
-              ? "Tap protected dates and prepare the corrected counts before review"
-              : isHistoricalMonth
-              ? "Review the stored meal counts for this month"
-              : isNextMonth
-                ? "Tap a day to adjust next month’s saved schedule"
-                : "Tap a day, then use +/− to update the meal count"}
-            showMemberEditRequest={isCurrentMonth && !correctionMode}
-            allowMissingEdit={correctionMode}
-            footerText={correctionMode
-              ? "Draft changes have no accounting effect until the complete request is approved."
-              : isHistoricalMonth
-              ? "Historical meals are view only. Missing records are shown as Not recorded."
-              : isNextMonth
-                ? "This schedule is saved from your weekly pattern and can be adjusted now."
-                : undefined}
-          />
 
           {/* Pattern editor */}
           {!isHistoricalMonth && !correctionMode && pattern !== null && (
