@@ -46,7 +46,7 @@ Every transaction reflects one of two directions: contribution (bazar) or consum
 | 2 | MembershipRequest | Pending join requests awaiting admin approval |
 | 3 | MealPattern | Each user's default weekly meal schedule |
 | 4 | MealRecord | Daily actual or planned meal count per user |
-| 5 | MealEditRequest | Post-deadline meal edit permission requests |
+| 5 | MealEditRequest | Exact member correction batches plus legacy same-day permission requests |
 | 6 | BazarTrip | Active bazar trip with assignees and shopping notes |
 | 7 | BazarExpense | A member's spending record for a completed trip |
 | 8 | BulkItem | Catalogue of trackable bulk items (Gas, Rice) |
@@ -208,28 +208,35 @@ The daily meal log — one row per user per day. Future dates are pre-filled fro
 
 ### 5. MealEditRequest
 
-When a user wants to edit today's meal count after the daily deadline has passed, they submit a request. The admin approves or rejects. If approved, the user performs the edit themselves.
+When a member needs to correct protected meals in an unsettled month, they prepare the exact changes and submit them as one monthly batch. The admin reviews the before/after summary and approves or rejects the complete batch.
 
 | Field | Type | Notes |
 |---|---|---|
 | id | UUID | Primary key |
 | user_id | UUID -> User | Who is requesting the edit |
-| meal_record_id | UUID -> MealRecord | Always today's MealRecord for this user |
-| status | Enum: pending, approved, rejected | Admin sets this |
+| meal_record_id | UUID -> MealRecord, nullable | Linked stored record; null when proposing a missing historical record |
+| batch_id | UUID, nullable | Groups exact correction items; null identifies a legacy same-day request |
+| target_date | Date, nullable | Date being corrected by a batch item |
+| original_meal_count | Integer, nullable | Submitted audit snapshot; null means no record existed |
+| proposed_meal_count | Integer, nullable | Exact count requested by the member |
+| status | Enum: pending, approved, rejected, expired, invalidated | Review state |
 | requested_at | Timestamp | When the request was submitted |
 | reviewed_by | UUID -> User, nullable | Which admin approved or rejected |
 | reviewed_at | Timestamp, nullable | When the decision was made |
 
 #### Business Rules
 
-- A MealEditRequest always references today's MealRecord — never a past day.
-- At midnight, any pending request for that day becomes irrelevant and is auto-closed as expired.
-- Once approved, the user may edit MealRecord.meal_count directly.
-- An admin may instead correct the count directly under the admin correction safeguards. Any pending request for that record is approved in the same transaction.
+- New correction requests contain one or more exact changes for one current or historical unsettled month.
+- Pending requests do not modify MealRecord or any derived balance.
+- Admin approval applies every item and completes the batch in one transaction; rejection applies none.
+- Settled months, dates frozen by finished bulk cycles, and dates outside the member's active period cannot be corrected.
+- Monthly closing, bulk-cycle finishing, or a direct admin correction invalidates any overlapping pending batch when that operation wins the transaction race.
+- Legacy same-day requests remain supported. Only their pending requests expire at midnight; approved legacy requests retain their original permission behavior.
 
 #### Constraints
 
-- meal_record_id must always point to a MealRecord whose date = today.
+- All new rows in one batch belong to the same member and calendar month.
+- proposed_meal_count must be 0 or greater.
 
 ---
 
@@ -587,7 +594,7 @@ Global system settings managed by admins. There is always exactly one row in thi
 | MembershipRequest | User (reviewed_by, user_id) | Many requests -> reviewed by one admin. One approved request -> one User. |
 | MealPattern | User (user_id) | One pattern per user (1:1). |
 | MealRecord | User (user_id) | Many records per user, one per day (1:many). |
-| MealEditRequest | User (user_id, reviewed_by), MealRecord | Many requests per user. Each request -> one MealRecord (today only). |
+| MealEditRequest | User (user_id, reviewed_by), MealRecord (optional) | Many requests per user. New rows are grouped into one-month correction batches; legacy rows retain their same-day MealRecord link. |
 | BazarTrip | User (triggered_by, assignee_1, assignee_2) | One open trip at a time. Trip references up to 3 users. |
 | BazarExpense | User (user_id), BazarTrip (trip_id) | One expense per trip (completing it). Many expenses per user over time. |
 | BulkCycle | BulkItem, User (purchased_by, finished_by) | Many cycles per BulkItem over time. One active cycle per item. |
@@ -608,10 +615,10 @@ Global system settings managed by admins. There is always exactly one row in thi
 
 - Default pattern is day-of-week based (Mon-Sun), each day stores a meal count (0 or more).
 - Changing the default pattern auto-updates the editable remainder of the current month and the complete next month. Past records are never touched.
-- Members may edit future current-month dates and next-month dates directly. Today's deadline and MealEditRequest restrictions remain unchanged.
+- Members may edit future current-month dates and next-month dates directly. Protected current or historical dates require an exact correction request.
 - Once the day ends (midnight), is_locked = true. Members can never bypass this lock.
 - Admins can correct counts in unsettled months without unlocking records, except where a finished bulk cycle has frozen allocations.
-- MealEditRequest auto-expires at midnight if still pending.
+- New correction batches remain pending until reviewed or invalidated; only legacy same-day requests auto-expire at midnight.
 - If a user forgets to cancel a meal and it is cooked, the cost stays with them.
 
 ### Bazar System

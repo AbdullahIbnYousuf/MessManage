@@ -27,6 +27,7 @@ export async function GET(request: Request) {
       const expiredRequests = await tx.mealEditRequest.findMany({
         where: {
           status: "pending",
+          batchId: null,
           mealRecord: { isLocked: true },
         },
         select: { id: true },

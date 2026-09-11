@@ -13,7 +13,11 @@ import {
   isDeadlinePassed,
   shiftCalendarMonth,
 } from "@/lib/utils/dates";
-import type { MealPattern } from "@/types";
+import type {
+  MealCorrectionBatch,
+  MealCorrectionContext,
+  MealPattern,
+} from "@/types";
 
 interface MealRecord {
   id: string;
@@ -28,6 +32,7 @@ interface MealsClientProps {
   initialMonth: number;
   earliestYear: number;
   earliestMonth: number;
+  joinedDate: string;
   todayStr: string; // passed from server so MOCK_CURRENT_TIME is respected
   isAdmin: boolean;
 }
@@ -43,6 +48,7 @@ export default function MealsClient({
   initialMonth,
   earliestYear,
   earliestMonth,
+  joinedDate,
   todayStr,
   isAdmin,
 }: MealsClientProps) {
@@ -53,8 +59,14 @@ export default function MealsClient({
   const [editRequestStatus, setEditRequestStatus] = useState<
     "pending" | "approved" | "rejected" | "expired" | null
   >(null);
+  const [correctionBatch, setCorrectionBatch] = useState<MealCorrectionBatch | null>(null);
+  const [correctionMonthSettled, setCorrectionMonthSettled] = useState(false);
+  const [frozenCorrectionDates, setFrozenCorrectionDates] = useState<string[]>([]);
+  const [correctionMode, setCorrectionMode] = useState(false);
+  const [draftMealCounts, setDraftMealCounts] = useState<Record<string, number>>({});
+  const [reviewCorrectionsOpen, setReviewCorrectionsOpen] = useState(false);
+  const [submittingCorrections, setSubmittingCorrections] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [requestingEdit, setRequestingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -86,13 +98,13 @@ export default function MealsClient({
       const [recRes, patRes, editRes] = await Promise.all([
         fetch(`/api/meals/records?year=${year}&month=${month}`),
         fetch("/api/meals/pattern"),
-        fetch("/api/meals/edit-request"),
+        fetch(`/api/meals/edit-request?month=${year}-${String(month).padStart(2, "0")}`),
       ]);
 
       const recJson = await recRes.json() as { data?: MealRecord[]; error?: string };
       const patJson = await patRes.json() as { data?: MealPattern; error?: string };
       const editJson = await editRes.json() as {
-        data?: { status: "pending" | "approved" | "rejected" | "expired" } | null;
+        data?: MealCorrectionContext;
         error?: string;
       };
 
@@ -106,7 +118,18 @@ export default function MealsClient({
 
       setRecords(recJson.data ?? []);
       setPattern(patJson.data ?? null);
-      setEditRequestStatus(editJson.data?.status ?? null);
+      setCorrectionBatch(editJson.data?.batch ?? null);
+      setCorrectionMonthSettled(editJson.data?.monthSettled ?? false);
+      setFrozenCorrectionDates(editJson.data?.frozenDates ?? []);
+      const legacyStatus = editJson.data?.legacyRequest?.status;
+      setEditRequestStatus(
+        legacyStatus === "pending"
+        || legacyStatus === "approved"
+        || legacyStatus === "rejected"
+        || legacyStatus === "expired"
+          ? legacyStatus
+          : null
+      );
     } catch (error) {
       if (requestId !== loadRequestId.current) return;
       setRecords([]);
@@ -140,6 +163,16 @@ export default function MealsClient({
   }, []);
 
   const canEditRecord = useCallback((record: CalendarRecord) => {
+    if (correctionMode) {
+      if (
+        isNextMonth
+        || correctionMonthSettled
+        || frozenCorrectionDates.includes(record.date)
+        || record.date < joinedDate
+        || record.date > todayStr
+      ) return false;
+      return record.date < todayStr || deadlinePassed;
+    }
     if (isHistoricalMonth) return false;
     if (isNextMonth) return true;
     const isToday = record.date === todayStr;
@@ -147,24 +180,35 @@ export default function MealsClient({
     return isFuture || (
       isToday && (!deadlinePassed || editRequestStatus === "approved")
     );
-  }, [deadlinePassed, editRequestStatus, isHistoricalMonth, isNextMonth, todayStr]);
+  }, [
+    correctionMode,
+    correctionMonthSettled,
+    deadlinePassed,
+    editRequestStatus,
+    isHistoricalMonth,
+    isNextMonth,
+    frozenCorrectionDates,
+    joinedDate,
+    todayStr,
+  ]);
 
-  async function handleRequestEdit() {
-    setRequestingEdit(true);
+  const saveVisibleMeal = useCallback(async (date: string, count: number) => {
+    if (!correctionMode) return saveMeal(date, count);
+    setDraftMealCounts((current) => ({ ...current, [date]: count }));
+    return null;
+  }, [correctionMode, saveMeal]);
+
+  function startCorrections() {
+    setDraftMealCounts({});
     setEditError(null);
-    try {
-      const res = await fetch("/api/meals/edit-request", { method: "POST" });
-      const json = await res.json() as { error?: string };
-      if (!res.ok) {
-        setEditError(json.error ?? "Failed to submit request.");
-      } else {
-        setEditRequestStatus("pending");
-      }
-    } catch {
-      setEditError("Network error.");
-    } finally {
-      setRequestingEdit(false);
-    }
+    setCorrectionMode(true);
+  }
+
+  function cancelCorrections() {
+    setDraftMealCounts({});
+    setEditError(null);
+    setCorrectionMode(false);
+    setReviewCorrectionsOpen(false);
   }
 
   async function handleCancelToday() {
@@ -204,6 +248,69 @@ export default function MealsClient({
     });
   }, [isHistoricalMonth, month, records, year]);
 
+  const displayedRecords = useMemo(
+    () => visibleRecords.map((record) => (
+      Object.prototype.hasOwnProperty.call(draftMealCounts, record.date)
+        ? { ...record, mealCount: draftMealCounts[record.date]! }
+        : record
+    )),
+    [draftMealCounts, visibleRecords]
+  );
+
+  const draftChanges = useMemo(() => {
+    const originalByDate = new Map(
+      visibleRecords.map((record) => [record.date, record.mealCount])
+    );
+    return Object.entries(draftMealCounts)
+      .map(([date, proposedMealCount]) => ({
+        date,
+        originalMealCount: originalByDate.get(date) ?? null,
+        proposedMealCount,
+      }))
+      .filter((change) => (
+        change.originalMealCount === null
+        || change.originalMealCount !== change.proposedMealCount
+      ))
+      .sort((left, right) => left.date.localeCompare(right.date));
+  }, [draftMealCounts, visibleRecords]);
+  const draftMealDelta = draftChanges.reduce(
+    (total, change) => total + change.proposedMealCount - (change.originalMealCount ?? 0),
+    0
+  );
+
+  async function submitCorrections() {
+    setSubmittingCorrections(true);
+    setEditError(null);
+    try {
+      const res = await fetch("/api/meals/edit-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          month: `${year}-${String(month).padStart(2, "0")}`,
+          changes: draftChanges.map((change) => ({
+            date: change.date,
+            mealCount: change.proposedMealCount,
+          })),
+        }),
+      });
+      const json = await res.json() as { data?: MealCorrectionBatch; error?: string };
+      if (!res.ok || !json.data) {
+        setEditError(json.error ?? "Could not submit meal corrections.");
+        setReviewCorrectionsOpen(false);
+        return;
+      }
+      setCorrectionBatch(json.data);
+      setDraftMealCounts({});
+      setCorrectionMode(false);
+      setReviewCorrectionsOpen(false);
+    } catch {
+      setEditError("Network error. Please try again.");
+      setReviewCorrectionsOpen(false);
+    } finally {
+      setSubmittingCorrections(false);
+    }
+  }
+
   const totalMeals = isHistoricalMonth || isNextMonth
     ? records.reduce((sum, record) => sum + record.mealCount, 0)
     : records.filter(record => {
@@ -212,11 +319,13 @@ export default function MealsClient({
         return record.isLocked;
       }).reduce((sum, record) => sum + record.mealCount, 0);
   const monthName = formatMonthLabel(`${year}-${String(month).padStart(2, "0")}-01`);
-  const monthStatus = isHistoricalMonth
-    ? "History · View only"
-    : isNextMonth
-      ? "Next month · Scheduled"
-      : "Current month";
+  const monthStatus = correctionMode
+    ? "Correction draft"
+    : isHistoricalMonth
+      ? "History · View only"
+      : isNextMonth
+        ? "Next month · Scheduled"
+        : "Current month";
   const summaryDescription = loading
     ? `Loading ${monthName}…`
     : isHistoricalMonth
@@ -226,9 +335,28 @@ export default function MealsClient({
         : `${totalMeals} meals recorded · ${deadlinePassed ? "Today’s deadline has passed" : `Changes close at ${deadline}`}`;
   const canGoPrevious = compareCalendarMonths(selectedMonth, earliestCalendarMonth) > 0;
   const canGoNext = monthRelation < 1;
+  const hasRequestableDates = !isNextMonth && visibleRecords.some((record) => (
+    !correctionMonthSettled
+    && !frozenCorrectionDates.includes(record.date)
+    && record.date >= joinedDate
+    && (record.date < todayStr || (record.date === todayStr && deadlinePassed))
+  ));
+  const correctionPending = correctionBatch?.status === "pending";
+  const correctionStatusLabel = correctionBatch
+    ? correctionBatch.status === "pending"
+      ? "Waiting for admin review"
+      : correctionBatch.status === "approved"
+        ? "Corrections approved"
+        : correctionBatch.status === "rejected"
+          ? "Corrections rejected"
+          : correctionBatch.status === "invalidated"
+            ? "Request invalidated by finalized accounting"
+            : "Request expired"
+    : null;
 
   function goPreviousMonth() {
     if (!canGoPrevious) return;
+    cancelCorrections();
     const previous = shiftCalendarMonth(year, month, -1);
     setYear(previous.year);
     setMonth(previous.month);
@@ -236,12 +364,14 @@ export default function MealsClient({
 
   function goNextMonth() {
     if (!canGoNext) return;
+    cancelCorrections();
     const next = shiftCalendarMonth(year, month, 1);
     setYear(next.year);
     setMonth(next.month);
   }
 
   function goToCurrentMonth() {
+    cancelCorrections();
     setYear(initialYear);
     setMonth(initialMonth);
   }
@@ -319,23 +449,68 @@ export default function MealsClient({
             </div>
           )}
 
+          {!isNextMonth && (
+            <div className={`card meal-correction-toolbar${correctionMode ? " is-editing" : ""}`}>
+              <div>
+                <strong>{correctionMode ? "Correction draft" : "Need to fix an earlier meal?"}</strong>
+                <span>
+                  {correctionMode
+                    ? `${draftChanges.length} ${draftChanges.length === 1 ? "change" : "changes"} prepared. Saved meal records stay unchanged until an admin approves.`
+                    : correctionStatusLabel
+                      ? `${correctionStatusLabel} · ${correctionBatch?.changes.length ?? 0} ${correctionBatch?.changes.length === 1 ? "change" : "changes"}`
+                      : (correctionMonthSettled
+                        ? "This month has been settled and is permanently read only."
+                        : "Propose exact changes for this unsettled month and send them together for review.")}
+                </span>
+              </div>
+              {correctionMode ? (
+                <div className="meal-correction-toolbar__actions">
+                  <button type="button" className="btn btn-secondary" onClick={cancelCorrections}>
+                    Cancel draft
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={draftChanges.length === 0}
+                    onClick={() => setReviewCorrectionsOpen(true)}
+                  >
+                    Review {draftChanges.length > 0 ? draftChanges.length : ""} changes
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={!hasRequestableDates || correctionPending || editRequestStatus === "pending"}
+                  onClick={startCorrections}
+                >
+                  {correctionPending ? "Request pending" : "Request corrections"}
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Calendar */}
           <MealCalendar
-            records={visibleRecords}
+            records={displayedRecords}
             deadlinePassed={isCurrentMonth && deadlinePassed}
             editRequestStatus={isCurrentMonth ? editRequestStatus : null}
-            onSaveMeal={saveMeal}
+            onSaveMeal={saveVisibleMeal}
             canEditRecord={canEditRecord}
-            onRequestEdit={isCurrentMonth ? () => void handleRequestEdit() : undefined}
             deadline={deadline}
             todayStr={todayStr}
-            instruction={isHistoricalMonth
+            instruction={correctionMode
+              ? "Tap protected dates and prepare the corrected counts before review"
+              : isHistoricalMonth
               ? "Review the stored meal counts for this month"
               : isNextMonth
                 ? "Tap a day to adjust next month’s saved schedule"
                 : "Tap a day, then use +/− to update the meal count"}
-            showMemberEditRequest={isCurrentMonth}
-            footerText={isHistoricalMonth
+            showMemberEditRequest={isCurrentMonth && !correctionMode}
+            allowMissingEdit={correctionMode}
+            footerText={correctionMode
+              ? "Draft changes have no accounting effect until the complete request is approved."
+              : isHistoricalMonth
               ? "Historical meals are view only. Missing records are shown as Not recorded."
               : isNextMonth
                 ? "This schedule is saved from your weekly pattern and can be adjusted now."
@@ -343,7 +518,7 @@ export default function MealsClient({
           />
 
           {/* Pattern editor */}
-          {!isHistoricalMonth && pattern !== null && (
+          {!isHistoricalMonth && !correctionMode && pattern !== null && (
             <PatternEditor
               initial={pattern}
               onSaved={(newPattern) => {
@@ -377,12 +552,6 @@ export default function MealsClient({
             </div>
           )}
 
-          {/* Submit request loading state */}
-          {requestingEdit && (
-            <div className="text-secondary" style={{ fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <span className="spinner" /> Submitting edit request...
-            </div>
-          )}
         </div>
       )}
       <ConfirmDialog
@@ -395,6 +564,35 @@ export default function MealsClient({
         onCancel={() => setConfirmCancelOpen(false)}
         onConfirm={() => void handleCancelToday()}
       />
+      <ConfirmDialog
+        open={reviewCorrectionsOpen}
+        title={`Send ${draftChanges.length} meal ${draftChanges.length === 1 ? "change" : "changes"}?`}
+        description="The saved meals will not change until an admin approves this complete request."
+        confirmLabel="Send for review"
+        busy={submittingCorrections}
+        onCancel={() => setReviewCorrectionsOpen(false)}
+        onConfirm={() => void submitCorrections()}
+      >
+        <div className="meal-correction-summary">
+          <ul>
+            {draftChanges.map((change) => (
+              <li key={change.date}>
+                <span>{change.date}</span>
+                <strong>
+                  {change.originalMealCount === null ? "Not recorded" : change.originalMealCount}
+                  {" → "}{change.proposedMealCount}
+                </strong>
+              </li>
+            ))}
+          </ul>
+          <div>
+            <span>Total difference</span>
+            <strong>
+              {draftMealDelta > 0 ? "+" : ""}{draftMealDelta} meals
+            </strong>
+          </div>
+        </div>
+      </ConfirmDialog>
     </div>
   );
 }

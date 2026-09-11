@@ -23,6 +23,7 @@ interface Props {
   instruction?: string;
   showMemberEditRequest?: boolean;
   footerText?: string;
+  allowMissingEdit?: boolean;
 }
 
 const DAYS_HEADER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -40,6 +41,7 @@ export default function MealCalendar({
   instruction = "Tap a day, then use +/− to update the meal count",
   showMemberEditRequest = true,
   footerText,
+  allowMissingEdit = false,
 }: Props) {
   const [savingDate, setSavingDate] = useState<string | null>(null);
   const [savedDate, setSavedDate] = useState<string | null>(null);
@@ -181,7 +183,7 @@ export default function MealCalendar({
               const wasSaved = savedDate === record.date;
               const err = errors[record.date];
               const dayNum = new Date(record.date + "T00:00:00").getDate();
-              const mealLabel = record.isMissing
+              const mealLabel = record.isMissing && record.mealCount === null
                 ? "not recorded"
                 : `${record.mealCount ?? 0} meals`;
 
@@ -197,7 +199,7 @@ export default function MealCalendar({
                   <span className="meal-calendar__date">{dayNum}</span>
                   {isSaving ? (
                     <span className="spinner meal-calendar__spinner" />
-                  ) : record.isMissing ? (
+                  ) : record.isMissing && record.mealCount === null ? (
                     <span className="meal-calendar__missing">—</span>
                   ) : (
                     <strong className={record.mealCount === 0 ? "is-zero" : undefined}>{record.mealCount}</strong>
@@ -222,14 +224,14 @@ export default function MealCalendar({
         <div className="meal-day-editor__copy">
           <span>{selectedLabel}</span>
           <strong>
-            {selectedRecord.isMissing
+            {selectedRecord.isMissing && selectedRecord.mealCount === null
               ? "No meal record was stored"
               : selectedCanEdit
                 ? "Adjust this day"
                 : "This day can’t be changed here"}
           </strong>
         </div>
-        {selectedCanEdit && selectedRecord.mealCount !== null && (
+        {selectedCanEdit && (selectedRecord.mealCount !== null || allowMissingEdit) && (
           <div className="meal-day-editor__controls" aria-label={`Meal count for ${selectedLabel}`}>
             <button
               type="button"

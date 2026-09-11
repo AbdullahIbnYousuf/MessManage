@@ -63,7 +63,7 @@ export async function fetchHomeSummary({
     records,
     config,
     editRequest,
-    pendingMealEditCount,
+    pendingMealEditRequests,
     pendingMembershipCount,
     expenses,
     money,
@@ -101,14 +101,20 @@ export async function fetchHomeSummary({
     client.mealEditRequest.findFirst({
       where: {
         userId: currentUser.id,
-        mealRecord: { date: dateValue },
+        OR: [
+          { batchId: null, mealRecord: { date: dateValue } },
+          { batchId: { not: null }, targetDate: dateValue, status: "pending" },
+        ],
       },
       select: { status: true },
       orderBy: { requestedAt: "desc" },
     }),
     isAdmin
-      ? client.mealEditRequest.count({ where: { status: "pending" } })
-      : Promise.resolve(0),
+      ? client.mealEditRequest.findMany({
+          where: { status: "pending" },
+          select: { id: true, batchId: true },
+        })
+      : Promise.resolve([]),
     isAdmin
       ? client.membershipRequest.count({ where: { status: "pending" } })
       : Promise.resolve(0),
@@ -145,6 +151,9 @@ export async function fetchHomeSummary({
   }
 
   const deadline = config?.mealDeadline ?? "22:00";
+  const pendingMealEditCount = new Set(
+    pendingMealEditRequests.map((request) => request.batchId ?? request.id)
+  ).size;
   const deadlinePassed = isDeadlinePassed(deadline, now);
   const mealState = getHomeMealState({
     hasRecord: currentMember.hasRecord,

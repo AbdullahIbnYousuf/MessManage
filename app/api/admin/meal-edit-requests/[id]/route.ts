@@ -1,7 +1,10 @@
-// POST /api/admin/meal-edit-requests/[id] — approve or reject a meal edit request
+// POST /api/admin/meal-edit-requests/[id] — approve or reject one review batch
 
 import { requireAdmin } from "@/lib/session";
-import { db } from "@/lib/db";
+import {
+  MealCorrectionError,
+  respondToMealEditReview,
+} from "@/lib/services/meal-corrections";
 
 export async function POST(
   request: Request,
@@ -10,50 +13,40 @@ export async function POST(
   try {
     const admin = await requireAdmin();
     const { id } = await params;
-    const body = await request.json() as { action: string };
-    const { action } = body;
-
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return Response.json({ error: "Invalid request body." }, { status: 400 });
+    }
+    const action = typeof body === "object" && body !== null && "action" in body
+      ? body.action
+      : null;
     if (action !== "approve" && action !== "reject") {
-      return Response.json({ error: "Invalid action. Use 'approve' or 'reject'." }, { status: 400 });
+      return Response.json(
+        { error: "Invalid action. Use 'approve' or 'reject'." },
+        { status: 400 }
+      );
     }
 
-    const editRequest = await db.mealEditRequest.findUnique({
-      where: { id },
-      include: { mealRecord: true },
+    const result = await respondToMealEditReview({
+      adminId: admin.id,
+      reviewId: id,
+      action,
     });
-
-    if (!editRequest) {
-      return Response.json({ error: "Edit request not found." }, { status: 404 });
+    return Response.json({ data: result });
+  } catch (error) {
+    if (error instanceof Response) return error;
+    if (error instanceof MealCorrectionError) {
+      return Response.json(
+        { error: error.message, code: error.code },
+        { status: error.status }
+      );
     }
-
-    if (editRequest.status !== "pending") {
-      return Response.json({ error: "This request has already been reviewed or expired." }, { status: 400 });
-    }
-
-    // Safety check: if the meal record is locked, auto-expire instead
-    if (editRequest.mealRecord.isLocked) {
-      await db.mealEditRequest.update({
-        where: { id },
-        data: { status: "expired", reviewedAt: new Date(), reviewedById: admin.id },
-      });
-      return Response.json({ error: "The meal record has been locked. The request is now expired." }, { status: 400 });
-    }
-
-    const newStatus = action === "approve" ? "approved" : "rejected";
-
-    await db.mealEditRequest.update({
-      where: { id },
-      data: {
-        status: newStatus,
-        reviewedById: admin.id,
-        reviewedAt: new Date(),
-      },
-    });
-
-    return Response.json({ data: { status: newStatus } });
-  } catch (err) {
-    if (err instanceof Response) return err;
-    console.error(err);
-    return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+    console.error("Meal correction review failed.", error);
+    return Response.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 }
+    );
   }
 }

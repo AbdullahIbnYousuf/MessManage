@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import { db } from "@/lib/db";
-import { getNow, getDhakaParts, today } from "@/lib/utils/dates";
+import { getNow, getDhakaParts, today, toDateString } from "@/lib/utils/dates";
 import MealsClient from "@/components/domain/meal/MealsClient";
 
 export const metadata = {
@@ -35,6 +35,7 @@ export default async function MealsPage() {
       initialMonth={month}
       earliestYear={joined.y}
       earliestMonth={joined.m}
+      joinedDate={toDateString(member?.joinedAt ?? getNow())}
       todayStr={todayStr}
       isAdmin={user.role === "admin"}
     />

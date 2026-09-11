@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
     monthlySettlement: { create: vi.fn() },
     debtObligation: { create: vi.fn() },
     debtNotification: { create: vi.fn() },
+    mealEditRequest: { findMany: vi.fn(), updateMany: vi.fn() },
   };
   return {
     transactionClient,
@@ -39,6 +40,15 @@ vi.mock("@/lib/services/debts/notifications", () => ({
   deliverDebtNotifications: mocks.deliverNotifications,
   persistDebtNotifications: mocks.persistNotifications,
 }));
+
+vi.mock("@/lib/utils/dates", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/utils/dates")>();
+  return {
+    ...actual,
+    currentMonthKey: () => "2026-08-01",
+    getNow: () => new Date("2026-08-09T06:00:00.000Z"),
+  };
+});
 
 import { runMonthSettlement } from "@/lib/services/run-month-settlement";
 
@@ -91,6 +101,8 @@ describe("runMonthSettlement", () => {
     mocks.transactionClient.monthlySettlementRun.create.mockResolvedValue({ id: "run" });
     mocks.transactionClient.monthlySettlement.create.mockResolvedValue({ id: "settlement" });
     mocks.transactionClient.debtObligation.create.mockResolvedValue({ id: "obligation" });
+    mocks.transactionClient.mealEditRequest.findMany.mockResolvedValue([]);
+    mocks.transactionClient.mealEditRequest.updateMany.mockResolvedValue({ count: 0 });
     mocks.persistNotifications.mockResolvedValue([
       "notification-debtor",
       "notification-creditor",

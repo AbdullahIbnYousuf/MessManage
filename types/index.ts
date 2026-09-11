@@ -1,6 +1,8 @@
 // Shared TypeScript types for the Meal Management system.
 // Enums are defined in prisma/schema.prisma — do not duplicate them here.
 
+import type { MealEditRequestStatus } from "@prisma/client";
+
 // ─── Session ──────────────────────────────────────────────────────────────────
 
 export type SessionUser = {
@@ -57,6 +59,52 @@ export type MealRecord = {
   mealCount: number;
   isLocked: boolean;
 };
+
+export type MealCorrectionChange = {
+  requestId: string;
+  date: string;
+  originalMealCount: number | null;
+  proposedMealCount: number;
+};
+
+export type MealCorrectionBatch = {
+  batchId: string;
+  month: string;
+  status: MealEditRequestStatus;
+  requestedAt: string;
+  reviewedAt: string | null;
+  changes: MealCorrectionChange[];
+  mealDelta: number;
+};
+
+export type MealCorrectionContext = {
+  batch: MealCorrectionBatch | null;
+  monthSettled: boolean;
+  frozenDates: string[];
+  legacyRequest: {
+    id: string;
+    status: MealEditRequestStatus;
+  } | null;
+};
+
+export type MealEditReview =
+  | {
+      kind: "batch";
+      id: string;
+      batchId: string;
+      requestedAt: string;
+      user: { id: string; name: string; avatarUrl: string | null };
+      month: string;
+      changes: MealCorrectionChange[];
+      mealDelta: number;
+    }
+  | {
+      kind: "legacy";
+      id: string;
+      requestedAt: string;
+      user: { id: string; name: string; avatarUrl: string | null };
+      mealRecord: { date: string; mealCount: number };
+    };
 
 export type AdminMealEditBlockReason =
   | "settled_month"
