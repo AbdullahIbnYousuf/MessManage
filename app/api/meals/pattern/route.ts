@@ -1,3 +1,4 @@
+import { withMemberRoute } from "@/lib/utils/acting-route";
 // GET  /api/meals/pattern — get current user's meal pattern
 // PUT  /api/meals/pattern — update pattern and propagate to future meal records
 
@@ -45,7 +46,7 @@ export async function GET() {
   }
 }
 
-export async function PUT(request: Request) {
+async function putHandler(request: Request) {
   try {
     const user = await requireAuth();
     const body = await request.json() as Partial<MealPattern>;
@@ -126,3 +127,5 @@ export async function PUT(request: Request) {
     return financialErrorResponse(err, "Meal pattern update");
   }
 }
+
+export const PUT = withMemberRoute("meal.pattern", putHandler);

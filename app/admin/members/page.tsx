@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import MembersListClient from "@/components/domain/admin/MembersListClient";
 import { PageHeader } from "@/components/ui/Editorial";
+import MemberActionHistory from "@/components/domain/admin/MemberActionHistory";
 
 export const metadata = {
   title: "Manage members",
@@ -17,6 +18,7 @@ export default async function MembersPage() {
       <PageHeader eyebrow="Administration" title="All members" description="Manage member accounts, roles, and meal calendars." />
 
       <MembersListClient currentUserId={user.id} />
+      <MemberActionHistory admin />
     </div>
   );
 }

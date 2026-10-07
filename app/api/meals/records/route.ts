@@ -1,3 +1,5 @@
+import { ActingError } from "@/lib/domain/acting";
+import { withMemberRoute } from "@/lib/utils/acting-route";
 // GET /api/meals/records?year=YYYY&month=MM
 // Returns all meal records for the current user for the given month.
 // Creates missing records from the meal pattern only while the month is open.
@@ -13,7 +15,7 @@ import {
   fetchRollingMealRecords,
 } from "@/lib/queries/meal-records";
 
-export async function GET(request: Request) {
+async function getHandler(request: Request) {
   try {
     const user = await requireAuth();
     const { searchParams } = new URL(request.url);
@@ -52,7 +54,10 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     if (err instanceof Response) return err;
+    if (err instanceof ActingError) throw err;
     console.error(err);
     return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }
+
+export const GET = withMemberRoute("meal.records", getHandler);

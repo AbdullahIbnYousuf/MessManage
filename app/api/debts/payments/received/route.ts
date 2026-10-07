@@ -1,3 +1,4 @@
+import { withMemberRoute } from "@/lib/utils/acting-route";
 import {
   debtErrorResponse,
   readJsonObject,
@@ -6,7 +7,7 @@ import {
 } from "@/lib/utils/debts-api";
 import { createReceivedMoney } from "@/lib/services/debts/payments";
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   try {
     const user = await requireDebtUser();
     requireDebtMutationsEnabled();
@@ -25,3 +26,5 @@ export async function POST(request: Request) {
     return debtErrorResponse(error, "Received money creation");
   }
 }
+
+export const POST = withMemberRoute("payment.received", postHandler);

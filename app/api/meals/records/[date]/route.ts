@@ -1,3 +1,4 @@
+import { withMemberRoute } from "@/lib/utils/acting-route";
 // PUT /api/meals/records/[date] — update meal count for today's record only
 
 import { requireAuth } from "@/lib/session";
@@ -15,7 +16,7 @@ import { withSerializableRetry } from "@/lib/services/debts/transactions";
 import { assertMonthOpen } from "@/lib/services/month-state";
 import { financialErrorResponse } from "@/lib/utils/financial-api";
 
-export async function PUT(
+async function putHandler(
   request: Request,
   { params }: { params: Promise<{ date: string }> }
 ) {
@@ -113,3 +114,5 @@ export async function PUT(
     return financialErrorResponse(err, "Meal record update");
   }
 }
+
+export const PUT = withMemberRoute("meal.update", putHandler);

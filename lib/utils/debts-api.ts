@@ -2,6 +2,7 @@ import { getSessionUser } from "@/lib/session";
 import { DebtError } from "@/lib/domain/debts/errors";
 import { DebtValidationError } from "@/lib/domain/debts/validation";
 import type { SessionUser } from "@/types";
+import { ActingError } from "@/lib/domain/acting";
 
 export async function requireDebtUser(): Promise<SessionUser> {
   const user = await getSessionUser();
@@ -22,6 +23,8 @@ export function requireDebtMutationsEnabled(): void {
 }
 
 export function debtErrorResponse(error: unknown, context: string): Response {
+  if (error instanceof Response) return error;
+  if (error instanceof ActingError) return Response.json({ error: error.message, code: error.code }, { status: error.status });
   if (error instanceof DebtValidationError) {
     return Response.json(
       { error: error.message, code: "VALIDATION_ERROR" },

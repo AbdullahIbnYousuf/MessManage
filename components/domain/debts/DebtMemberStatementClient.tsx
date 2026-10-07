@@ -1,5 +1,7 @@
 "use client";
 
+import { memberFetch as fetch } from "@/lib/utils/member-fetch";
+
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Decimal from "decimal.js";

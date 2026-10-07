@@ -1,3 +1,4 @@
+import { withMemberRoute } from "@/lib/utils/acting-route";
 // POST /api/maid/payment — record a maid payment made on behalf of the group
 
 import { requireAuth } from "@/lib/session";
@@ -43,7 +44,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   try {
     const user = await requireAuth();
 
@@ -98,3 +99,5 @@ export async function POST(request: Request) {
     return financialErrorResponse(err, "Maid payment creation");
   }
 }
+
+export const POST = withMemberRoute("maid.payment", postHandler);

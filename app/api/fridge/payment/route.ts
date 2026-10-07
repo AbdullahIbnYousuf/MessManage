@@ -1,3 +1,4 @@
+import { withMemberRoute } from "@/lib/utils/acting-route";
 // POST /api/fridge/payment — record that someone paid the fridge bill upfront.
 // The payer gets the full amount credited. All members already carry their
 // frozen FridgeAllocation debit from the FridgeBill.
@@ -9,7 +10,7 @@ import { withSerializableRetry } from "@/lib/services/debts/transactions";
 import { assertMonthOpen } from "@/lib/services/month-state";
 import { financialErrorResponse } from "@/lib/utils/financial-api";
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   try {
     const user = await requireAuth();
 
@@ -67,3 +68,5 @@ export async function POST(request: Request) {
     return financialErrorResponse(err, "Fridge payment creation");
   }
 }
+
+export const POST = withMemberRoute("fridge.payment", postHandler);

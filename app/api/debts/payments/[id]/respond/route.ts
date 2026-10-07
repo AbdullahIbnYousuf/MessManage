@@ -1,3 +1,4 @@
+import { withMemberRoute } from "@/lib/utils/acting-route";
 import {
   debtErrorResponse,
   readJsonObject,
@@ -6,7 +7,7 @@ import {
 } from "@/lib/utils/debts-api";
 import { respondToPayment } from "@/lib/services/debts/payments";
 
-export async function POST(
+async function postHandler(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -24,3 +25,5 @@ export async function POST(
     return debtErrorResponse(error, "Payment response");
   }
 }
+
+export const POST = withMemberRoute("payment.respond", postHandler);

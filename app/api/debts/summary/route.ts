@@ -1,7 +1,8 @@
+import { withPaymentAttribution } from "@/lib/utils/payment-attribution-route";
 import { debtErrorResponse, requireDebtUser } from "@/lib/utils/debts-api";
 import { fetchDebtSummary } from "@/lib/queries/debts";
 
-export async function GET() {
+async function getAttributionHandler() {
   try {
     const user = await requireDebtUser();
     return Response.json({ data: await fetchDebtSummary(user.id) });
@@ -9,3 +10,5 @@ export async function GET() {
     return debtErrorResponse(error, "Debt summary");
   }
 }
+
+export const GET = withPaymentAttribution(getAttributionHandler);

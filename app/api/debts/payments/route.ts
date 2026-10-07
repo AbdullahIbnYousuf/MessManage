@@ -1,3 +1,5 @@
+import { withPaymentAttribution } from "@/lib/utils/payment-attribution-route";
+import { withMemberRoute } from "@/lib/utils/acting-route";
 import { DebtError } from "@/lib/domain/debts/errors";
 import { parseOptionalUuidParam, parseTransferStatus } from "@/lib/utils/debts-query";
 import {
@@ -10,7 +12,7 @@ import {
 import { fetchDebtPayments } from "@/lib/queries/debts";
 import { createPayment } from "@/lib/services/debts/payments";
 
-export async function GET(request: Request) {
+async function getAttributionHandler(request: Request) {
   try {
     const user = await requireDebtUser();
     const params = new URL(request.url).searchParams;
@@ -41,7 +43,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   try {
     const user = await requireDebtUser();
     requireDebtMutationsEnabled();
@@ -60,3 +62,7 @@ export async function POST(request: Request) {
     return debtErrorResponse(error, "Payment creation");
   }
 }
+
+export const POST = withMemberRoute("payment.create", postHandler);
+
+export const GET = withPaymentAttribution(getAttributionHandler);

@@ -4,6 +4,8 @@
 import NextAuth, { type DefaultSession } from "next-auth";
 import Google from "next-auth/providers/google";
 import { db } from "@/lib/db";
+import { randomUUID } from "node:crypto";
+import { cookies } from "next/headers";
 
 declare module "next-auth" {
   interface Session {
@@ -13,6 +15,7 @@ declare module "next-auth" {
       status: string;
       avatarUrl: string | null;
       nickname: string | null;
+      loginBinding?: string;
     } & DefaultSession["user"];
   }
 }
@@ -24,6 +27,7 @@ declare module "next-auth/jwt" {
     status?: string;
     avatarUrl?: string | null;
     nickname?: string | null;
+    loginBinding?: string;
   }
 }
 
@@ -76,6 +80,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
 
     async jwt({ token, user }) {
+      if (user) token.loginBinding = randomUUID();
       const email = user?.email ?? token?.email;
       if (email) {
         const dbUser = await db.user.findUnique({
@@ -108,8 +113,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.status = token.status as string;
         session.user.avatarUrl = token.avatarUrl ?? null;
         session.user.nickname = token.nickname ?? null;
+        session.user.loginBinding = token.loginBinding;
       }
       return session;
+    },
+  },
+  events: {
+    async signOut(message) {
+      const jar = await cookies();
+      if (!jar.has("mm-acting")) return;
+      jar.delete("mm-acting");
+      if ("token" in message && message.token?.id && message.token.loginBinding) {
+        const adminId = message.token.id;
+        const loginBinding = message.token.loginBinding;
+        await db.$transaction(async (tx) => {
+          const sessions = await tx.adminActingSession.findMany({ where: { adminId, loginBinding, endedAt: null } });
+          const endedAt = new Date();
+          for (const session of sessions) {
+            const changed = await tx.adminActingSession.updateMany({ where: { id: session.id, endedAt: null }, data: { endedAt } });
+            if (changed.count) await tx.adminMemberAction.create({ data: {
+              actingSessionId: session.id, adminId, memberId: session.memberId, action: "session.logout",
+              entityType: "account", entityIds: [session.memberId], changes: { endedAt: endedAt.toISOString() },
+            } });
+          }
+        });
+      }
     },
   },
   pages: {

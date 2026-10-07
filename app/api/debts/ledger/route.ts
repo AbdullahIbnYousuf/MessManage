@@ -1,3 +1,4 @@
+import { withPaymentAttribution } from "@/lib/utils/payment-attribution-route";
 import { DebtError } from "@/lib/domain/debts/errors";
 import {
   parseDateParam,
@@ -11,7 +12,7 @@ import {
 } from "@/lib/utils/debts-api";
 import { fetchDebtLedger } from "@/lib/queries/debts";
 
-export async function GET(request: Request) {
+async function getAttributionHandler(request: Request) {
   try {
     await requireDebtUser();
     const params = new URL(request.url).searchParams;
@@ -48,3 +49,5 @@ export async function GET(request: Request) {
     return debtErrorResponse(error, "Debt ledger");
   }
 }
+
+export const GET = withPaymentAttribution(getAttributionHandler);

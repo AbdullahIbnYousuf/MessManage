@@ -3,6 +3,9 @@ import { DM_Sans, Newsreader } from "next/font/google";
 import "./globals.css";
 import { getSessionUser } from "@/lib/session";
 import Sidebar from "@/components/Sidebar";
+import { getIdentityContext } from "@/lib/services/acting-identity";
+import ActingBanner from "@/components/domain/admin/ActingBanner";
+import ActingIdentityProvider from "@/components/domain/admin/ActingIdentityProvider";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -36,22 +39,27 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const user = await getSessionUser();
+  const identity = await getIdentityContext();
 
   return (
-    <html lang="en" className={`${dmSans.variable} ${newsreader.variable}`}>
+    <html lang="en" data-mm-context={identity.error ? "blocked" : identity.acting?.id ?? "self"} className={`${dmSans.variable} ${newsreader.variable}`}>
       <body>
+        <ActingIdentityProvider acting={identity.acting}>
         {user ? (
           <div className="layout-wrapper">
             <Sidebar user={user} />
             <main className="layout-main">
+              <ActingBanner acting={identity.acting} error={identity.error?.message ?? null} />
               {children}
             </main>
           </div>
         ) : (
           <div className="layout-wrapper" style={{ display: "block" }}>
+            <ActingBanner acting={identity.acting} error={identity.error?.message ?? null} />
             {children}
           </div>
         )}
+        </ActingIdentityProvider>
       </body>
     </html>
   );

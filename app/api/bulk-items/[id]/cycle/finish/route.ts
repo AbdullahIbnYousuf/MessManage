@@ -1,3 +1,4 @@
+import { withMemberRoute } from "@/lib/utils/acting-route";
 // POST /api/bulk-items/[id]/cycle/finish — mark the active cycle as finished
 // Immediately computes and posts BulkAllocation rows for all members
 
@@ -16,7 +17,7 @@ import { assertMonthOpen } from "@/lib/services/month-state";
 import { financialErrorResponse } from "@/lib/utils/financial-api";
 import { invalidatePendingMealCorrectionsForRange } from "@/lib/services/meal-corrections";
 
-export async function POST(
+async function postHandler(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -114,3 +115,5 @@ export async function POST(
     return financialErrorResponse(err, "Bulk cycle finish");
   }
 }
+
+export const POST = withMemberRoute("bulk.finish", postHandler);

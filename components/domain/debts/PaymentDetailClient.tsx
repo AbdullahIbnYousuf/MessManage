@@ -1,5 +1,7 @@
 "use client";
 
+import { memberFetch as fetch } from "@/lib/utils/member-fetch";
+
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { DebtPaymentDetail } from "@/types/debts";
@@ -7,10 +9,13 @@ import { formatTaka } from "@/lib/utils/decimal";
 import { DebtStatusBadge } from "@/components/domain/debts/DebtLedgerEntryCard";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { PageHeader } from "@/components/ui/Editorial";
+import { useActingIdentity } from "@/components/domain/admin/ActingIdentityProvider";
+import { sameAdminConfirmedBothSides } from "@/lib/domain/acting";
 
 type ConfirmAction = "accept" | "cancel" | "reverse";
 
 export default function PaymentDetailClient({ paymentId, currentUserId }: { paymentId: string; currentUserId: string }) {
+  const acting = useActingIdentity();
   const [payment, setPayment] = useState<DebtPaymentDetail | null>(null);
   const [returnRequestId, setReturnRequestId] = useState("");
   const [reason, setReason] = useState("");
@@ -60,26 +65,32 @@ export default function PaymentDetailClient({ paymentId, currentUserId }: { paym
   const receiverInitiated = payment.initiatedBy === "receiver";
   const isInitiator = receiverInitiated ? isReceiver : isSender;
   const isConfirmer = receiverInitiated ? isSender : isReceiver;
+  const creationAdmin = payment.onBehalfActions?.find((action) => ["payment.create", "payment.received", "payment.reverse"].includes(action.action))?.admin.id
+    ?? (receiverInitiated ? payment.receiver.id : payment.sender.id);
+  const sameAdminWillConfirm = creationAdmin === (acting?.admin.id ?? currentUserId) && isConfirmer;
+  const sameAdminCopy = sameAdminWillConfirm ? " The same administrator recorded and is confirming both sides." : "";
+  const onBehalfCopy = acting ? ` Administrator ${acting.admin.nickname || acting.admin.name} is acting on behalf of ${acting.member.nickname || acting.member.name}. This records money that already moved outside the app.${sameAdminCopy}` : sameAdminCopy;
+  const paymentDirectionCopy = `${payment.sender.name} sent ${formatTaka(payment.amount)} to ${payment.receiver.name}. `;
   const created = formatDate(payment.createdAt);
   const confirmCopy = confirmAction === "accept"
     ? {
         title: receiverInitiated
           ? `Confirm that you sent ${formatTaka(payment.amount)} to ${payment.receiver.name}?`
           : `Accept this ${formatTaka(payment.amount)} payment?`,
-        description: "The confirmed record will immediately affect both members’ balances.",
+        description: paymentDirectionCopy + "The confirmed record will immediately affect both members’ balances." + onBehalfCopy,
         label: receiverInitiated ? "Confirm money sent" : "Accept payment",
         tone: "primary" as const,
       }
     : confirmAction === "cancel"
       ? {
           title: "Cancel this pending payment record?",
-          description: "The record will remain in history and will have no balance effect.",
+          description: paymentDirectionCopy + "The record will remain in history and will have no balance effect." + onBehalfCopy,
           label: "Cancel record",
           tone: "danger" as const,
         }
       : {
           title: `Create a return payment for ${formatTaka(payment.amount)}?`,
-          description: "The original sender must confirm the return before balances change.",
+          description: `${payment.receiver.name} returns ${formatTaka(payment.amount)} to ${payment.sender.name}. The original sender must confirm the return before balances change.` + onBehalfCopy,
           label: "Create return payment",
           tone: "primary" as const,
         };
@@ -115,6 +126,9 @@ export default function PaymentDetailClient({ paymentId, currentUserId }: { paym
       </div>
 
       <div className="debt-note">MessManage records member confirmation; it does not transfer money through the app.</div>
+      {onBehalfCopy && <div className="debt-warning">{onBehalfCopy}</div>}
+      {sameAdminConfirmedBothSides(payment) && <div className="debt-note">The same administrator recorded and confirmed this payment.</div>}
+      {Boolean(payment.onBehalfActions?.length) && <section className="card"><h2>Administrator attribution</h2>{payment.onBehalfActions!.map((action) => <p key={action.id}>{action.admin.name} performed {action.action} on behalf of {action.member.name} · {formatDate(action.createdAt)}</p>)}</section>}
       {error && <div className="debt-error" role="alert">{error}</div>}
 
       {payment.status === "pending" && isConfirmer && <div className="card debt-actions"><h2>{receiverInitiated ? "Confirm money sent" : "Confirm this payment"}</h2>{receiverInitiated && <p className="text-secondary">Confirm that you sent {payment.receiver.name} {formatTaka(payment.amount)} outside the app.</p>}<button className="btn btn-primary" disabled={busy} onClick={() => setConfirmAction("accept")}>{receiverInitiated ? "Confirm money sent" : "Accept payment"}</button>{!showReject ? <button className="btn btn-danger" disabled={busy} onClick={() => setShowReject(true)}>{receiverInitiated ? "Reject record" : "Reject payment"}</button> : <div className="debt-reject"><label><span>Reason for rejection</span><textarea className="input" rows={3} maxLength={300} value={reason} onChange={(event) => setReason(event.target.value)} /><span className="text-muted" style={{ textAlign: "right", fontWeight: 400 }}>{reason.length}/300</span></label><button className="btn btn-danger" disabled={busy || reason.trim().length < 3} onClick={() => void mutate(`/api/debts/payments/${payment.id}/respond`, { decision: "reject", reason: reason.trim() })}>Confirm rejection</button><button className="btn btn-secondary" disabled={busy} onClick={() => setShowReject(false)}>Go back</button></div>}</div>}

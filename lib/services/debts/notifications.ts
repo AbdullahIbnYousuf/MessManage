@@ -5,6 +5,7 @@ import {
   sendPushNotification,
 } from "@/lib/utils/push";
 import type { DebtNotificationDraft } from "@/types/debts";
+import { actingOperations } from "@/lib/services/acting-context";
 
 export async function persistDebtNotifications(
   tx: Prisma.TransactionClient,
@@ -12,8 +13,9 @@ export async function persistDebtNotifications(
 ): Promise<string[]> {
   const ids: string[] = [];
   for (const draft of drafts) {
+    const acting = actingOperations.getStore()?.identity.acting;
     const notification = await tx.debtNotification.create({
-      data: draft,
+      data: acting ? { ...draft, body: `${draft.body} Action performed by administrator ${acting.admin.nickname || acting.admin.name} on behalf of ${acting.member.nickname || acting.member.name}.` } : draft,
       select: { id: true },
     });
     ids.push(notification.id);
@@ -65,7 +67,7 @@ export async function deliverDebtNotifications(
         const result = await sendPushNotification(subscription, {
           title: notification.title,
           body: notification.body,
-          url: notification.entityType === "transfer"
+          url: notification.entityType === "admin_action" ? "/profile#account-actions" : notification.entityType === "transfer"
             ? `/debts/payments/${notification.entityId}`
             : notification.entityType === "debt_request"
               ? `/debts/requests/${notification.entityId}`

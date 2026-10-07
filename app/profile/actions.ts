@@ -3,8 +3,10 @@
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/session";
 import { revalidatePath } from "next/cache";
+import { requirePersonalAccount } from "@/lib/services/acting-identity";
 
 export async function updateNickname(formData: FormData) {
+  await requirePersonalAccount();
   const user = await requireAuth();
   
   const nickname = formData.get("nickname")?.toString().trim() || null;
@@ -19,6 +21,7 @@ export async function updateNickname(formData: FormData) {
 }
 
 export async function updateContactInfo(formData: FormData) {
+  await requirePersonalAccount();
   const user = await requireAuth();
   
   const phoneNumber = formData.get("phoneNumber")?.toString().trim() || null;

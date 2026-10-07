@@ -476,7 +476,7 @@ export async function respondToPayment(
     }
   }
 
-  const result = await db.$transaction(async (tx) => {
+  const result = await withSerializableRetry(async (tx) => {
     await requireActiveActor(tx, actorId);
     const transfer = await tx.transfer.findUnique({
       where: { id: paymentId },
@@ -547,7 +547,7 @@ export async function cancelPayment(
   paymentIdInput: unknown
 ): Promise<PaymentCommandResult> {
   const paymentId = parseUuid(paymentIdInput, "paymentId");
-  const result = await db.$transaction(async (tx) => {
+  const result = await withSerializableRetry(async (tx) => {
     await requireActiveActor(tx, actorId);
     const transfer = await tx.transfer.findUnique({
       where: { id: paymentId },

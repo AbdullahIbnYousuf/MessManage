@@ -1,5 +1,7 @@
 "use client";
 
+import { memberFetch as fetch } from "@/lib/utils/member-fetch";
+
 import { useState, useEffect, useCallback } from "react";
 import ActiveTripCard from "@/components/domain/bazar/ActiveTripCard";
 import ExpenseForm from "@/components/domain/bazar/ExpenseForm";

@@ -1,5 +1,7 @@
 "use client";
 
+import { memberFetch as fetch } from "@/lib/utils/member-fetch";
+
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import MealCalendar from "@/components/domain/meal/MealCalendar";
 import MealReminderSettings from "@/components/domain/meal/MealReminderSettings";

@@ -1,25 +1,18 @@
 // Session helpers — type-safe user extraction for API routes and Server Components.
 
-import { auth } from "@/lib/auth";
+import { getIdentityContext, assertIdentityRequest } from "@/lib/services/acting-identity";
 import type { SessionUser } from "@/types";
+import { actingOperations } from "@/lib/services/acting-context";
 
 /**
  * Returns the authenticated SessionUser or null.
  * Use this in Server Components and API routes.
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-
-  return {
-    id: session.user.id,
-    email: session.user.email ?? "",
-    name: session.user.name ?? "",
-    nickname: session.user.nickname ?? null,
-    avatarUrl: session.user.avatarUrl ?? null,
-    role: (session.user.role as SessionUser["role"]) ?? "member",
-    status: (session.user.status as SessionUser["status"]) ?? "active",
-  };
+  const context = actingOperations.getStore()?.identity ?? await getIdentityContext();
+  if (context.error) return null;
+  await assertIdentityRequest(context);
+  return context.effective;
 }
 
 /**
@@ -27,7 +20,9 @@ export async function getSessionUser(): Promise<SessionUser | null> {
  * Use this at the top of every API route handler.
  */
 export async function requireAuth(): Promise<SessionUser> {
-  const user = await getSessionUser();
+  const context = actingOperations.getStore()?.identity ?? await getIdentityContext();
+  await assertIdentityRequest(context);
+  const user = context.effective;
   if (!user) {
     throw Response.json({ error: "Unauthorised" }, { status: 401 });
   }

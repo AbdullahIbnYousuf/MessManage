@@ -1,3 +1,4 @@
+import { withMemberRoute } from "@/lib/utils/acting-route";
 // POST /api/bazar/expense — submit a bazar expense (closes the active trip)
 
 import { requireAuth } from "@/lib/session";
@@ -10,7 +11,7 @@ import { assertMonthOpen } from "@/lib/services/month-state";
 import { FinancialError } from "@/lib/domain/financial-errors";
 import { financialErrorResponse } from "@/lib/utils/financial-api";
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   try {
     const user = await requireAuth();
 
@@ -106,3 +107,5 @@ export async function POST(request: Request) {
     return financialErrorResponse(err, "Bazar expense creation");
   }
 }
+
+export const POST = withMemberRoute("bazar.expense", postHandler);

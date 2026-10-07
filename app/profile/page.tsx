@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import NicknameForm from "./nickname-form";
 import ContactForm from "./contact-form";
 import { PageHeader } from "@/components/ui/Editorial";
+import { getIdentityContext } from "@/lib/services/acting-identity";
+import MemberActionHistory from "@/components/domain/admin/MemberActionHistory";
 
 export const metadata = {
   title: "Profile",
@@ -12,6 +14,7 @@ export const metadata = {
 
 export default async function ProfilePage() {
   const sessionUser = await getSessionUser();
+  const identity = await getIdentityContext();
   if (!sessionUser) redirect("/auth/login");
 
   const dbUser = await db.user.findUnique({
@@ -86,11 +89,13 @@ export default async function ProfilePage() {
               <span className="badge badge-success">Connected</span>
             </div>
             
-            <NicknameForm initialNickname={user.nickname} />
+            {!identity.cookiePresent && <NicknameForm initialNickname={user.nickname} />}
           </div>
         </div>
 
-        <ContactForm initialData={contactData} />
+        {!identity.cookiePresent && <ContactForm initialData={contactData} />}
+        {identity.cookiePresent && <div className="card"><p>Profile and payment details are read-only while acting as a member.</p><dl>{Object.entries(contactData).filter(([, value]) => value).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></div>}
+        <MemberActionHistory />
 
         {/* Sign out */}
         <div className="card">

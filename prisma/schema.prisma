@@ -8,6 +8,43 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model AdminActingSession {
+  id           String @id @default(uuid())
+  adminId      String @map("admin_id")
+  memberId     String @map("member_id")
+  tokenHash    String @unique @map("token_hash")
+  loginBinding String @map("login_binding")
+  reason       String @db.VarChar(300)
+  startedAt    DateTime @default(now()) @map("started_at")
+  expiresAt    DateTime @map("expires_at")
+  endedAt      DateTime? @map("ended_at")
+  admin        User @relation("ActingAdmin", fields: [adminId], references: [id], onDelete: Restrict)
+  member       User @relation("ActingMember", fields: [memberId], references: [id], onDelete: Restrict)
+  actions      AdminMemberAction[]
+
+  @@index([adminId, loginBinding, endedAt])
+  @@index([memberId, startedAt])
+}
+
+model AdminMemberAction {
+  id              String @id @default(uuid())
+  actingSessionId String @map("acting_session_id")
+  adminId         String @map("admin_id")
+  memberId        String @map("member_id")
+  action          String
+  entityType      String @map("entity_type")
+  entityIds       String[] @map("entity_ids")
+  changes         Json
+  createdAt       DateTime @default(now()) @map("created_at")
+  actingSession   AdminActingSession @relation(fields: [actingSessionId], references: [id], onDelete: Restrict)
+  admin           User @relation("ActionAdmin", fields: [adminId], references: [id], onDelete: Restrict)
+  member          User @relation("ActionMember", fields: [memberId], references: [id], onDelete: Restrict)
+
+  @@index([memberId, createdAt, id])
+  @@index([adminId, createdAt, id])
+  @@index([entityIds], type: Gin)
+}
+
 model User {
   id                        String                 @id @default(uuid())
   email                     String                 @unique
@@ -57,6 +94,10 @@ model User {
   systemConfigUpdates       SystemConfig[]
   pushSubscriptions         PushSubscription[]
   notificationDeliveries    NotificationDelivery[]
+  actingSessionsAsAdmin     AdminActingSession[] @relation("ActingAdmin")
+  actingSessionsAsMember    AdminActingSession[] @relation("ActingMember")
+  actionsAsAdmin            AdminMemberAction[] @relation("ActionAdmin")
+  actionsAsMember           AdminMemberAction[] @relation("ActionMember")
 
   @@map("User")
 }
@@ -509,12 +550,15 @@ enum TransferSource {
 }
 
 enum DebtNotificationEntity {
+  admin_action
   obligation
   transfer
   debt_request
 }
 
 enum DebtNotificationType {
+  admin_access_started
+  admin_member_action
   obligation_created
   payment_received
   payment_accepted

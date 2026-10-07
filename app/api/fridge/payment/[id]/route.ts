@@ -1,3 +1,4 @@
+import { withMemberRoute } from "@/lib/utils/acting-route";
 // PATCH /api/fridge/payment/[id] — edit a fridge payment
 // Rules:
 //   - Submitter can edit only on the same calendar day as paidAt (before midnight).
@@ -12,7 +13,7 @@ import { withSerializableRetry } from "@/lib/services/debts/transactions";
 import { assertMonthOpen } from "@/lib/services/month-state";
 import { financialErrorResponse } from "@/lib/utils/financial-api";
 
-export async function PATCH(
+async function patchHandler(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -93,3 +94,5 @@ export async function PATCH(
     return financialErrorResponse(err, "Fridge payment update");
   }
 }
+
+export const PATCH = withMemberRoute("fridge.correct-payment", patchHandler);

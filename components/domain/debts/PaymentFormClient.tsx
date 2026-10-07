@@ -1,11 +1,14 @@
 "use client";
 
+import { memberFetch as fetch } from "@/lib/utils/member-fetch";
+
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Decimal from "decimal.js";
 import type { DebtDashboardSummary, DebtPaymentLedgerEntry } from "@/types/debts";
 import { formatTaka } from "@/lib/utils/decimal";
 import { PageHeader } from "@/components/ui/Editorial";
+import { useActingIdentity } from "@/components/domain/admin/ActingIdentityProvider";
 
 type Member = { id: string; name: string; nickname: string | null; status: string };
 type MemberDetail = { user: { bkashNumber: string | null; bankName: string | null; bankAccountNumber: string | null } };
@@ -20,6 +23,7 @@ export default function PaymentFormClient({
   initialMemberId?: string;
   initialDirection?: MoneyDirection;
 }) {
+  const acting = useActingIdentity();
   const [requestId, setRequestId] = useState("");
   const [direction, setDirection] = useState<MoneyDirection>(initialDirection ?? "sent");
   const [members, setMembers] = useState<Member[]>([]);
@@ -180,7 +184,7 @@ export default function PaymentFormClient({
 
       {!confirming
         ? <button className="btn btn-primary" disabled={!valid} type="submit">Review record</button>
-        : <div className="debt-confirm"><h2>Confirm money record</h2><p>You are recording that you <strong>{direction === "sent" ? "sent" : "received"} {formatTaka(amount)}</strong> {direction === "sent" ? "to" : "from"} <strong>{memberName}</strong>.</p><p className="text-secondary">{memberName} must confirm {direction === "sent" ? "receiving" : "sending"} it before balances change.</p><button className="btn btn-primary" type="button" disabled={submitting} onClick={() => void submit()}>{submitting ? <><span className="spinner" /> Recording…</> : "Send for confirmation"}</button><button className="btn btn-secondary" type="button" disabled={submitting} onClick={() => setConfirming(false)}>Go back</button></div>}
+        : <div className="debt-confirm"><h2>Confirm money record</h2>{acting && <p className="debt-warning">Administrator {acting.admin.nickname || acting.admin.name} is recording this on behalf of {acting.member.nickname || acting.member.name}. This records money that already moved outside the app.</p>}<p>You are recording that you <strong>{direction === "sent" ? "sent" : "received"} {formatTaka(amount)}</strong> {direction === "sent" ? "to" : "from"} <strong>{memberName}</strong>.</p><p className="text-secondary">{memberName} must confirm {direction === "sent" ? "receiving" : "sending"} it before balances change.</p><button className="btn btn-primary" type="button" disabled={submitting} onClick={() => void submit()}>{submitting ? <><span className="spinner" /> Recording…</> : "Send for confirmation"}</button><button className="btn btn-secondary" type="button" disabled={submitting} onClick={() => setConfirming(false)}>Go back</button></div>}
     </form>
   </div>;
 }

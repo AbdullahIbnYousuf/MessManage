@@ -1,3 +1,5 @@
+import { ActingError } from "@/lib/domain/acting";
+import { withMemberRoute } from "@/lib/utils/acting-route";
 // GET/POST /api/meals/edit-request — review and submit exact meal corrections
 
 import { validateMealCorrectionInput } from "@/lib/domain/meal-corrections";
@@ -9,7 +11,7 @@ import {
 } from "@/lib/services/meal-corrections";
 import { currentMonthKey } from "@/lib/utils/dates";
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   try {
     const user = await requireAuth();
     let body: unknown;
@@ -30,6 +32,7 @@ export async function POST(request: Request) {
     return Response.json({ data: batch }, { status: 201 });
   } catch (error) {
     if (error instanceof Response) return error;
+    if (error instanceof ActingError) throw error;
     if (error instanceof MealCorrectionError) {
       return Response.json(
         { error: error.message, code: error.code },
@@ -56,6 +59,7 @@ export async function GET(request: Request) {
     return Response.json({ data: context });
   } catch (error) {
     if (error instanceof Response) return error;
+    if (error instanceof ActingError) throw error;
     console.error("Meal correction status failed.", error);
     return Response.json(
       { error: "Something went wrong. Please try again." },
@@ -63,3 +67,5 @@ export async function GET(request: Request) {
     );
   }
 }
+
+export const POST = withMemberRoute("meal.correction", postHandler);

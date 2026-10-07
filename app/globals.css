@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+.acting-banner { position: sticky; top: 76px; z-index: 40; display: flex; flex-direction: column; gap: .75rem; padding: 1rem; margin: 0 auto 1rem; background: var(--color-bg-surface); border: 2px solid var(--color-primary); border-radius: 14px; max-width: 1100px; overflow-wrap: anywhere; }
+.acting-banner > div { display: flex; flex-direction: column; gap: .35rem; }
+.acting-banner .btn, .acting-entry .btn { min-height: 44px; width: 100%; }
+.acting-entry, .acting-reason { display: flex; flex-direction: column; gap: .625rem; }
+.acting-history { margin-top: 1.25rem; min-width: 0; }
+.acting-history__item { border-top: 1px solid var(--color-border); padding: 1rem 0; overflow-wrap: anywhere; }
+.acting-history__item summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+.acting-history__item pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .8rem; }
+@media (min-width: 768px) { .acting-banner { top: 0; flex-direction: row; justify-content: space-between; align-items: center; } .acting-banner .btn { width: auto; flex-shrink: 0; } }
+
 @theme {
   /* ── Warm Editorial ── */
   --color-bg-base:       #F5F0E9;

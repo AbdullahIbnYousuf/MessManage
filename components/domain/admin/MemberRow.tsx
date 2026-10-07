@@ -1,9 +1,12 @@
 "use client";
 
+import { memberFetch as fetch } from "@/lib/utils/member-fetch";
+
 import { useState } from "react";
 import Link from "next/link";
 import { formatTaka } from "@/lib/utils/decimal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import ActAsMemberButton from "@/components/domain/admin/ActAsMemberButton";
 
 interface Member {
   id: string;
@@ -236,6 +239,7 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+        {!deactivated && member.id !== currentUserId && <ActAsMemberButton memberId={member.id} name={member.name} />}
         <Link
           href={`/admin/members/${member.id}/meals`}
           className="btn btn-primary"

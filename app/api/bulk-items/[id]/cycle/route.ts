@@ -1,3 +1,4 @@
+import { withMemberRoute } from "@/lib/utils/acting-route";
 // POST   /api/bulk-items/[id]/cycle — start a new cycle for a bulk item (records a purchase)
 // PATCH  /api/bulk-items/[id]/cycle — edit cost/purchaseDate of the active cycle
 //   Rules:
@@ -15,7 +16,7 @@ import { withSerializableRetry } from "@/lib/services/debts/transactions";
 import { FinancialError } from "@/lib/domain/financial-errors";
 import { financialErrorResponse } from "@/lib/utils/financial-api";
 
-export async function POST(
+async function postHandler(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -98,7 +99,7 @@ export async function POST(
   }
 }
 
-export async function PATCH(
+async function patchHandler(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -197,3 +198,7 @@ export async function PATCH(
     return financialErrorResponse(err, "Bulk cycle mutation");
   }
 }
+
+export const POST = withMemberRoute("bulk.start", postHandler);
+
+export const PATCH = withMemberRoute("bulk.correct", patchHandler);

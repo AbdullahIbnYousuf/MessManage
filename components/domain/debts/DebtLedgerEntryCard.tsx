@@ -43,6 +43,7 @@ export default function DebtLedgerEntryCard({ entry, currentUserId }: { entry: D
           </div>
         </div>
         {entry.description && <div className="text-secondary" style={{ fontSize: "0.8125rem" }}>{entry.description}</div>}
+        {Boolean(entry.onBehalfActions?.length) && <div className="text-secondary">Administrator action · {entry.onBehalfActions!.map((action) => `${action.admin.name} for ${action.member.name}`).filter((value, index, list) => list.indexOf(value) === index).join("; ")}</div>}
       </Link>
     );
   }

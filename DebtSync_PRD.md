@@ -952,6 +952,16 @@ Push rules:
 - Return generic `500` responses while logging entity IDs and safe diagnostic context server-side.
 - Rate-limit payment creation and response endpoints if infrastructure support is added; authorization and idempotency remain mandatory regardless.
 
+### Administrator acting access
+
+An active administrator may explicitly act as another active member for 30 minutes after entering a reason and confirming. The real Auth.js identity is retained and the effective role is always `member`. Acting sessions are tied to the administrator’s current login; stale context, expiry, revocation, role changes and inactive participants block writes. Admin controls and profile/device/notification-read changes are unavailable until exit.
+
+Money ownership, calculation, confirmation, idempotency, reversal and mutation flags remain unchanged. On-behalf actions create append-only `AdminMemberAction` rows in the financial transaction, with administrator, member, session, affected entity IDs and exact snapshots. Both money participants receive administrator-named notifications. Push runs after commit and cannot fail a committed action. No audit is duplicated for a replayed completed command.
+
+`Transfer.initiatedById` continues to identify the initiating **participant**, never the administrator. Optional `onBehalfActions` in payment/detail/ledger/statement/summary responses exposes attribution without reasons or private snapshots. One administrator may handle both sides; the acceptance review and payment detail explicitly disclose it. Delegation never forgives debt or bypasses deactivation clearance, and opening Meals also audits any automatic record generation.
+
+Session and detailed action history are private to admins and the represented member. Existing financial visibility still governs payment attribution. The additive migration creates session/audit tables and notification enum values without rewriting historical money records. Preview must be migrated first and validated on a non-production database with mutations initially disabled.
+
 ---
 
 ## 17. Acceptance Criteria

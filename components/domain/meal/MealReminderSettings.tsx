@@ -1,6 +1,9 @@
 "use client";
 
+import { memberFetch as fetch } from "@/lib/utils/member-fetch";
+
 import { useEffect, useState } from "react";
+import { useActingIdentity } from "@/components/domain/admin/ActingIdentityProvider";
 
 type ReminderState =
   | "checking"
@@ -32,10 +35,12 @@ async function getExistingSubscription(): Promise<PushSubscription | null> {
 }
 
 export default function MealReminderSettings() {
+  const acting = useActingIdentity();
   const [state, setState] = useState<ReminderState>("checking");
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (acting) return;
     async function checkSupport() {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
         setState("unsupported");
@@ -57,7 +62,7 @@ export default function MealReminderSettings() {
     }
 
     void checkSupport();
-  }, []);
+  }, [acting]);
 
   async function enableReminders() {
     setState("saving");
@@ -137,6 +142,8 @@ export default function MealReminderSettings() {
       setState("enabled");
     }
   }
+
+  if (acting) return <div className="card"><h2>Meal reminders</h2><p className="text-secondary">Return to your administrator account to manage this device’s reminders.</p></div>;
 
   if (state === "checking") {
     return (

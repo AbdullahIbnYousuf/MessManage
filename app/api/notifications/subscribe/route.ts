@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/session";
+import { requirePersonalAccount } from "@/lib/services/acting-identity";
 
 export const runtime = "nodejs";
 
@@ -35,6 +36,7 @@ function readSubscription(body: unknown): {
 export async function POST(request: Request) {
   try {
     const user = await requireAuth();
+    await requirePersonalAccount();
     const subscription = readSubscription(await request.json());
 
     if (!subscription) {
@@ -77,6 +79,7 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   try {
     await requireAuth();
+    await requirePersonalAccount();
     const subscription = readSubscription(await request.json());
 
     if (!subscription) {

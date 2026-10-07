@@ -1,11 +1,15 @@
 "use client";
 
+import { memberFetch as fetch } from "@/lib/utils/member-fetch";
+
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { DebtNotificationItem, DebtNotificationPage } from "@/types/debts";
 import { PageHeader } from "@/components/ui/Editorial";
+import { useActingIdentity } from "@/components/domain/admin/ActingIdentityProvider";
 
 export default function NotificationsClient() {
+  const acting = useActingIdentity();
   const [items, setItems] = useState<DebtNotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -52,14 +56,15 @@ export default function NotificationsClient() {
   }
 
   return <div className="page-container debt-page">
-    <PageHeader eyebrow="Household updates" title="Notifications" description={`${unreadCount} unread money ${unreadCount === 1 ? "notification" : "notifications"}`} actions={unreadCount > 0 ? <button className="btn btn-secondary" disabled={busy} onClick={() => void markAll()}>Mark all read</button> : undefined} />
+    <PageHeader eyebrow="Household updates" title="Notifications" description={`${unreadCount} unread ${unreadCount === 1 ? "notification" : "notifications"}${acting ? " · View only while acting" : ""}`} actions={!acting && unreadCount > 0 ? <button className="btn btn-secondary" disabled={busy} onClick={() => void markAll()}>Mark all read</button> : undefined} />
     {error && <div className="debt-error" role="alert">{error}</div>}
-    {loading && items.length === 0 ? <div className="debt-state"><span className="spinner" /> Loading notifications…</div> : items.length === 0 ? <div className="debt-empty">You have no money notifications.</div> : <div className="debt-list">{items.map((item) => <article className={`debt-notification ${item.readAt ? "" : "unread"}`} key={item.id}><Link href={notificationHref(item)}><div className="debt-notification__top"><strong>{item.title}</strong>{!item.readAt && <span className="debt-unread-dot" aria-label="Unread" />}</div><p>{item.body}</p><time>{formatDate(item.createdAt)}</time></Link>{!item.readAt && <button className="btn btn-ghost" disabled={busy} onClick={() => void markOne(item.id)}>Mark read</button>}</article>)}</div>}
+    {loading && items.length === 0 ? <div className="debt-state"><span className="spinner" /> Loading notifications…</div> : items.length === 0 ? <div className="debt-empty">You have no money notifications.</div> : <div className="debt-list">{items.map((item) => <article className={`debt-notification ${item.readAt ? "" : "unread"}`} key={item.id}><Link href={notificationHref(item)}><div className="debt-notification__top"><strong>{item.title}</strong>{!item.readAt && <span className="debt-unread-dot" aria-label="Unread" />}</div><p>{item.body}</p><time>{formatDate(item.createdAt)}</time></Link>{!acting && !item.readAt && <button className="btn btn-ghost" disabled={busy} onClick={() => void markOne(item.id)}>Mark read</button>}</article>)}</div>}
     {nextCursor && <button className="btn btn-secondary debt-load-more" disabled={loading} onClick={() => void load(nextCursor)}>Load more</button>}
   </div>;
 }
 
 function notificationHref(item: DebtNotificationItem): string {
+  if (item.entityType === "admin_action") return "/profile#account-actions";
   return item.entityType === "transfer"
     ? `/debts/payments/${item.entityId}`
     : item.entityType === "debt_request"

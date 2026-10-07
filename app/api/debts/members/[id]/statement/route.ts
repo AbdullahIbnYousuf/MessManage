@@ -1,3 +1,4 @@
+import { withPaymentAttribution } from "@/lib/utils/payment-attribution-route";
 import { fetchDebtMemberStatement } from "@/lib/queries/debts";
 import { parseUuidParam } from "@/lib/utils/debts-query";
 import {
@@ -6,7 +7,7 @@ import {
   requireDebtUser,
 } from "@/lib/utils/debts-api";
 
-export async function GET(
+async function getAttributionHandler(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -25,3 +26,5 @@ export async function GET(
     return debtErrorResponse(error, "Member money statement");
   }
 }
+
+export const GET = withPaymentAttribution(getAttributionHandler);

@@ -1,3 +1,4 @@
+import { withMemberRoute } from "@/lib/utils/acting-route";
 // POST /api/fridge/bill — post a fridge electricity bill for the previous month.
 // Rules:
 //   - Only the previous calendar month can be billed (never current or future).
@@ -18,7 +19,7 @@ import { withSerializableRetry } from "@/lib/services/debts/transactions";
 import { assertMonthOpen } from "@/lib/services/month-state";
 import { financialErrorResponse } from "@/lib/utils/financial-api";
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   try {
     const user = await requireAuth();
 
@@ -170,3 +171,5 @@ export async function POST(request: Request) {
     return financialErrorResponse(err, "Fridge bill creation");
   }
 }
+
+export const POST = withMemberRoute("fridge.bill", postHandler);

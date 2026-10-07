@@ -1,5 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { runAuditedTransaction } from "@/lib/services/acting-transactions";
+import { actingOperations } from "@/lib/services/acting-context";
 
 const MAX_SERIALIZABLE_ATTEMPTS = 3;
 
@@ -17,11 +19,20 @@ export async function withSerializableRetry<T>(
 
   for (let attempt = 1; attempt <= MAX_SERIALIZABLE_ATTEMPTS; attempt++) {
     try {
-      return await db.$transaction(operation, {
+      if (!actingOperations.getStore()?.identity.acting) {
+        return await db.$transaction(operation, {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+          maxWait: 10_000,
+          timeout: 30_000,
+        });
+      }
+      const outcome = await db.$transaction((tx) => runAuditedTransaction(tx, operation), {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
         maxWait: 10_000,
         timeout: 30_000,
       });
+      actingOperations.getStore()?.notificationIds.push(...outcome.notificationIds);
+      return outcome.result;
     } catch (error) {
       lastError = error;
       if (!isRetryableTransactionError(error) || attempt === MAX_SERIALIZABLE_ATTEMPTS) {

@@ -1,7 +1,10 @@
+import { ActingError } from "@/lib/domain/acting";
+import { withMemberRoute } from "@/lib/utils/acting-route";
 // GET /api/bazar/notes — get shopping notes for the active trip
 // PUT /api/bazar/notes — update shopping notes
 
 import { requireAuth } from "@/lib/session";
+import { withSerializableRetry } from "@/lib/services/debts/transactions";
 import { db } from "@/lib/db";
 
 export async function GET() {
@@ -17,12 +20,13 @@ export async function GET() {
     });
   } catch (err) {
     if (err instanceof Response) return err;
+    if (err instanceof ActingError) throw err;
     console.error(err);
     return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }
 
-export async function PUT(request: Request) {
+async function putHandler(request: Request) {
   try {
     await requireAuth();
 
@@ -33,15 +37,19 @@ export async function PUT(request: Request) {
       return Response.json({ error: "No active bazar trip found." }, { status: 400 });
     }
 
-    await db.bazarTrip.update({
-      where: { id: config.activeTripId },
-      data: { shoppingNotes: body.notes ?? null },
-    });
+    const tripId = config.activeTripId;
+    await withSerializableRetry((tx) => tx.bazarTrip.update({
+      where: { id: tripId },
+      data: { shoppingNotes: body.notes ?? "" },
+    }));
 
     return Response.json({ data: { updated: true } });
   } catch (err) {
     if (err instanceof Response) return err;
+    if (err instanceof ActingError) throw err;
     console.error(err);
     return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }
+
+export const PUT = withMemberRoute("bazar.notes", putHandler);

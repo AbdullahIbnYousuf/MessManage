@@ -39,6 +39,26 @@ Monthly closing converts an exact past-month household balance into permanent ob
 
 All money is calculated with decimal arithmetic. Running balances, meal rates, and participation totals are derived from source records rather than stored as mutable totals. Closed months and finished allocation periods are protected from later source-record changes.
 
+## Administrator “Act as member”
+
+In **Admin → Members**, an active administrator can select another active member, enter a reason and confirm **Act as member**. The member’s normal screens open with a persistent identity banner. Access lasts 30 minutes without renewal; **Return to admin** is required before selecting another member or using admin controls. Existing admin logins need one fresh Google sign-in before first use.
+
+- Google credentials and the administrator’s Auth.js identity are never replaced. The represented account receives member-level permissions, even when it belongs to another admin.
+- Money, Meals, Bazar, Bulk, Maid and Fridge retain their ownership, deadline, closed-month and allocation protections. This does not clear unpaid balances or bypass deactivation checks.
+- Profile/contact/banking edits, notification read-state changes and push-device registration are blocked. Profile and notifications remain viewable.
+- Every on-behalf mutation, including automatic missing-meal generation, has an append-only audit entry in its transaction. Audit or persistent-notification failure rolls back the change; push delivery happens after commit and is non-blocking.
+- Both money participants can see administrator attribution. If one administrator records and confirms both sides, the acceptance review and payment detail say so. `Transfer.initiatedById` still identifies the participant, not the administrator.
+- Audit history is available in Admin → Members and **Profile → Actions on your behalf**. Reasons and detailed changes are limited to administrators and the represented member.
+- Acting mode is shared across browser tabs. Entry/exit reload identity-dependent pages, and requests carry their screen context so stale forms are rejected rather than submitted as another account.
+
+### Deployment prerequisite
+
+The additive `20261007000000_add_admin_acting_sessions` migration adds two audit/session tables, indexes, foreign keys and notification enum values. It performs no financial row update, deletion or backfill. Apply it to an isolated Preview database **before** testing this build; payment queries now read administrator attribution.
+
+Keep `DEBTSYNC_MUTATIONS_ENABLED=false` for initial Preview validation. Then use a non-production two-account test to check entry/exit, confirmation, reversal, audit rollback, expiry, multi-tab behavior and logout/relogin. Back up production and reconcile existing financial counts/totals/checksums before and after migration. Do not enable production writes until the controlled test passes.
+
+The opaque cookie is host-only, HttpOnly, SameSite=Lax and Secure in production. Only its SHA-256 hash is stored. Its browser-session lifetime intentionally outlasts the **server-enforced 30-minute expiry**, allowing an expired delegation to block stale writes until explicitly exited. Sessions are bound to a fresh-login identifier, not just an administrator ID. Same-origin checks and explicit delegated-operation allowlists follow [OWASP session guidance](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) and [CSRF guidance](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html).
+
 ## Technology
 
 | Area | Stack |

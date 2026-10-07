@@ -1,7 +1,10 @@
+import { ActingError } from "@/lib/domain/acting";
+import { withMemberRoute } from "@/lib/utils/acting-route";
 // GET  /api/bulk-items — list all bulk items with their active cycle and finished cycles
 // POST /api/bulk-items — add a new bulk item type
 
 import { requireAuth } from "@/lib/session";
+import { withSerializableRetry } from "@/lib/services/debts/transactions";
 import { db } from "@/lib/db";
 
 export async function GET() {
@@ -53,12 +56,13 @@ export async function GET() {
     });
   } catch (err) {
     if (err instanceof Response) return err;
+    if (err instanceof ActingError) throw err;
     console.error(err);
     return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   try {
     await requireAuth();
 
@@ -73,18 +77,22 @@ export async function POST(request: Request) {
       return Response.json({ error: "A bulk item with this name already exists." }, { status: 400 });
     }
 
-    const item = await db.bulkItem.create({
+    const name = body.name.trim();
+    const item = await withSerializableRetry((tx) => tx.bulkItem.create({
       data: {
-        name: body.name.trim(),
+        name,
         unit: body.unit?.trim() || null,
         createdAt: new Date(),
       },
-    });
+    }));
 
     return Response.json({ data: { id: item.id, name: item.name, unit: item.unit } }, { status: 201 });
   } catch (err) {
     if (err instanceof Response) return err;
+    if (err instanceof ActingError) throw err;
     console.error(err);
     return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }
+
+export const POST = withMemberRoute("bulk.item", postHandler);

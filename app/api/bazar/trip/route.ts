@@ -1,9 +1,12 @@
+import { ActingError } from "@/lib/domain/acting";
+import { withMemberRoute } from "@/lib/utils/acting-route";
 // GET  /api/bazar/trip  — get the currently open trip (or null)
 // POST /api/bazar/trip  — trigger a new bazar trip
 
 import { requireAuth } from "@/lib/session";
 import { db } from "@/lib/db";
 import { canOpenTrip, suggestAssignees } from "@/lib/domain/bazar";
+import { withSerializableRetry } from "@/lib/services/debts/transactions";
 import { getNow } from "@/lib/utils/dates";
 
 export async function GET() {
@@ -38,12 +41,13 @@ export async function GET() {
     });
   } catch (err) {
     if (err instanceof Response) return err;
+    if (err instanceof ActingError) throw err;
     console.error(err);
     return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }
 
-export async function POST() {
+async function postHandler() {
   try {
     const user = await requireAuth();
 
@@ -74,7 +78,7 @@ export async function POST() {
     const [a1, a2] = suggestAssignees(membersWithCounts);
 
     // Create trip + update SystemConfig.activeTripId atomically
-    const trip = await db.$transaction(async (tx) => {
+    const trip = await withSerializableRetry(async (tx) => {
       const newTrip = await tx.bazarTrip.create({
         data: {
           triggeredById: user.id,
@@ -104,7 +108,10 @@ export async function POST() {
     }, { status: 201 });
   } catch (err) {
     if (err instanceof Response) return err;
+    if (err instanceof ActingError) throw err;
     console.error(err);
     return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }
+
+export const POST = withMemberRoute("bazar.trip", postHandler);

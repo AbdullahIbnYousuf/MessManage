@@ -1,5 +1,7 @@
 "use client";
 
+import { memberFetch as fetch } from "@/lib/utils/member-fetch";
+
 import { useState, useEffect, useCallback } from "react";
 import { formatMonthLabel } from "@/lib/utils/dates";
 import ExpensesBackLink from "@/components/domain/expenses/ExpensesBackLink";

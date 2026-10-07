@@ -1,3 +1,4 @@
+import { withMemberRoute } from "@/lib/utils/acting-route";
 import {
   debtErrorResponse,
   requireDebtMutationsEnabled,
@@ -5,7 +6,7 @@ import {
 } from "@/lib/utils/debts-api";
 import { cancelDebtRequest } from "@/lib/services/debts/requests";
 
-export async function POST(
+async function postHandler(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -19,3 +20,5 @@ export async function POST(
     return debtErrorResponse(error, "Debt request cancellation");
   }
 }
+
+export const POST = withMemberRoute("request.cancel", postHandler);

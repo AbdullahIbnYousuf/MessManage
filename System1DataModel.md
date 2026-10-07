@@ -587,6 +587,31 @@ Global system settings managed by admins. There is always exactly one row in thi
 
 ---
 
+### 18. AdminActingSession
+
+Temporary, explicit delegation from a real administrator to another active account. The administrator’s Auth.js identity remains unchanged; the effective account has member permissions only.
+
+| Field | Type | Notes |
+|---|---|---|
+| id | UUID | Non-secret context identifier used to reject stale forms |
+| admin_id, member_id | UUID → User | Actual actor and represented member; self-access is forbidden |
+| token_hash | String, unique | SHA-256 of the opaque cookie; never return or log it |
+| login_binding | String | Bound to the administrator’s current Google sign-in |
+| reason | String (3–300 characters) | Visible only to admins and represented member |
+| started_at, expires_at, ended_at | Timestamp | Absolute 30-minute limit, no renewal; explicit exit/logout ends access |
+
+Start and writes recheck role, active status and expiry transactionally. The HttpOnly, host-only cookie does not replace the Auth.js cookie. Invalid delegation blocks access instead of falling back to the administrator. Target logins and sessions are unaffected.
+
+### 19. AdminMemberAction
+
+Append-only on-behalf action history. Each row references its acting session, administrator and represented member, and contains `action`, `entity_type`, affected `entity_ids`, exact before/after `changes` JSON and `created_at`.
+
+- Audits and persistent notifications commit in the same transaction as the delegated mutation. Failure rolls back the whole operation.
+- Missing meal generation while opening Meals is audited; ordinary reads and idempotent replays are not.
+- Money attribution uses these rows; `Transfer.initiatedById` remains the initiating participant.
+- Profile/banking edits, push subscriptions, notification read-state and administrator controls are denied during delegation. Existing financial and meal protections are unchanged.
+- Admin history is paginated; members can read only their own on-behalf history. Public payment attribution omits reasons and raw changes.
+
 ## 4. Entity Relationship Summary
 
 | Entity | References | Relationship |
@@ -606,6 +631,8 @@ Global system settings managed by admins. There is always exactly one row in thi
 | FridgePayment | User (paid_by), FridgeBill | Many payments can reference one bill. |
 | MonthlySettlement | User (from_user_id, to_user_id) | Many rows per month (one per debtor-creditor pair). |
 | SystemConfig | User (updated_by), BazarTrip (active_trip_id) | Single row. References active trip and last admin who updated. |
+| AdminActingSession | User (admin_id, member_id) | Time-limited delegation bound to the administrator’s login. |
+| AdminMemberAction | AdminActingSession, User (admin_id, member_id) | Append-only transactional accountability for delegated changes. |
 
 ---
 

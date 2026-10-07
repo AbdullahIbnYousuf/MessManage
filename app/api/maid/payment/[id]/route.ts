@@ -1,3 +1,4 @@
+import { withMemberRoute } from "@/lib/utils/acting-route";
 // PATCH /api/maid/payment/[id] — edit a maid payment
 // Rules:
 //   - Submitter can edit only on the same calendar day as paidAt (before midnight).
@@ -13,7 +14,7 @@ import { withSerializableRetry } from "@/lib/services/debts/transactions";
 import { assertMonthOpen } from "@/lib/services/month-state";
 import { financialErrorResponse } from "@/lib/utils/financial-api";
 
-export async function PATCH(
+async function patchHandler(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -90,3 +91,5 @@ export async function PATCH(
     return financialErrorResponse(err, "Maid payment update");
   }
 }
+
+export const PATCH = withMemberRoute("maid.correct", patchHandler);

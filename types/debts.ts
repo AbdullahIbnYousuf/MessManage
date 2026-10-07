@@ -89,6 +89,7 @@ export type DebtObligationLedgerEntry = {
 };
 
 export type DebtPaymentLedgerEntry = {
+  onBehalfActions?: PaymentAdminAction[];
   type: "payment";
   id: string;
   createdAt: string;
@@ -108,6 +109,15 @@ export type DebtPaymentLedgerEntry = {
 export type DebtLedgerEntry =
   | DebtObligationLedgerEntry
   | DebtPaymentLedgerEntry;
+
+export type PaymentAdminAction = {
+  id: string;
+  action: string;
+  statusAfter: string | null;
+  createdAt: string;
+  admin: { id: string; name: string };
+  member: { id: string; name: string };
+};
 
 export type DebtLedgerCursor = {
   createdAt: string;
