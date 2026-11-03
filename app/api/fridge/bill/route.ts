@@ -12,6 +12,7 @@ import {
   computeFridgeAllocations,
   computeTotalFromReadings,
   isMemberEligibleForFridgeBill,
+  resolveFridgePreviousReading,
 } from "@/lib/domain/fridge";
 import { previousMonthKey, previousMonthStart } from "@/lib/utils/dates";
 import Decimal from "decimal.js";
@@ -75,16 +76,20 @@ async function postHandler(request: Request) {
         );
       }
 
-      let previousReading = suppliedPreviousReading;
+      const config = await tx.systemConfig.findFirst();
+      const lastBill = await tx.fridgeBill.findFirst({ orderBy: { month: "desc" } });
+      const previousReading = resolveFridgePreviousReading({
+        billMonth: monthDate,
+        lastReading: lastBill ? new Decimal(lastBill.currentReading.toString()) : null,
+        initialReading: config?.fridgeInitialReading != null ? new Decimal(config.fridgeInitialReading.toString()) : null,
+        initialMonth: config?.fridgeInitialMonth ?? null,
+        suppliedReading: suppliedPreviousReading,
+      });
       if (!previousReading) {
-        const lastBill = await tx.fridgeBill.findFirst({ orderBy: { month: "desc" } });
-        if (!lastBill) {
-          throw Response.json(
-            { error: "No previous bill found. Please provide the previous meter reading." },
-            { status: 400 }
-          );
-        }
-        previousReading = new Decimal(lastBill.currentReading.toString());
+        throw Response.json(
+          { error: "No previous bill found. Save an initial meter reading first, or provide the previous reading." },
+          { status: 400 }
+        );
       }
       if (currentReading.lt(previousReading)) {
         throw Response.json(
@@ -95,7 +100,6 @@ async function postHandler(request: Request) {
 
       let unitPrice = suppliedUnitPrice;
       if (!unitPrice) {
-        const config = await tx.systemConfig.findFirst();
         unitPrice = new Decimal(config?.electricityUnitPrice.toString() ?? "8");
       }
       const computedTotal = computeTotalFromReadings(previousReading, currentReading, unitPrice);

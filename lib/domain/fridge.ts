@@ -2,6 +2,41 @@
 // No HTTP, no database calls — just formulas and rule checks.
 
 import Decimal from "decimal.js";
+import { FinancialError } from "@/lib/domain/financial-errors";
+
+/** Exact, nonnegative meter reading fitting Decimal(10, 2). */
+export function parseInitialFridgeReading(value: unknown): Decimal {
+  if (typeof value !== "string" || !/^\d{1,8}(\.\d{1,2})?$/.test(value.trim())) {
+    throw new FinancialError("FRIDGE_READING_INVALID", "Enter a reading from 0 to 99999999.99, with at most two decimal places.");
+  }
+  return new Decimal(value.trim());
+}
+
+export function assertCanInitializeFridge(hasBill: boolean, hasInitialReading: boolean): void {
+  if (hasBill) {
+    throw new FinancialError("FRIDGE_BILL_EXISTS", "A bill already exists. Its ending reading is the next bill's starting reading.");
+  }
+  if (hasInitialReading) {
+    throw new FinancialError("FRIDGE_INITIAL_READING_EXISTS", "The initial meter reading has already been saved.");
+  }
+}
+
+/** The baseline is not a bill, and must never be used to bill an earlier month. */
+export function resolveFridgePreviousReading(input: {
+  billMonth: Date;
+  lastReading: Decimal | null;
+  initialReading: Decimal | null;
+  initialMonth: Date | null;
+  suppliedReading: Decimal | null;
+}): Decimal | null {
+  if (input.initialMonth && input.billMonth < input.initialMonth) {
+    throw new FinancialError("FRIDGE_READING_NOT_STARTED", "Meter tracking starts in a later month. Add the next reading after that month ends.");
+  }
+  // Preserve legacy first-bill input, but a saved baseline is authoritative.
+  return input.initialReading !== null
+    ? input.lastReading ?? input.initialReading
+    : input.suppliedReading ?? input.lastReading;
+}
 
 /**
  * Computes the total bill amount from meter readings and unit price.

@@ -1,5 +1,7 @@
 # MessManage
 
+Fridge setup: before the first bill, an administrator can save an **Initial meter reading** on the Fridge bill page. This saves a starting reading for the current Dhaka month without creating a bill, allocation or payment. Add the next reading after the month ends. Deploy the additive `add_fridge_initial_reading` migration before deploying the updated application.
+
 **Meals, expenses, and balances for your household.**
 
 MessManage is a mobile-first household management application for a single group of fewer than ten members. It replaces spreadsheet-based meal and expense tracking with shared workflows, exact financial calculations, monthly closing, and confirmed money records between members.

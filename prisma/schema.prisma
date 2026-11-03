@@ -441,6 +441,8 @@ model SystemConfig {
   updatedAt            DateTime   @updatedAt @map("updated_at")
   updatedById          String?    @map("updated_by")
   electricityUnitPrice Decimal    @default(8) @map("electricity_unit_price") @db.Decimal(10, 4)
+  fridgeInitialReading Decimal?   @map("fridge_initial_reading") @db.Decimal(10, 2)
+  fridgeInitialMonth   DateTime?  @map("fridge_initial_month") @db.Date
   activeTrip           BazarTrip? @relation(fields: [activeTripId], references: [id])
   updatedBy            User?      @relation(fields: [updatedById], references: [id])
 

@@ -570,6 +570,8 @@ Global system settings managed by admins. There is always exactly one row in thi
 | id | UUID | Primary key |
 | meal_deadline | Time | Daily cutoff time for meal edits e.g. 22:00. Applies every day. |
 | maid_charge_default | Decimal | Default monthly maid fee per member e.g. 700. |
+| fridge_initial_reading | Decimal, nullable | One-time starting meter reading; no bill or charge is created |
+| fridge_initial_month | Date, nullable | First tracking month; its end reading is recorded after that month ends |
 | active_trip_id | UUID -> BazarTrip, nullable | Currently open bazar trip. Set when trip triggered. Cleared when expense submitted. |
 | updated_at | Timestamp | When settings were last changed |
 | updated_by | UUID -> User, nullable | Which admin made the last change |
@@ -675,6 +677,7 @@ Append-only on-behalf action history. Each row references its acting session, ad
 
 ### Fridge Bill System
 
+- Before the first bill, an admin may save a one-time initial meter reading and tracking month in SystemConfig. This creates no bill, allocation, payment or balance entry. Billing months before that starting month are rejected; the first completed tracking month uses the saved reading, and later bills use the latest bill's ending reading.
 - FridgeBill covers the previous month — never the current or future month.
 - Exact FridgeAllocation rows are created once at posting time and always sum to the bill total.
 - Deactivated members are included if active at any point during the bill month.

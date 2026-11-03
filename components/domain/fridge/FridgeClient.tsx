@@ -6,6 +6,8 @@ import { useState, useEffect, useCallback } from "react";
 import { formatMonthLabel } from "@/lib/utils/dates";
 import ExpensesBackLink from "@/components/domain/expenses/ExpensesBackLink";
 import { PageHeader } from "@/components/ui/Editorial";
+import Decimal from "decimal.js";
+import { computeTotalFromReadings } from "@/lib/domain/fridge";
 
 interface FridgePayment {
   id: string;
@@ -38,6 +40,8 @@ interface Props {
   previousMonthLabel: string;
   prevMonthKey: string; // "YYYY-MM"
   lastCurrentReading: string | null; // null = first ever bill
+  initialReading: string | null;
+  initialMonth: string | null;
   defaultUnitPrice: string;
   currentUserId: string;
   isAdmin: boolean;
@@ -347,12 +351,20 @@ function PastBillsCard({ bills, isAdmin, onSaveBillEdit, currentUserId, todayStr
   );
 }
 
-export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCurrentReading, defaultUnitPrice, currentUserId, isAdmin, todayStr }: Props) {
+export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCurrentReading, initialReading, initialMonth, defaultUnitPrice, currentUserId, isAdmin, todayStr }: Props) {
   const [bills, setBills] = useState<FridgeBill[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Initial setup records a baseline only, never a bill.
+  const [baseline, setBaseline] = useState<{ reading: string; month: string } | null>(
+    initialReading !== null && initialMonth !== null ? { reading: initialReading, month: initialMonth } : null
+  );
+  const [initialInput, setInitialInput] = useState("");
+  const [savingInitial, setSavingInitial] = useState(false);
+  const [initialError, setInitialError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   // Post bill form
-  const [previousReading, setPreviousReading] = useState(lastCurrentReading ?? "");
   const [currentReading, setCurrentReading] = useState("");
   const [submittingBill, setSubmittingBill] = useState(false);
   const [billError, setBillError] = useState<string | null>(null);
@@ -366,13 +378,37 @@ export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCur
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/fridge");
-    const json = await res.json() as { data?: FridgeBill[] };
-    setBills(json.data ?? []);
-    setLoading(false);
+    setLoadError(null);
+    try {
+      const res = await fetch("/api/fridge");
+      const json = await res.json() as { data?: FridgeBill[]; error?: string };
+      if (!res.ok || !Array.isArray(json.data)) throw new Error(json.error ?? "Could not load fridge bills.");
+      setBills(json.data);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Could not load fridge bills.");
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  async function submitInitialReading(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingInitial(true);
+    setInitialError(null);
+    try {
+      const res = await fetch("/api/fridge/initial-reading", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reading: initialInput }),
+      });
+      const json = await res.json() as { data?: { reading: string; month: string }; error?: string };
+      if (!res.ok || !json.data) throw new Error(json.error ?? "Could not save the initial reading.");
+      setBaseline(json.data);
+      setInitialInput("");
+    } catch (error) {
+      setInitialError(error instanceof Error ? error.message : "Could not save the initial reading. Please retry.");
+    } finally { setSavingInitial(false); }
+  }
 
   async function submitBill(e: React.FormEvent) {
     e.preventDefault();
@@ -381,12 +417,8 @@ export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCur
     setBillSuccess(false);
     try {
       const body: Record<string, unknown> = {
-        currentReading: parseFloat(currentReading),
+        currentReading,
       };
-      // Only send previousReading if it's the first bill (no lastCurrentReading from server)
-      if (lastCurrentReading === null) {
-        body.previousReading = parseFloat(previousReading);
-      }
       const res = await fetch("/api/fridge/bill", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -462,16 +494,22 @@ export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCur
   const hasCurrentMonthBill = bills.some((b) => b.month === prevMonthKey);
   const currentMonthBill = bills.find((b) => b.month === prevMonthKey) ?? null;
   const isCurrentMonthSettled = currentMonthBill?.isSettled ?? false;
-  const isFirstBill = lastCurrentReading === null;
-
-  // Live calculation — depends on isFirstBill so must come after it
-  const prev = isFirstBill ? parseFloat(previousReading) : parseFloat(lastCurrentReading ?? "0");
-  const curr = parseFloat(currentReading);
-  const price = parseFloat(defaultUnitPrice);
-  const unitsConsumed = !isNaN(prev) && !isNaN(curr) && curr >= prev ? curr - prev : null;
-  const computedTotal = unitsConsumed !== null && !isNaN(price) && price > 0
-    ? (unitsConsumed * price).toFixed(2)
-    : null;
+  const savedPreviousReading = bills[0]?.currentReading ?? lastCurrentReading ?? baseline?.reading ?? null;
+  const needsInitialReading = savedPreviousReading === null;
+  const waitingForFirstMonth = baseline !== null && prevMonthKey < baseline.month;
+  let unitsConsumed: string | null = null;
+  let computedTotal: string | null = null;
+  if (savedPreviousReading !== null && currentReading !== "") {
+    try {
+      const prev = new Decimal(savedPreviousReading);
+      const curr = new Decimal(currentReading);
+      const price = new Decimal(defaultUnitPrice);
+      if (curr.isFinite() && prev.isFinite() && price.isFinite() && curr.gte(prev) && price.gt(0)) {
+        unitsConsumed = curr.sub(prev).toFixed(2);
+        computedTotal = computeTotalFromReadings(prev, curr, price)?.toFixed(2) ?? null;
+      }
+    } catch { /* Incomplete numeric input has no bill preview. */ }
+  }
 
   return (
     <div className="page-container">
@@ -486,11 +524,51 @@ export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCur
         <div style={{ display: "flex", justifyContent: "center", padding: "4rem" }}>
           <span className="spinner" style={{ width: 32, height: 32 }} />
         </div>
+      ) : loadError ? (
+        <div className="card" role="alert">
+          <p className="text-negative">{loadError}</p>
+          <button type="button" className="btn btn-secondary mt-3 min-h-11" onClick={() => void load()}>Retry</button>
+        </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
+          {needsInitialReading && (
+            <section className="card" aria-labelledby="initial-reading-title">
+              <h2 id="initial-reading-title" className="text-xl">Initial meter reading</h2>
+              <p className="text-secondary mt-2 mb-4">
+                Save the starting reading for {formatMonthLabel(todayStr)}. This does not create a bill or charge anyone.
+                Add the next reading after the month ends.
+              </p>
+              {isAdmin ? (
+                <form onSubmit={(e) => void submitInitialReading(e)} className="flex flex-col gap-3">
+                  <label htmlFor="fridge-initial-reading">Starting reading (units)</label>
+                  <input id="fridge-initial-reading" className="input min-h-11 w-full" type="number" inputMode="decimal"
+                    min="0" max="99999999.99" step="0.01" required placeholder="Enter meter reading"
+                    value={initialInput} onChange={(e) => setInitialInput(e.target.value)} disabled={savingInitial}
+                    aria-describedby="initial-reading-help" />
+                  <p id="initial-reading-help" className="text-secondary text-sm">Check the meter before saving. This is a one-time setup.</p>
+                  {initialError && <p role="alert" className="text-negative">{initialError}</p>}
+                  <button className="btn btn-primary min-h-11 w-full" type="submit" disabled={savingInitial}>
+                    {savingInitial ? "Saving…" : "Save initial reading"}
+                  </button>
+                </form>
+              ) : <p className="text-secondary">Ask an admin to save the starting reading.</p>}
+            </section>
+          )}
+
+          {baseline && (
+            <section className="card" aria-label="Initial meter reading">
+              <div className="stat-label">Initial reading · {formatMonthLabel(baseline.month)}</div>
+              <p className="stat-value mt-2">{baseline.reading} <span className="text-base">units</span></p>
+              <p className="text-secondary mt-2">
+                Starting reading only. No bill or charges created.
+                {waitingForFirstMonth && ` Add the next reading after ${formatMonthLabel(baseline.month)} ends.`}
+              </p>
+            </section>
+          )}
+
           {/* Post bill form */}
-          {!hasCurrentMonthBill && (
+          {!hasCurrentMonthBill && !needsInitialReading && !waitingForFirstMonth && (
             <div className="card">
               <div style={{ fontWeight: 600, fontSize: "0.9375rem", marginBottom: "0.25rem" }}>
                 Post {previousMonthLabel} Bill
@@ -518,9 +596,7 @@ export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCur
                 <div>
                   <div className="stat-label">Previous Reading</div>
                   <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--color-text-secondary)" }}>
-                    {isFirstBill
-                      ? <span className="text-muted" style={{ fontWeight: 400, fontSize: "0.875rem" }}>—</span>
-                      : `${parseFloat(lastCurrentReading!).toLocaleString()} units`}
+                    {savedPreviousReading} units
                   </div>
                 </div>
                 <div>
@@ -532,26 +608,6 @@ export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCur
               </div>
 
               <form onSubmit={(e) => void submitBill(e)} style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
-
-                {/* First bill only: previous reading input */}
-                {isFirstBill && (
-                  <div>
-                    <label style={{ fontSize: "0.8125rem", fontWeight: 500, color: "var(--color-text-secondary)", display: "block", marginBottom: "0.375rem" }}>
-                      Previous Meter Reading (units)
-                    </label>
-                    <input
-                      className="input"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="e.g. 1450"
-                      value={previousReading}
-                      onChange={(e) => setPreviousReading(e.target.value)}
-                      required
-                      style={{ maxWidth: 180 }}
-                    />
-                  </div>
-                )}
 
                 {/* Current reading — the hero */}
                 <div>
@@ -577,7 +633,7 @@ export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCur
                   <div style={{ color: "var(--color-text-secondary)", fontSize: "0.8125rem" }}>
                     {unitsConsumed?.toLocaleString()} units used &nbsp;·&nbsp;
                     <strong style={{ color: "var(--color-text-primary)", fontSize: "0.9375rem" }}>
-                      ৳{parseFloat(computedTotal).toLocaleString()}
+                      ৳{computedTotal}
                     </strong> total
                   </div>
                 )}
@@ -705,7 +761,11 @@ export default function FridgeClient({ previousMonthLabel, prevMonthKey, lastCur
           {bills.length === 0 && (
             <div className="card">
               <p className="text-secondary" style={{ fontSize: "0.875rem" }}>
-                No fridge bills have been posted yet. Post last month&apos;s electricity bill above.
+                No fridge bills have been posted yet. {needsInitialReading
+                  ? "Save an initial reading to start tracking."
+                  : waitingForFirstMonth
+                    ? "Your starting reading is saved; add the next reading after the month ends."
+                    : "Post last month's electricity bill above."}
               </p>
             </div>
           )}

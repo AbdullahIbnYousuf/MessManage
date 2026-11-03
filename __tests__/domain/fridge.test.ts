@@ -4,7 +4,69 @@ import {
   computeFridgeAllocations,
   computeTotalFromReadings,
   isMemberEligibleForFridgeBill,
+  parseInitialFridgeReading,
+  assertCanInitializeFridge,
+  resolveFridgePreviousReading,
 } from "@/lib/domain/fridge";
+
+describe("initial meter reading", () => {
+  it("accepts zero and exact decimal readings", () => {
+    for (const value of ["0", "227", "227.25", "99999999.99", " 227.00 "]) {
+      expect(parseInitialFridgeReading(value).eq(new Decimal(value.trim()))).toBe(true);
+    }
+  });
+
+  it.each([undefined, null, 227, "", "-1", "NaN", "Infinity", "1e2", "227.001", "100000000", "1.2.3"])(
+    "rejects an invalid reading: %s", (value) => {
+      expect(() => parseInitialFridgeReading(value)).toThrow();
+    }
+  );
+
+  it("permits setup only before any baseline or bill exists", () => {
+    expect(() => assertCanInitializeFridge(false, false)).not.toThrow();
+    expect(() => assertCanInitializeFridge(true, false)).toThrow();
+    expect(() => assertCanInitializeFridge(false, true)).toThrow();
+    expect(() => assertCanInitializeFridge(true, true)).toThrow();
+  });
+
+  const baseline = {
+    initialReading: new Decimal("227"),
+    initialMonth: new Date("2026-11-01T00:00:00Z"),
+    lastReading: null,
+    suppliedReading: null,
+  };
+
+  it("uses 227 for the first completed tracking month without creating charges", () => {
+    const previous = resolveFridgePreviousReading({ ...baseline, billMonth: new Date("2026-11-01T00:00:00Z") });
+    expect(previous?.toFixed(2)).toBe("227.00");
+    expect(computeTotalFromReadings(previous!, new Decimal("250"), new Decimal("8"))?.toFixed(2)).toBe("184.00");
+  });
+
+  it("blocks billing October using a November starting reading, even with a supplied value", () => {
+    expect(() => resolveFridgePreviousReading({ ...baseline,
+      billMonth: new Date("2026-10-01T00:00:00Z"), suppliedReading: new Decimal("0"),
+    })).toThrow();
+  });
+
+  it("does not allow a supplied reading to replace the saved baseline", () => {
+    expect(resolveFridgePreviousReading({ ...baseline,
+      billMonth: new Date("2026-11-01T00:00:00Z"), suppliedReading: new Decimal("0"),
+    })?.toFixed(2)).toBe("227.00");
+  });
+
+  it("uses the latest actual bill after initialization and across year rollover", () => {
+    expect(resolveFridgePreviousReading({ ...baseline,
+      billMonth: new Date("2027-01-01T00:00:00Z"), lastReading: new Decimal("250.25"),
+    })?.toFixed(2)).toBe("250.25");
+  });
+
+  it("preserves legacy bill behavior without a baseline", () => {
+    const legacy = { billMonth: new Date("2026-10-01T00:00:00Z"), initialReading: null, initialMonth: null, lastReading: new Decimal("100"), suppliedReading: null };
+    expect(resolveFridgePreviousReading(legacy)?.toString()).toBe("100");
+    expect(resolveFridgePreviousReading({ ...legacy, suppliedReading: new Decimal("0") })?.toString()).toBe("0");
+    expect(resolveFridgePreviousReading({ ...legacy, lastReading: null })).toBeNull();
+  });
+});
 
 describe("computeTotalFromReadings", () => {
   it("computes total correctly", () => {

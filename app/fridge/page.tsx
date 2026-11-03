@@ -30,6 +30,8 @@ export default async function FridgePage() {
       previousMonthLabel={previousMonthLabel}
       prevMonthKey={prevMonthKey}
       lastCurrentReading={lastCurrentReading}
+      initialReading={config?.fridgeInitialReading?.toFixed(2) ?? null}
+      initialMonth={config?.fridgeInitialMonth?.toISOString().slice(0, 7) ?? null}
       defaultUnitPrice={defaultUnitPrice}
       currentUserId={user.id}
       isAdmin={user.role === "admin"}
