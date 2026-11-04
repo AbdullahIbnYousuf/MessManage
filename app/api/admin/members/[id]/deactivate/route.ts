@@ -4,7 +4,7 @@
 import { requireAdmin } from "@/lib/session";
 import { db } from "@/lib/db";
 import { DebtError } from "@/lib/domain/debts/errors";
-import { fetchDebtClearance } from "@/lib/queries/debt-clearance";
+import { fetchDeactivationClearance } from "@/lib/queries/deactivation-clearance";
 import { withSerializableRetry } from "@/lib/services/debts/transactions";
 import { debtErrorResponse } from "@/lib/utils/debts-api";
 import { currentMonthStart, getNow, today } from "@/lib/utils/dates";
@@ -27,7 +27,7 @@ export async function GET(
     }
 
     const deactivatedAt = getNow();
-    const debtClearance = await fetchDebtClearance(db, id);
+    const debtClearance = await fetchDeactivationClearance(db, id);
 
     return Response.json({
       data: {
@@ -63,17 +63,27 @@ export async function POST(
         throw new DebtError("VALIDATION_ERROR", "This member is already deactivated.");
       }
 
-      const debtClearance = await fetchDebtClearance(tx, id);
+      const debtClearance = await fetchDeactivationClearance(tx, id);
       if (!debtClearance.canDeactivate) {
+        const householdBlocked = debtClearance.unfinishedBulkCycles.length > 0
+          || debtClearance.unclosedMonths.length > 0
+          || debtClearance.pendingMealCorrectionCount > 0;
         throw new DebtError(
-          "DEACTIVATION_BLOCKED_BY_DEBT",
-          "Resolve this member's debts and pending payments before deactivation.",
+          householdBlocked ? "DEACTIVATION_BLOCKED_BY_HOUSEHOLD" : "DEACTIVATION_BLOCKED_BY_DEBT",
+          householdBlocked
+            ? "Resolve this member's unfinished bulk costs, unclosed accounting or pending meal corrections before deactivation."
+            : "Resolve this member's debts and pending payments before deactivation.",
           {
             youOwe: debtClearance.youOwe,
             owedToYou: debtClearance.owedToYou,
             pendingCount: debtClearance.pendingCount,
             pendingPaymentCount: debtClearance.pendingPaymentCount,
             pendingDebtRequestCount: debtClearance.pendingDebtRequestCount,
+            unfinishedBulkCycleCount: debtClearance.unfinishedBulkCycles.length,
+            unfinishedBulkItems: debtClearance.unfinishedBulkCycles.map((cycle) => cycle.itemName).join(", "),
+            unclosedMonthCount: debtClearance.unclosedMonths.length,
+            unclosedMonths: debtClearance.unclosedMonths.join(", "),
+            pendingMealCorrectionCount: debtClearance.pendingMealCorrectionCount,
           }
         );
       }

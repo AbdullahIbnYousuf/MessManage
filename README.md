@@ -41,6 +41,8 @@ Monthly closing converts an exact past-month household balance into permanent ob
 
 All money is calculated with decimal arithmetic. Running balances, meal rates, and participation totals are derived from source records rather than stored as mutable totals. Closed months and finished allocation periods are protected from later source-record changes.
 
+Final member deactivation requires more than a zero confirmed Money balance: any active bulk cycle the member consumed meals in or purchased must finish, months containing their recorded meals/costs/contributions must be closed, and pending meal corrections must be resolved. The preview names these blockers and the server rechecks them inside the deactivation transaction. Zero and future-only scheduled meal records do not block clearance; no bulk cost is estimated or posted early.
+
 ## Administrator “Act as member”
 
 In **Admin → Members**, an active administrator can select another active member, enter a reason and confirm **Act as member**. The member’s normal screens open with a persistent identity banner. Access lasts 30 minutes without renewal; **Return to admin** is required before selecting another member or using admin controls. Existing admin logins need one fresh Google sign-in before first use.

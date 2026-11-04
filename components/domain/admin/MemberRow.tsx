@@ -7,6 +7,8 @@ import Link from "next/link";
 import { formatTaka } from "@/lib/utils/decimal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import ActAsMemberButton from "@/components/domain/admin/ActAsMemberButton";
+import type { MemberDeactivationClearance } from "@/lib/domain/deactivation";
+import { formatMonthLabel } from "@/lib/utils/dates";
 
 interface Member {
   id: string;
@@ -27,15 +29,7 @@ interface Props {
 interface DeactivatePreview {
   deactivatedAt: string;
   reason: "deactivation_time";
-  debtClearance: {
-    youOwe: string;
-    owedToYou: string;
-    net: string;
-    pendingCount: number;
-    pendingPaymentCount: number;
-    pendingDebtRequestCount: number;
-    canDeactivate: boolean;
-  };
+  debtClearance: MemberDeactivationClearance;
 }
 
 export default function MemberRow({ member, currentUserId, onDeactivated }: Props) {
@@ -84,11 +78,14 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
           owedToYou?: string;
           pendingCount?: number;
         };
-        setError(
+        const message =
           conflict.code === "DEACTIVATION_BLOCKED_BY_DEBT"
             ? `${conflict.error} You owe ${formatTaka(conflict.youOwe ?? "0")}, are owed ${formatTaka(conflict.owedToYou ?? "0")}, with ${conflict.pendingCount ?? 0} pending.`
-            : conflict.error ?? "Something went wrong."
-        );
+            : conflict.error ?? "Something went wrong.";
+        if (conflict.code === "DEACTIVATION_BLOCKED_BY_DEBT" || conflict.code === "DEACTIVATION_BLOCKED_BY_HOUSEHOLD") {
+          await handleDeactivateClick();
+        }
+        setError(message);
       } else {
         setDeactivated(true);
         setPreview(null);
@@ -298,7 +295,7 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
           </div>
           <div className="card" style={{ padding: "0.875rem", boxShadow: "none" }}>
             <div style={{ fontWeight: 700, fontSize: "0.875rem", marginBottom: "0.625rem" }}>
-              Money clearance
+              Deactivation clearance
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.625rem" }}>
               <div><span className="text-muted" style={{ fontSize: "0.75rem" }}>Owes</span><div>{formatTaka(preview.debtClearance.youOwe)}</div></div>
@@ -307,9 +304,34 @@ export default function MemberRow({ member, currentUserId, onDeactivated }: Prop
             <div className="text-secondary" style={{ fontSize: "0.8125rem", marginTop: "0.625rem" }}>
               Pending actions: {preview.debtClearance.pendingCount} ({preview.debtClearance.pendingPaymentCount} payments{preview.debtClearance.pendingDebtRequestCount > 0 ? `, ${preview.debtClearance.pendingDebtRequestCount} retained debt requests` : ""})
             </div>
+            {(preview.debtClearance.unfinishedBulkCycles?.length ?? 0) > 0 && (
+              <div className="mt-3 text-sm">
+                <p className="font-semibold">Unfinished bulk costs</p>
+                <ul className="mt-2 flex list-disc flex-col gap-2 pl-5">
+                  {preview.debtClearance.unfinishedBulkCycles.map((cycle) => (
+                    <li key={cycle.id} className="min-w-0 break-words">
+                      {cycle.itemName}: {cycle.consumedMeals ? "has meals in this cycle" : "purchased this cycle"}. The final cost is not allocated yet.
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-secondary mt-2">Wait until these items actually finish. Do not close a cycle early just to deactivate an account.</p>
+              </div>
+            )}
+            {(preview.debtClearance.unclosedMonths?.length ?? 0) > 0 && (
+              <div className="mt-3 text-sm">
+                <p className="font-semibold">Unclosed household accounting</p>
+                <p className="text-secondary mt-1">
+                  {preview.debtClearance.unclosedMonths.map(formatMonthLabel).join(", ")}. This member has recorded meals, costs or contributions that have not passed through monthly closing.
+                </p>
+                <Link href="/settlement" className="btn btn-secondary mt-3 min-h-11 w-full">Open monthly closing</Link>
+              </div>
+            )}
+            {(preview.debtClearance.pendingMealCorrectionCount ?? 0) > 0 && (
+              <p className="text-secondary mt-3 text-sm">Pending meal corrections: {preview.debtClearance.pendingMealCorrectionCount}. Review them before final clearance.</p>
+            )}
             {!preview.debtClearance.canDeactivate && (
               <div className="text-negative" style={{ fontSize: "0.8125rem", marginTop: "0.625rem", lineHeight: 1.45 }}>
-                Deactivation is blocked until every debt is cleared and every pending payment is resolved.
+                Deactivation is blocked until unfinished bulk costs are allocated, relevant months are closed, meal corrections are resolved, and all debts and pending payments are cleared.
               </div>
             )}
           </div>

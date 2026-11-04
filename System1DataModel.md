@@ -693,6 +693,7 @@ Append-only on-behalf action history. Each row references its acting session, ad
 - Admin rejects -> MembershipRequest stays as a rejected record for audit.
 - Member deactivates -> deactivated_at records the actual action timestamp; future MealRecords from tomorrow are set to 0, the member is excluded from new MaidCharges, and remains in applicable open BulkCycle allocations.
 - Admin deactivates the account only after all balances are settled.
+- Final deactivation also requires no unfinished BulkCycle with the member's recorded meals or purchase, no unclosed month containing their positive meals/costs/contributions, and no pending MealEditRequest. Future-only meal schedules and zero rows are ignored. Preview and final transaction enforce the same clearance policy; costs are never allocated prematurely.
 
 ### Settlement
 

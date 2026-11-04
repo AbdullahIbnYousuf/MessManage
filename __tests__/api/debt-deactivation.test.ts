@@ -23,7 +23,7 @@ vi.mock("@/lib/db", () => ({
     user: { findUnique: mocks.globalUserFind },
   },
 }));
-vi.mock("@/lib/queries/debt-clearance", () => ({ fetchDebtClearance: mocks.clearance }));
+vi.mock("@/lib/queries/deactivation-clearance", () => ({ fetchDeactivationClearance: mocks.clearance }));
 vi.mock("@/lib/services/debts/transactions", () => ({ withSerializableRetry: mocks.serializable }));
 vi.mock("@/lib/utils/dates", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/utils/dates")>();
@@ -48,7 +48,7 @@ describe("debt-aware member deactivation", () => {
     mocks.txUserUpdate.mockResolvedValue({});
     mocks.txMealUpdate.mockResolvedValue({ count: 3 });
     mocks.txSettlementFind.mockResolvedValue(null);
-    mocks.clearance.mockResolvedValue({ youOwe: "0.00", owedToYou: "0.00", net: "0.00", pendingCount: 0, pendingPaymentCount: 0, pendingDebtRequestCount: 0, canDeactivate: true });
+    mocks.clearance.mockResolvedValue({ youOwe: "0.00", owedToYou: "0.00", net: "0.00", pendingCount: 0, pendingPaymentCount: 0, pendingDebtRequestCount: 0, unfinishedBulkCycles: [], unclosedMonths: [], pendingMealCorrectionCount: 0, canDeactivate: true });
     mocks.serializable.mockImplementation((operation: (client: typeof tx) => Promise<unknown>) => operation(tx));
   });
 
@@ -60,7 +60,7 @@ describe("debt-aware member deactivation", () => {
   });
 
   it("returns a stable 409 and performs no writes when debt remains", async () => {
-    mocks.clearance.mockResolvedValue({ youOwe: "10.00", owedToYou: "3.00", net: "-7.00", pendingCount: 2, pendingPaymentCount: 1, pendingDebtRequestCount: 1, canDeactivate: false });
+    mocks.clearance.mockResolvedValue({ youOwe: "10.00", owedToYou: "3.00", net: "-7.00", pendingCount: 2, pendingPaymentCount: 1, pendingDebtRequestCount: 1, unfinishedBulkCycles: [], unclosedMonths: [], pendingMealCorrectionCount: 0, canDeactivate: false });
     const response = await POST(new Request("http://localhost", { method: "POST" }), { params: Promise.resolve({ id: memberId }) });
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({ code: "DEACTIVATION_BLOCKED_BY_DEBT", youOwe: "10.00", owedToYou: "3.00", pendingCount: 2 });
